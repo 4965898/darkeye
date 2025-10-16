@@ -256,8 +256,8 @@ class WorkPage(LazyWidget):
         query=f'''
 SELECT 
     work.serial_number, 
-    cn_title, 
-    image_url,
+    work.cn_title, 
+    work.image_url,
     wtr.tag_id,
     work.work_id,
     CASE 
