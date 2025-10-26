@@ -2,6 +2,8 @@
 from PySide6.QtWidgets import QWidget,QVBoxLayout,QTabWidget
 from .PlotTabPage import PlotTabPage
 from .PersonalDataPage import PersonalDataPage
+from .ForceDirectPage import ForceDirectPage
+
 class StatisticsPage(QWidget):
     def __init__(self):
         super().__init__()
@@ -14,8 +16,10 @@ class StatisticsPage(QWidget):
         self.tab_widget=QTabWidget()
         plot_tabpage=PlotTabPage()
         p_datapage=PersonalDataPage()
+        forcedirectpage=ForceDirectPage()
         self.tab_widget.addTab(p_datapage,"信息面版")
         self.tab_widget.addTab(plot_tabpage,"统计")
+        self.tab_widget.addTab(forcedirectpage,"力导向图")
 
         mainlayout.addWidget(self.tab_widget)
 

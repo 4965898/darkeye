@@ -21,12 +21,12 @@ class ManagementPage(QWidget):
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         mainlayout = QVBoxLayout(self)
         mainlayout.setContentsMargins(0, 0, 0, 0)
-        mainlayout.addSpacing(70)
+        mainlayout.addSpacing(72)
 
         self.msg=MessageBoxService(self)
         # 工具栏区域
-        toolbar = self.create_toolbar()
-        mainlayout.addWidget(toolbar)
+        #toolbar = self.create_toolbar()
+        #mainlayout.addWidget(toolbar)
 
         # 主内容区域
         #tabwidget
@@ -60,39 +60,8 @@ class ManagementPage(QWidget):
         layout.setSpacing(3)
 
         # 工具按钮
-        btn_backupDB = QToolButton()
-        btn_backupDB.setText("备份公共数据库")
-        btn_backupDB.setToolTip("将现有的数据库打上时间戳备份")
-        btn_backupDB.setIcon(QIcon(str(ICONS_PATH / "database.png")))
-        btn_backupDB.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
-
-        btn_restoreDB = QToolButton()
-        btn_restoreDB.setText("还原公共数据库")
-        btn_restoreDB.setToolTip("在备份的数据库里选择一个数据还原，覆盖现有的数据库")
-        btn_restoreDB.setIcon(QIcon(str(ICONS_PATH / "database.png")))
-        btn_restoreDB.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
-
-        btn_backupDB2 = QToolButton()
-        btn_backupDB2.setText("备份私有数据库")
-        btn_backupDB2.setToolTip("将现有的数据库打上时间戳备份")
-        btn_backupDB2.setIcon(QIcon(str(ICONS_PATH / "database.png")))
-        btn_backupDB2.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
-
-        btn_restoreDB2 = QToolButton()
-        btn_restoreDB2.setText("还原私有数据库")
-        btn_restoreDB2.setToolTip("在备份的数据库里选择一个数据还原，覆盖现有的数据库")
-        btn_restoreDB2.setIcon(QIcon(str(ICONS_PATH / "database.png")))
-        btn_restoreDB2.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
-
-        btn_shiftDB = QToolButton()
-        btn_shiftDB.setEnabled(False)
-        btn_shiftDB.setText("切换数据库")
-        btn_shiftDB.setToolTip("选择一个数据库切换")
-        btn_shiftDB.setIcon(QIcon(str(ICONS_PATH / "database.png")))
-        btn_shiftDB.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
-
         btn_addWork = QToolButton()
-        btn_addWork.setText("快速记录番号")
+        btn_addWork.setText("快速记录番号(W)")
         btn_addWork.setToolTip("快速记录番号")
         btn_addWork.setIcon(QIcon(str(ICONS_PATH / "film.png")))
         btn_addWork.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
@@ -144,20 +113,12 @@ class ManagementPage(QWidget):
         btn_addGenitalAarousal.clicked.connect(self.openAddSexualArousalDialog)
         btn_addActor.clicked.connect(self.openAddActorDialog)
 
-        btn_backupDB.clicked.connect(lambda:self.backup_db("public"))
-        btn_restoreDB.clicked.connect(lambda:self.restoreDB("public"))
-        btn_backupDB2.clicked.connect(lambda:self.backup_db("private"))
-        btn_restoreDB2.clicked.connect(lambda:self.restoreDB("private"))
+
 
         # 右侧空白拉伸
         spacer = QWidget()
         spacer.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
 
-        #layout.addWidget(btn_shiftDB)
-        layout.addWidget(btn_backupDB)
-        layout.addWidget(btn_restoreDB)
-        layout.addWidget(btn_backupDB2)
-        layout.addWidget(btn_restoreDB2)
 
         layout.addWidget(btn_addWork)
         layout.addWidget(btn_addAdress)
@@ -236,55 +197,5 @@ class ManagementPage(QWidget):
     def on_result(self,result:str):#Qsignal回传信息
         self.msg.show_info("提示",result)
         
-    @Slot()
-    def restoreDB(self,access_level:str):
-        #选择一个备份的数据库还原
-        #这个目前有，这个是直接覆盖，风险问题，数据库在写入，后面再改全局单例数据库管理器来管理所有的连接
-        if access_level=="public":
-            backup_path=DATABASE_BACKUP_PATH
-            target_path=DATABASE
-        elif access_level=="private":
-            backup_path=PRIVATE_DATABASE_BACKUP_PATH
-            target_path=PRIVATE_DATABASE     
-        else:
-            logging.info("错误，未选择等级")
 
-        from core.database.backup_utils import restore_database,restore_backup_safely
-        file_path, _ = QFileDialog.getOpenFileName(
-            self,               # 父组件
-            "选择一个数据库",      # 对话框标题
-            str(backup_path),                 # 起始路径
-            "*.db"  # 文件过滤器
-        )
-
-        if not file_path:
-            return
-    
-        if not self.msg.ask_yes_no("确认恢复","是否用该备份覆盖现有数据库？操作不可撤销！"):
-            return
-
-        success = restore_backup_safely(Path(file_path), target_path)
-        if success:
-            self.msg.show_info("恢复成功", "数据库恢复完成。")
-        else:
-            self.msg.show_critical("恢复失败", "数据库恢复失败，请检查文件是否有效。")
-
-    @Slot()
-    def backup_db(self,access_level:str):
-        '''备份数据库'''
-        if access_level=="public":
-            backup_path=DATABASE_BACKUP_PATH
-            target_path=DATABASE
-        elif access_level=="private":
-            backup_path=PRIVATE_DATABASE_BACKUP_PATH
-            target_path=PRIVATE_DATABASE     
-        else:
-            logging.info("错误，未选择等级")
-
-        from core.database.backup_utils import backup_database
-        try:
-            path=backup_database(target_path,backup_path)
-            self.msg.show_info("备份成功",f"备份路径{path}")
-        except Exception as e:
-            self.msg.show_critical(self,"备份失败",f"{str(e)}")
 

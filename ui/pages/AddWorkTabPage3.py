@@ -312,6 +312,8 @@ class ViewModel(QObject):
             self._clear_all_info()
             self.set_btn_state('add_work',ButtonState.DISABLED)
             self.set_btn_state('temp_save',ButtonState.DISABLED)#关闭临时保存
+            self.set_btn_state('load',ButtonState.DISABLED)#闭锁加载按钮
+            logging.debug("番号为空")
             return
         
         #非空，但是番号不在库中
