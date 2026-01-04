@@ -78,8 +78,8 @@ class MplCanvas(FigureCanvas):
         super().__init__(self.fig)
 
 
-    #绘制作品的拍摄年龄的分布，频率图
     def plotWorkActressAge(self, scope):
+        '''绘制作品的拍摄年龄的分布，频率图'''
         from core.database.query import fetch_work_actress_avg_age
         tuple_list = fetch_work_actress_avg_age(scope)
         age = np.array([item[0] for item in tuple_list])
@@ -127,8 +127,66 @@ class MplCanvas(FigureCanvas):
         self.ax.legend()
         self.draw()
 
-    #画女优的3维的散点图，颜色代表罩杯
+    def plotWorkReleaseYear(self,scope):
+        '''绘制作品发行年份分布直方图'''
+        from core.database.query import fetch_workReleaseByYear_by_scope
+        data = fetch_workReleaseByYear_by_scope(scope)
+        logging.debug(f"发行年份数据：{data}")
+        # 分离年份和数量
+        years = [item[0] for item in data]      # ['2000', '2001', ...]
+        counts = [item[1] for item in data]     # [1, 2, 5, ...]
+
+        self.fig.clf()
+        self.ax = self.fig.add_subplot(111)
+
+        # 创建柱状图
+
+        bars = self.ax.bar(years, counts, color='skyblue', edgecolor='navy', linewidth=1.2)
+        # 在每个柱子上方显示具体数值
+        for bar in bars:
+            height = bar.get_height()
+            self.ax.text(bar.get_x() + bar.get_width()/2., height + max(counts)*0.01,
+                    f'{int(height)}',
+                    ha='center', va='bottom', fontsize=10, fontweight='bold')
+
+
+        # 美化
+        self.ax.set_title('每年数量统计', fontsize=16, fontweight='bold', pad=20)
+        self.ax.set_xlabel('年份', fontsize=12)
+        self.ax.set_ylabel('数量', fontsize=12)
+        self.draw()
+
+    def plotActressDebutYear(self,scope):
+        '''女优出道年份的分布直方图'''
+        from core.database.query import fetch_actressDebutByYear_by_scope
+        data = fetch_actressDebutByYear_by_scope(scope)
+        logging.debug(f"发行年份数据：{data}")
+        # 分离年份和数量
+        years = [item[0] for item in data]      # ['2000', '2001', ...]
+        counts = [item[1] for item in data]     # [1, 2, 5, ...]
+
+        self.fig.clf()
+        self.ax = self.fig.add_subplot(111)
+
+        # 创建柱状图
+
+        bars = self.ax.bar(years, counts, color='skyblue', edgecolor='navy', linewidth=1.2)
+        # 在每个柱子上方显示具体数值
+        for bar in bars:
+            height = bar.get_height()
+            self.ax.text(bar.get_x() + bar.get_width()/2., height + max(counts)*0.01,
+                    f'{int(height)}',
+                    ha='center', va='bottom', fontsize=10, fontweight='bold')
+
+
+        # 美化
+        self.ax.set_title('每年数量统计', fontsize=16, fontweight='bold', pad=20)
+        self.ax.set_xlabel('年份', fontsize=12)
+        self.ax.set_ylabel('数量', fontsize=12)
+        self.draw()
+
     def Draw3DsizeDis(self):
+        '''画女优的3维的散点图，颜色代表罩杯'''
         #这个现在有问题后面再改
         bodyData=getActressBodyData()
         cup_colors = {
@@ -520,7 +578,7 @@ class MplCanvas(FigureCanvas):
         self.fig.clf()
         self.ax = self.fig.add_subplot(111)
         self.ax.plot(x_smooth_dates, y_smooth, linewidth=2, color='steelblue')
-        self.ax.set_title("按添加时间统计作品数量分布", fontsize=16)
+        self.ax.set_title("添加到数据库中作品数量随时间分布", fontsize=16)
         self.ax.set_xlabel("Date", fontsize=14)
         self.ax.set_ylabel("Nums", fontsize=14)
         '''

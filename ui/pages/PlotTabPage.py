@@ -18,6 +18,8 @@ class PlotTabPage(LazyWidget):
         self.canvas.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)  # 让 canvas 尽量填充
 
         self.btn_ageDistribution = QPushButton("作品拍摄时女优年龄分布直方图")
+        self.btn_workReleaseYearDistribution = QPushButton("作品发行年份分布直方图")
+        self.btn_actressDebutYearDistribution = QPushButton("女优出道年份分布直方图")
         self.btn_heightDistribution = QPushButton("女优身高分布直方图")
         self.btn_BWH_Distribution = QPushButton("女优身材3D分布图")
         self.btn_cupDistribution = QPushButton("女优罩杯分布饼图")
@@ -82,6 +84,8 @@ class PlotTabPage(LazyWidget):
         statistics_group_layout.setContentsMargins(5,0,5,0)
         statistics_group_layout.addWidget(radio_group)
         statistics_group_layout.addWidget(self.btn_ageDistribution)
+        statistics_group_layout.addWidget(self.btn_workReleaseYearDistribution)
+        statistics_group_layout.addWidget(self.btn_actressDebutYearDistribution)
         statistics_group_layout.addWidget(self.btn_heightDistribution)
         statistics_group_layout.addWidget(self.btn_ActressBodyHWratio)
         statistics_group_layout.addWidget(self.btn_cupDistribution)
@@ -116,6 +120,20 @@ class PlotTabPage(LazyWidget):
         self.btn_makerStat.clicked.connect(self.studio_bar)
         self.btn_addTimeDistribution.clicked.connect(self.canvas.draw_addTimeDistribution)
         self.btn_TagWordClould.clicked.connect(self.tagWordCloud)
+        self.btn_workReleaseYearDistribution.clicked.connect(self.workReleaseYear_distribution)
+        self.btn_actressDebutYearDistribution.clicked.connect(self.ActressDebutYearDistribution)
+
+    @Slot()
+    def ActressDebutYearDistribution(self):
+        '''女优出道年份分布直方图'''
+        if self.rbtn_collect.isChecked():
+            self.canvas.plotActressDebutYear(0)
+        elif self.rbtn_singlwork.isChecked():
+            self.canvas.plotActressDebutYear(1)
+        elif self.rbtn_plane.isChecked():
+            self.canvas.plotActressDebutYear(2)
+        elif self.rbtn_public.isChecked():
+            self.canvas.plotActressDebutYear(-1)
 
     @Slot()
     def age_distribution(self):
@@ -128,6 +146,18 @@ class PlotTabPage(LazyWidget):
             self.canvas.plotWorkActressAge(2)
         elif self.rbtn_public.isChecked():
             self.canvas.plotWorkActressAge(-1)
+
+    @Slot()
+    def workReleaseYear_distribution(self):
+        '''作品发行年份分布直方图'''
+        if self.rbtn_collect.isChecked():
+            self.canvas.plotWorkReleaseYear(0)
+        elif self.rbtn_singlwork.isChecked():
+            self.canvas.plotWorkReleaseYear(1)
+        elif self.rbtn_plane.isChecked():
+            self.canvas.plotWorkReleaseYear(2)
+        elif self.rbtn_public.isChecked():
+            self.canvas.plotWorkReleaseYear(-1)
 
     @Slot()
     def height_distribution(self):

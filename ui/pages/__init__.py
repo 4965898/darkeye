@@ -1,5 +1,5 @@
 
-'''放在tabwidget或者stackwidget内的页面'''
+'''放在tabwidget或者stackwidget内的页面，这里都是组装好的页面，是页面的主力'''
 from .HomePage import HomePage
 from .WorkPage import WorkPage
 from .ActressPage import ActressPage

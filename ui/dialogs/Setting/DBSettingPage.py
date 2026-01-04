@@ -1,20 +1,16 @@
-from PySide6.QtWidgets import QPushButton, QHBoxLayout, QLabel,QVBoxLayout,QTextEdit,QDialog,QFileDialog,QGridLayout
+from PySide6.QtWidgets import QPushButton, QHBoxLayout, QLabel,QVBoxLayout,QTextEdit,QDialog,QFileDialog,QGridLayout,QWidget
 from PySide6.QtGui import QIcon
 from PySide6.QtCore import Slot
 import logging
-from ui.base import LazyWidget
 from config import BASE_DIR,DATABASE,INI_FILE,ICONS_PATH,PRIVATE_DATABASE,DATABASE_BACKUP_PATH,PRIVATE_DATABASE_BACKUP_PATH
 from controller import MessageBoxService
 from pathlib import Path
 
-class SettingDialog(QDialog):
-    #软件的设置
-    def __init__(self,parent=None):
-        super().__init__(parent)
-        logging.info("----------软件设置窗口----------")
-        self.setWindowTitle("软件设置")
-        self.setWindowIcon(QIcon(str(ICONS_PATH / "settings.png")))
-        self.resize(400,400)
+class DBSettingPage(QWidget):
+    '''这个是数据库相关设置页面'''
+    def __init__(self):
+        super().__init__()
+        
         self.msg=MessageBoxService(self)
         path_label=QLabel(f"软件的工作文件夹{str(BASE_DIR)}")
         path_label2=QLabel(f"软件的公共数据库文件位置{str(DATABASE)}")
@@ -149,3 +145,4 @@ class SettingDialog(QDialog):
             self.msg.show_info("备份成功",f"备份路径{path}")
         except Exception as e:
             self.msg.show_critical(self,"备份失败",f"{str(e)}")
+

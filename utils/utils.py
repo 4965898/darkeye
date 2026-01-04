@@ -37,6 +37,13 @@ def serial_number_equal(A:str,B:str)->bool:
 
     return normalize(A) == normalize(B)
 
+def convert_special_serialnumber(serial_number:str)->str:
+    # 转换为小写
+    lower_code = serial_number.lower()
+    # 删除 - 
+    converted_code = lower_code.replace('-', '')
+    return converted_code
+
 #图片相关
 def AlternativeQPixmap(image_path):
     #临时的代替方法，什么时候QImage能直接加载jpg图片这个就不用了
@@ -71,7 +78,7 @@ def delete_image(path):
 
 def conver2jpg(image_path):
     '''把图片转成jpg'''
-    
+
 
 def load_ini_ids(settings_config:str) -> list[int]:
     """从ini安全加载ID列表，处理以下情况：
@@ -129,7 +136,70 @@ def capture_full(widget:QWidget):
     pixmap.save(file_path)
     print("已保存 full_screenshot.png")
 
+def webp_to_jpg_pillow(input_path, output_path=None, quality=100):
+    """
+    使用Pillow将WebP转换为JPG
+    
+    Args:
+        input_path: 输入WebP文件路径
+        output_path: 输出JPG文件路径（可选）
+        quality: JPG质量，1-100，默认95
+    """
+    # 如果未指定输出路径，自动生成
+    if output_path is None:
+        output_path = input_path.rsplit('.', 1)[0] + '.jpg'
+    
+    try:
+        logging.debug("开始转换webp为jpg，输入路径:%s,输出路径:%s",input_path,output_path)
+        # 打开WebP图像
+        with Image.open(input_path) as img:
+            # 转换为RGB模式（去除Alpha通道）
+            if img.mode in ('RGBA', 'LA'):
+                # 创建白色背景
+                background = Image.new('RGB', img.size, (255, 255, 255))
+                background.paste(img, mask=img.split()[-1])
+                img = background
+            elif img.mode != 'RGB':
+                img = img.convert('RGB')
+            
+            # 保存为JPG
+            img.save(output_path, 'JPEG', quality=quality, optimize=True)
+            print(f"转换成功: {input_path} -> {output_path}")
+            
+    except Exception as e:
+        print(f"转换失败: {e}")
 
+def png_to_jpg_pillow(input_path, output_path=None, quality=95):
+    """
+    使用Pillow将PNG转换为JPG
+    
+    Args:
+        input_path: 输入PNG文件路径
+        output_path: 输出JPG文件路径（可选）
+        quality: JPG质量，1-100，默认95
+    """
+    # 如果未指定输出路径，自动生成
+    if output_path is None:
+        output_path = input_path.rsplit('.', 1)[0] + '.jpg'
+    
+    try:
+        # 打开PNG图像
+        with Image.open(input_path) as img:
+            # 转换为RGB模式（去除Alpha通道）
+            if img.mode in ('RGBA', 'LA'):
+                # 创建白色背景
+                background = Image.new('RGB', img.size, (255, 255, 255))
+                background.paste(img, mask=img.split()[-1])
+                img = background
+            elif img.mode != 'RGB':
+                img = img.convert('RGB')
+            
+            # 保存为JPG
+            img.save(output_path, 'JPEG', quality=quality, optimize=True)
+            print(f"转换成功: {input_path} -> {output_path}")
+            
+    except Exception as e:
+        print(f"转换失败: {e}")
 
 
 from googletrans import Translator
@@ -137,6 +207,7 @@ async def translate_text(text:str, dest="zh-CN"):
     translator = Translator()
     result = await translator.translate(text, dest=dest)  # 使用 await
     return result.text
+
 
 def get_text_color_from_background(new_color: QColor)->str:
     """
@@ -324,7 +395,7 @@ def mosaic_qimage(img: QImage, pixel_size=20) -> QImage:
 import re
 
 
-
+# 敏感词相关
 def load_sensitive_words()->list[str]:
     from config import SENSITIVE_WORDS_PATH
     words = []
@@ -366,67 +437,62 @@ def sort_dict_list_by_keys(data: list[dict], key_order: list[str]) -> list[dict]
     return ordered_data
 
 
-def webp_to_jpg_pillow(input_path, output_path=None, quality=100):
-    """
-    使用Pillow将WebP转换为JPG
+#视频相关
+@timeit
+def find_video(serial_number:str, video_paths:list[Path], video_extensions:list[str]=None)->list[Path]|None:
+    '''在指定的视频路径列表中查找对应番号的视频文件
+    如果找到则返回Path，否则返回None
+    video_extensions: 视频文件后缀列表，默认常见格式
+    输入标准番号格式如 ABP-123，IPX-247
+    搜索的时候忽略大小写而且也可以忽略中间的-符号
+    '''
+    if video_extensions is None:
+        video_extensions = [".mp4", ".avi", ".mkv", ".mov", ".wmv", ".flv", ".rmvb",".ts"]
     
-    Args:
-        input_path: 输入WebP文件路径
-        output_path: 输出JPG文件路径（可选）
-        quality: JPG质量，1-100，默认95
-    """
-    # 如果未指定输出路径，自动生成
-    if output_path is None:
-        output_path = input_path.rsplit('.', 1)[0] + '.jpg'
-    
-    try:
-        logging.debug("开始转换webp为jpg，输入路径:%s,输出路径:%s",input_path,output_path)
-        # 打开WebP图像
-        with Image.open(input_path) as img:
-            # 转换为RGB模式（去除Alpha通道）
-            if img.mode in ('RGBA', 'LA'):
-                # 创建白色背景
-                background = Image.new('RGB', img.size, (255, 255, 255))
-                background.paste(img, mask=img.split()[-1])
-                img = background
-            elif img.mode != 'RGB':
-                img = img.convert('RGB')
-            
-            # 保存为JPG
-            img.save(output_path, 'JPEG', quality=quality, optimize=True)
-            print(f"转换成功: {input_path} -> {output_path}")
-            
-    except Exception as e:
-        print(f"转换失败: {e}")
+    serial_number_list=[serial_number,covert_fanza(serial_number),convert_special_serialnumber(serial_number)]
 
-def png_to_jpg_pillow(input_path, output_path=None, quality=95):
-    """
-    使用Pillow将PNG转换为JPG
-    
-    Args:
-        input_path: 输入PNG文件路径
-        output_path: 输出JPG文件路径（可选）
-        quality: JPG质量，1-100，默认95
-    """
-    # 如果未指定输出路径，自动生成
-    if output_path is None:
-        output_path = input_path.rsplit('.', 1)[0] + '.jpg'
-    
-    try:
-        # 打开PNG图像
-        with Image.open(input_path) as img:
-            # 转换为RGB模式（去除Alpha通道）
-            if img.mode in ('RGBA', 'LA'):
-                # 创建白色背景
-                background = Image.new('RGB', img.size, (255, 255, 255))
-                background.paste(img, mask=img.split()[-1])
-                img = background
-            elif img.mode != 'RGB':
-                img = img.convert('RGB')
-            
-            # 保存为JPG
-            img.save(output_path, 'JPEG', quality=quality, optimize=True)
-            print(f"转换成功: {input_path} -> {output_path}")
-            
-    except Exception as e:
-        print(f"转换失败: {e}")
+    find_video_path=[]
+
+    found = False
+    for folder in video_paths:
+        print(f"\n正在搜索：{folder}")
+        try:
+            for root, dirs, files in os.walk(folder):
+                for file in files:
+                    file_path = Path(root) / file
+                    # 判断是否是文件（不是文件夹）
+                    if file_path.is_file():
+                        for serial_number in serial_number_list:#对不同格式的番号进行匹配
+                            # 判断文件名是否包含番号,忽略大小写
+                            if serial_number.lower() in file_path.name.lower():
+                                # 判断是否是视频文件
+                                if file_path.suffix.lower() in video_extensions:
+                                    print(f"找到！{file_path}")
+                                    found = True
+                                    find_video_path.append(file_path)
+
+        except PermissionError:
+            print(f"  无权限访问：{folder}")
+
+    if not found:
+        print("所有文件夹搜索完毕，未找到视频文件")
+        return None
+    else:
+        print("搜索完成！")
+        return find_video_path
+
+def play_video_with_default_player(self):
+    '''打开指定的地址选择一个文件，开始用默认的播放器播放视频'''
+    from config import get_video_path
+    file_dialog = QFileDialog()
+    file_dialog.setNameFilter("视频文件 (*.mp4 *.avi *.mkv *.mov)")
+    video_paths = get_video_path()
+    file_dialog.setDirectory(str(video_paths[0]))
+    if file_dialog.exec():
+        selected_files = file_dialog.selectedFiles()
+        video_path = selected_files[0]
+        os.startfile(video_path)
+
+def play_video(video_path: Path):
+    """用系统默认播放器打开视频"""
+    os.startfile(video_path)

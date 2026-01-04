@@ -12,15 +12,18 @@ class HelpDialog(QDialog):
         self.setWindowTitle("帮助")
         self.setWindowIcon(QIcon(str(ICONS_PATH / "circle-question-mark.png")))
         datas=[
-        {"row1":"H","row2":"帮助"},
-        {"row1":"C","row2":"截图"},
-        {"row1":"M","row2":"快速添加自慰记录"},
-        {"row1":"W","row2":"快速添加作品"},
-        {"row1":"A","row2":"快速添加晨勃记录"},
-        {"row1":"L","row2":"快速添加做爱记录"},
+        {"shortcut":"H","text":"帮助"},
+        {"shortcut":"C","text":"特定区域截图(部分反应)"},
+        {"shortcut":"Ctrl+C","text":"全软件截图"},
+        {"shortcut":"M","text":"快速添加自慰记录"},
+        {"shortcut":"W","text":"快速添加作品"},
+        {"shortcut":"A","text":"快速添加晨勃记录"},
+        {"shortcut":"L","text":"快速添加做爱记录"},
+        {"shortcut":"Ctrl+,","text":"打开设置窗口"},
+        {"shortcut":"Ctrl+F","text":"总体搜索"},
         ]
 
         mainlayout=QFormLayout(self)
         for data in datas:
-            mainlayout.addRow(data["row1"],QLabel(data["row2"]))
+            mainlayout.addRow(data["shortcut"],QLabel(data["text"]))
         mainlayout.setLabelAlignment(Qt.AlignRight | Qt.AlignVCenter)  

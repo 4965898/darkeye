@@ -629,7 +629,7 @@ class AddWorkTabPage3(LazyWidget):
         self.input_serial_number=CompleterLineEdit(get_serial_number)
 
         self.btn_load_form_db=QPushButton("加载")
-        self.btn_jump_detail=QPushButton("显示页")
+        self.btn_jump_detail=IconPushButton("eye.png")
 
 
         self.label_time=QLabel("发布日期：")

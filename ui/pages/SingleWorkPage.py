@@ -1,5 +1,5 @@
 #单部作品详细页面
-from PySide6.QtWidgets import QHBoxLayout, QWidget, QLabel,QGraphicsOpacityEffect,QSizePolicy,QVBoxLayout,QLayoutItem
+from PySide6.QtWidgets import QHBoxLayout, QWidget, QLabel,QGraphicsOpacityEffect,QSizePolicy,QVBoxLayout,QLayoutItem,QMenu
 from PySide6.QtGui import QPixmap, QPainter, QLinearGradient, QColor,QFont
 from PySide6.QtCore import Qt, QPointF,Signal,Slot
 import logging
@@ -155,11 +155,13 @@ class WorkInfo(QWidget):
         self.heart=HeartLabel()
         self.trash=IconPushButton("trash-2.png",24,24)
         self.modify=IconPushButton("square-pen.png",24,24)
+        self.watch=IconPushButton("tv.png",24,24)
         
         tool_v_layout=QVBoxLayout()
         tool_v_layout.addWidget(self.heart,0,Qt.AlignCenter)
         tool_v_layout.addWidget(self.trash,0,Qt.AlignCenter)
         tool_v_layout.addWidget(self.modify,0,Qt.AlignCenter)
+        tool_v_layout.addWidget(self.watch,0,Qt.AlignCenter)
         tool_v_layout.addStretch()
         
         serialnumber_v_layout=QVBoxLayout()
@@ -184,13 +186,14 @@ class WorkInfo(QWidget):
 
         mainlayout.addStretch()
 
-        mainlayout.addLayout(tool_v_layout)
+        
         mainlayout.addWidget(self.label)
         mainlayout.addWidget(self.actress)
         mainlayout.addLayout(director_v_layout)
         mainlayout.addWidget(self.story, 0, Qt.AlignLeft|Qt.AlignTop)  # stretch改为0，让它根据内容决定宽度
         mainlayout.addLayout(serialnumber_v_layout)
         mainlayout.addWidget(self.title, 0, Qt.AlignLeft|Qt.AlignTop)
+        mainlayout.addLayout(tool_v_layout)
 
         self.signal_connect()
         
@@ -198,6 +201,7 @@ class WorkInfo(QWidget):
         self.heart.clicked.connect(self.on_clicked_heart)
         self.trash.clicked.connect(self.on_clicked_delete)
         self.modify.clicked.connect(self.on_modify_clicked)
+        self.watch.clicked.connect(self.show_video_menu)
         
     
     def update_actress(self, actress_list:list[dict],actor_list:list[dict]):
@@ -302,6 +306,33 @@ class WorkInfo(QWidget):
             return
         global_signals.modify_work_clicked.emit(self.serial_number.text().strip())
 
+    @Slot()
+    def show_video_menu(self):
+        """点击按钮后即时弹出菜单供选择"""
+        from pathlib import Path
+        from utils.utils import find_video,play_video
+        from config import get_video_path
+        self.video_paths=find_video(self.serial_number.text().strip(),get_video_path())
+        if not self.video_paths:
+            self.msg.show_info("提示", "没有可播放的视频")
+            return
+
+        # 创建 QMenu（轻量、非模态、即时弹出）
+        menu = QMenu(self)
+
+        for path in self.video_paths:
+            action = menu.addAction(path.name)  # 显示文件名（更友好）
+            action.setData(str(path))           # 存储完整路径
+
+        # 在按钮位置弹出菜单
+        button_pos = self.watch.mapToGlobal(self.watch.rect().bottomLeft())
+        chosen_action = menu.exec(button_pos)
+
+        if chosen_action:
+            selected_path = Path(chosen_action.data())
+            play_video(selected_path)
+        
+
     def update(self,work_id):
         from core.database.query import get_workinfo_by_workid,findActressFromWorkID,get_worktaginfo_by_workid,query_work,findActorFromWorkID
         self._work_id=work_id
@@ -364,7 +395,7 @@ class SingleWork(QWidget):
 
 
 class SingleWorkPage(LazyWidget):
-    '''这个才是最主要的，总装在这里'''
+    '''单个作品的展示页面，这个才是最主要的，总装在这里'''
     def __init__(self):
         super().__init__()
         
@@ -377,8 +408,6 @@ class SingleWorkPage(LazyWidget):
         self.cover=SingleWork()
 
         mainlayout.addWidget(self.cover)
-
-
 
     def update(self,work_id):
         '''传入一个work_id并更新整个页面'''

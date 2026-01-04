@@ -249,9 +249,16 @@ class ViewModel(QObject):
         else:
             self.msg.show_warning("提示",message)
 
+    @Slot()
+    def show_actress(self):
+        '''跳转到展示单个女优界面'''
+        from controller.GlobalSignalBus import global_signals
+        logging.debug(f"准备跳转展示女优界面{self.get_actress_id()}")
+        global_signals.actress_clicked.emit(self.get_actress_id())
+
 class ModifyActressPage(LazyWidget):
-    #修改女优信息
     '''
+    用于修改女优信息的页面
     '''
     def __init__(self):
         super().__init__()
@@ -297,7 +304,12 @@ class ModifyActressPage(LazyWidget):
         self.btn_claw_update=QPushButton("爬虫直接更新")
         #self.btn_printModel=QPushButton("打印数据")
         self.btn_minnano=QPushButton("minnano-av")
+        self.smallwidget=QWidget()#放一些小按钮
+        self.smalllayout=QHBoxLayout(self.smallwidget)
         self.btn_delete=IconPushButton("trash-2.png")
+        self.btn_show=IconPushButton("eye.png")
+        self.smalllayout.addWidget(self.btn_show)
+        self.smalllayout.addWidget(self.btn_delete)
         
         formlayout.addRow("身高(cm)",self.input_height)
         formlayout.addRow("罩杯",self.input_cup)
@@ -311,7 +323,7 @@ class ModifyActressPage(LazyWidget):
         formlayout.addRow("",self.btn_claw_update)
         #formlayout.addRow("",self.btn_printModel)
         formlayout.addRow("",self.btn_minnano)
-        formlayout.addRow("",self.btn_delete)
+        formlayout.addRow("",self.smallwidget)
 
         
         hlayout.addWidget(self.basic)
@@ -333,6 +345,7 @@ class ModifyActressPage(LazyWidget):
         self.btn_commit.clicked.connect(self.vm.submit)
         self.btn_minnano.clicked.connect(self.jump_minnano)
         self.btn_delete.clicked.connect(self.vm.delete_actress)
+        self.btn_show.clicked.connect(self.vm.show_actress)
 
 
     def bind_model(self):

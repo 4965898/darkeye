@@ -40,6 +40,18 @@ latest_masturbate_time DESC
 )
 '''
 
+all_years_sql=f'''
+all_years AS (
+    SELECT min_year AS year
+    FROM year_range
+
+    UNION ALL
+
+    SELECT year + 1
+    FROM all_years
+    JOIN year_range ON year + 1 <= year_range.max_year
+)
+'''
 #----------------------------------------------------------------------------------------------------------
 #                                               公共数据库的查询
 #----------------------------------------------------------------------------------------------------------
@@ -1438,18 +1450,226 @@ ORDER BY num DESC
         if scope in (0,1,2):detach_private_db(cursor)
     return tag_dict
 
+def fetch_workReleaseByYear_by_scope(scope:int)->list[tuple]:
+    '''根据范围返回作品的发行年份统计
+        参数:
+        scope (int): 查询范围
+            0  - 收藏作品
+            1  - 作品中撸管作品统计
+            2  - 作品中撸管次数加权统计
+           -1  - 公共库
+    '''
+    year_range_sql=f'''
+year_range AS (--年份少的时候可以这样CTE一把直接干，但是长的时候不要那么干还是在python里干
+    SELECT
+        CAST(MIN(SUBSTR(release_date, 1, 4)) AS INTEGER) AS min_year,
+        CAST(MAX(SUBSTR(release_date, 1, 4)) AS INTEGER) AS max_year
+    FROM work
+    WHERE release_date != '' AND release_date IS NOT NULL
+)
+'''
 
+    fillna_sql='''
+-- 步骤4：左连接，把缺失年份补成 0
+SELECT 
+    ay.year,
+    COALESCE(ac.count, 0) AS count
+FROM all_years ay
+LEFT JOIN actual_counts ac ON ay.year = ac.year
+ORDER BY ay.year;
+'''
+
+    match scope:
+        case 0:#收藏作品
+            query=f'''
+WITH {year_range_sql},
+{all_years_sql},
+-- 步骤3：统计实际每年数量
+actual_counts AS (
+    SELECT 
+        SUBSTR(release_date, 1, 4) AS year,
+        COUNT(*) AS count
+    FROM work
+    JOIN priv.favorite_work fav ON fav.work_id=work.work_id
+    WHERE release_date != '' AND release_date IS NOT NULL
+    GROUP BY year
+)
+{fillna_sql}
+'''
+        case 1:#作品中撸管作品统计
+            query=f'''
+WITH {masturbationsql},
+{year_range_sql},
+{all_years_sql},
+-- 步骤3：统计实际每年数量
+actual_counts AS (
+    SELECT 
+        SUBSTR(release_date, 1, 4) AS year,
+        COUNT(*) AS count
+    FROM work
+    JOIN masturbation_count ON masturbation_count.work_id=work.work_id
+    WHERE release_date != '' AND release_date IS NOT NULL
+    GROUP BY year
+)
+{fillna_sql}
+'''
+        case 2:#作品中撸管次数加权统计
+            query=f'''
+WITH {masturbationsql},
+{year_range_sql},
+{all_years_sql},
+-- 步骤3：统计实际每年数量
+actual_counts AS (
+    SELECT 
+        SUBSTR(release_date, 1, 4) AS year,
+        sum(masturbation_count.masturbation_count) AS count
+    FROM work
+    JOIN masturbation_count ON masturbation_count.work_id=work.work_id
+    WHERE release_date != '' AND release_date IS NOT NULL
+    GROUP BY year
+)
+{fillna_sql}
+'''
+        case -1:#公共库内所有作品
+            query=f'''
+WITH {year_range_sql},
+{all_years_sql},
+-- 步骤3：统计实际每年数量
+actual_counts AS (
+    SELECT 
+        SUBSTR(release_date, 1, 4) AS year,
+        COUNT(*) AS count
+    FROM work
+    WHERE release_date != '' AND release_date IS NOT NULL
+    GROUP BY year
+)
+{fillna_sql}
+'''
+    logging.debug(f"Execute SQL\n{query}")
+    
+    with get_connection(DATABASE,True) as conn:
+        cursor = conn.cursor()
+        attach_private_db(cursor)
+        cursor.execute(query)
+        results = cursor.fetchall()
+        detach_private_db(cursor)
+    return results
+
+def fetch_actressDebutByYear_by_scope(scope:int)->list[tuple]:
+    '''根据范围返回女优的出道年份统计
+        参数:
+        scope (int): 查询范围
+            0  - 收藏作品
+            1  - 作品中撸管作品统计
+            2  - 作品中撸管次数加权统计
+           -1  - 公共库
+    '''
+    year_range_sql=f'''
+year_range AS (--年份少的时候可以这样CTE一把直接干，但是长的时候不要那么干还是在python里干
+    SELECT
+        CAST(MIN(SUBSTR(debut_date, 1, 4)) AS INTEGER) AS min_year,
+        CAST(MAX(SUBSTR(debut_date, 1, 4)) AS INTEGER) AS max_year
+    FROM actress
+    WHERE debut_date != '' AND debut_date IS NOT NULL
+)
+'''
+
+    fillna_sql='''
+-- 步骤4：左连接，把缺失年份补成 0
+SELECT 
+    ay.year,
+    COALESCE(ac.count, 0) AS count
+FROM all_years ay
+LEFT JOIN actual_counts ac ON ay.year = ac.year
+ORDER BY ay.year;
+'''
+
+    match scope:
+        case 0:#收藏女优
+            query=f'''
+WITH {year_range_sql},
+{all_years_sql},
+-- 步骤3：统计实际每年数量
+actual_counts AS (
+    SELECT 
+        SUBSTR(debut_date, 1, 4) AS year,
+        COUNT(*) AS count
+    FROM actress
+    JOIN priv.favorite_actress fav ON fav.actress_id=actress.actress_id
+    WHERE debut_date != '' AND debut_date IS NOT NULL
+    GROUP BY year
+)
+{fillna_sql}
+'''
+        case 1:#中撸管统计
+            query=f'''
+WITH {masturbation_actress_sql},
+{year_range_sql},
+{all_years_sql},
+-- 步骤3：统计实际每年数量
+actual_counts AS (
+    SELECT 
+        SUBSTR(debut_date, 1, 4) AS year,
+        COUNT(*) AS count
+    FROM actress
+    JOIN masturbation_actress ma ON ma.actress_id=actress.actress_id
+    WHERE debut_date != '' AND debut_date IS NOT NULL AND ma.num!=0
+    GROUP BY year
+)
+{fillna_sql}
+'''
+        case 2:#女优中撸管次数加权统计
+            query=f'''
+WITH {masturbation_actress_sql},
+{year_range_sql},
+{all_years_sql},
+-- 步骤3：统计实际每年数量
+actual_counts AS (
+    SELECT 
+        SUBSTR(debut_date, 1, 4) AS year,
+        sum(ma.num) AS count
+    FROM actress
+    JOIN masturbation_actress ma ON ma.actress_id=actress.actress_id
+    WHERE debut_date != '' AND debut_date IS NOT NULL
+    GROUP BY year
+)
+{fillna_sql}
+'''
+        case -1:#公共库内所有作品
+            query=f'''
+WITH {year_range_sql},
+{all_years_sql},
+-- 步骤3：统计实际每年数量
+actual_counts AS (
+    SELECT 
+        SUBSTR(debut_date, 1, 4) AS year,
+        COUNT(*) AS count
+    FROM actress
+    WHERE debut_date != '' AND debut_date IS NOT NULL
+    GROUP BY year
+)
+{fillna_sql}
+'''
+    logging.debug(f"Execute SQL\n{query}")
+    
+    with get_connection(DATABASE,True) as conn:
+        cursor = conn.cursor()
+        attach_private_db(cursor)
+        cursor.execute(query)
+        results = cursor.fetchall()
+        detach_private_db(cursor)
+    return results
 
 #下面的两个实际上可以合并
 def getActressByPlane()->list[tuple]:
-    '''返回撸的最多的女优的次数,10个'''
+    '''返回撸的最多的女优的次数,25个'''
     query=f'''WITH {masturbation_actress_sql}
     SELECT
         actress_name,
         num
     FROM masturbation_actress
     ORDER BY num DESC
-    LIMIT 10
+    LIMIT 25
     '''
     logging.debug(f"Execute SQL\n{query}")
     with get_connection(DATABASE,True) as conn:

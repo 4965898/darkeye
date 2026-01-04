@@ -8,6 +8,7 @@ from ui.basic import ModelSearch
 from ui.base import LazyWidget
 
 class ManagementTable(LazyWidget):
+    """综合管理表格的页面"""
     def __init__(self, parent=None):
         super().__init__(parent)
 

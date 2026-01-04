@@ -27,9 +27,12 @@ class CustomTitleBar(StandardTitleBar):
         self.memlabel=QLabel()
         self.hBoxLayout.insertWidget(3, self.memlabel, 0, Qt.AlignLeft)
         self.hBoxLayout.insertStretch(4,1)
-        self.search=QLineEdit()
-        self.search.setFixedWidth(200)
 
+        from core.database.query import get_serial_number
+        from ui.widgets.text.CompleterLineEdit import CompleterLineEdit
+        self.search=CompleterLineEdit(get_serial_number)
+        #self.search=QLineEdit()
+        self.search.setFixedWidth(200)
         self.search.returnPressed.connect(lambda:self.search_signal.emit(self.search.text().strip()))
 
         self.hBoxLayout.insertWidget(5, self.search, 0, Qt.AlignLeft)
@@ -88,8 +91,6 @@ class MainWindow(FramelessWindow):
 
         self.resize(1200,800)
         self.center()
-
-
 
 
         # 恢复上次打开时的窗口大小
@@ -339,12 +340,23 @@ class MainWindow(FramelessWindow):
         self.shortcutH = QShortcut(QKeySequence("H"), self)
         self.shortcutH.activated.connect(self.on_help)
 
+        self.shortcutOption=QShortcut(QKeySequence("Ctrl+,"), self)
+        self.shortcutOption.activated.connect(self.on_setting)
+
+        self.shortcutctrlF=QShortcut(QKeySequence("Ctrl+F"), self)
+        self.shortcutctrlF.activated.connect(self.on_focus_search)
+
         self.shortcutC = QShortcut(QKeySequence("C"), self)
-        self.shortcutC.activated.connect(self.handle_capture) 
+        self.shortcutC.activated.connect(self.handle_capture)
+
+        self.shortcutCtrlC=QShortcut(QKeySequence("Ctrl+C"), self)
+        self.shortcutCtrlC.activated.connect(self.software_capture)
 
         self.titleBar.help_signal.connect(self.on_help)#这个为什么没有提示
         self.titleBar.setting_signal.connect(self.on_setting)
         self.titleBar.search_signal.connect(self.search)
+
+
 
     @Slot(str)
     def search(self,serial_number):
@@ -353,7 +365,6 @@ class MainWindow(FramelessWindow):
         self.stack.setCurrentWidget(self.page_work)
         self.update_menu_highlight("影片")
         self.page_work.serial_number_input.setText(serial_number)
-
 
 
     def jump_connect(self):
@@ -443,6 +454,7 @@ class MainWindow(FramelessWindow):
         }
         """)
 
+    @Slot()
     def handle_capture(self):
         logging.debug("触发快捷键C")
         cur_page=self.stack.currentWidget()
@@ -458,6 +470,13 @@ class MainWindow(FramelessWindow):
                 capture_full(self.page_single_actress.single_actress_info)
 
     @Slot()
+    def software_capture(self):
+        '''对全软件截图'''
+        logging.debug("触发快捷键Ctrl+C")
+        from utils.utils import capture_full
+        capture_full(self)
+
+    @Slot()
     def on_help(self):
         from ui.dialogs.HelpDialog import HelpDialog
         dialog=HelpDialog(self)
@@ -468,3 +487,8 @@ class MainWindow(FramelessWindow):
         from ui.dialogs import SettingDialog
         dialog=SettingDialog(self)
         dialog.exec()
+
+    
+    @Slot()
+    def on_focus_search(self):
+        self.titleBar.search.setFocus()

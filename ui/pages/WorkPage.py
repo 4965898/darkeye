@@ -12,7 +12,7 @@ from ui.base import LazyWidget
 
 
 class WorkPage(LazyWidget):
-    '''主要是展示作品的页面，包括筛选的装置，比如标签筛选'''
+    '''主要是展示作品的页面，包括筛选的装置，比如标签筛选，包括滚动加载'''
     def __init__(self):
         super().__init__()
         

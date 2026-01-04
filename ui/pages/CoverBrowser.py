@@ -4,7 +4,7 @@ import logging
 from PySide6.QtWidgets import QPushButton, QHBoxLayout, QWidget, QLabel,QGraphicsOpacityEffect,QSizePolicy,QVBoxLayout,QFileDialog
 from PySide6.QtGui import QPixmap, QPainter, QLinearGradient, QColor,QIcon
 from PySide6.QtCore import Qt, QPointF, QPropertyAnimation, QEasingCurve,QParallelAnimationGroup,QSize,Signal,QTimer
-from config import WORKCOVER_PATH,ICONS_PATH,VIDEO_PATH
+from config import WORKCOVER_PATH,ICONS_PATH
 
 from ..basic.FlowLayout import FlowLayout
 
@@ -157,9 +157,6 @@ class InfoOverlay(QWidget):
         """)
         self.btn_start.setFixedSize(60,30)
         self.btn_start.setCursor(Qt.PointingHandCursor)
-        self.btn_start.clicked.connect(self.play_video_with_default_player)
-
-
 
 
         self.h_layout=QHBoxLayout()
@@ -274,16 +271,7 @@ class InfoOverlay(QWidget):
             self.tag_layout.addWidget(btn)
             btn.raise_()
 
-    def play_video_with_default_player(self):
-        '''打开指定的地址选择一个文件，开始用默认的播放器播放视频'''
-        file_dialog = QFileDialog()
-        file_dialog.setNameFilter("视频文件 (*.mp4 *.avi *.mkv *.mov)")
-        
-        file_dialog.setDirectory(str(VIDEO_PATH))
-        if file_dialog.exec():
-            selected_files = file_dialog.selectedFiles()
-            video_path = selected_files[0]
-            os.startfile(video_path)
+
 
 
     def resizeEvent(self, event):

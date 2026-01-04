@@ -6,6 +6,7 @@ from ui.statistics import RadarChartWidget
 import logging
 from ui.basic import HeartLabel,OctImage
 from ui.widgets import ClickableLabel
+from ui.widgets.image.ActressAvatar import ActressAvatar
 
 class SingleActressInfo(QWidget):
     '''单女优的信息数据显示'''
@@ -39,7 +40,8 @@ class SingleActressInfo(QWidget):
         label_debutday=QLabel("出道日期")
         #试一下的是动态信息，包括曾用名，等等
 
-        self.pic=OctImage()#这个已经固定大小了
+        #self.pic=OctImage()#这个没有跳转到编辑界面的功能
+        self.pic=ActressAvatar(None,None)#这个有跳转功能
         self.radar=RadarChartWidget()
         self.radar.setFixedSize(250,220)
 
@@ -139,7 +141,7 @@ class SingleActressInfo(QWidget):
 
         #更新头像
         self.pic.update_image(actress["image_urlA"])
-
+        self.pic._actress_id=actress_id
         #更新动态的别名
         chain=self.calc_chain(actress_id)
         chain.pop()

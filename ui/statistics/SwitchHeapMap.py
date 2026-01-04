@@ -13,7 +13,7 @@ class SwitchHeapMap(QWidget):
         early_year=get_record_early_year()
         if not early_year:
             early_year=int(datetime.now().year)
-        # 年份列表
+        # 年份列表,从有记录的最早的年份开始，到当前年份结束
         year_list = [str(x) for x in list(range(early_year, datetime.now().year + 1))]
         year_list = year_list[::-1]
         #year_list=[str(x) for x in list(range(2018,2026))]
@@ -23,13 +23,14 @@ class SwitchHeapMap(QWidget):
         self.btn_prev =IconPushButton("arrow-up.png")
         self.btn_next =IconPushButton("arrow-down.png")
 
+        today_year = datetime.today().year# 获取当前年份
         # 绑定按钮点击
         self.btn_prev.clicked.connect(lambda: self.switch(-1))
         self.btn_next.clicked.connect(lambda: self.switch(1))
                 # 三个示例 QWidget
-        self.calendar_heatmap_masturbation=CalendarHeatmap(year=2025,data=get_record_by_year(2025,0))
-        self.calendar_heatmap_sex=CalendarHeatmap(year=2025,data=get_record_by_year(2025,1))
-        self.calendar_heatmap_arousal=CalendarHeatmap(year=2025,data=get_record_by_year(2025,2))
+        self.calendar_heatmap_masturbation=CalendarHeatmap(year=today_year,data=get_record_by_year(today_year,0))
+        self.calendar_heatmap_sex=CalendarHeatmap(year=today_year,data=get_record_by_year(today_year,1))
+        self.calendar_heatmap_arousal=CalendarHeatmap(year=today_year,data=get_record_by_year(today_year,2))
         
         
         # QStackedWidget 管理多个 QWidget
@@ -38,7 +39,7 @@ class SwitchHeapMap(QWidget):
         self.stack.addWidget(self.calendar_heatmap_sex)
         self.stack.addWidget(self.calendar_heatmap_arousal)
 
-        self.heatmap_names = [f"撸管{get_record_count_by_year(2025,0)}次在当年中", f"做爱{get_record_count_by_year(2025,1)}次在当年中", f"晨勃{get_record_count_by_year(2025,2)}次在当年中"]
+        self.heatmap_names = [f"撸管{get_record_count_by_year(today_year,0)}次在当年中", f"做爱{get_record_count_by_year(today_year,1)}次在当年中", f"晨勃{get_record_count_by_year(today_year,2)}次在当年中"]
 
         self.heatmap_name = QLabel(self.heatmap_names[0])
         # 布局
