@@ -17,6 +17,9 @@ class UpdateManyTabPage(LazyWidget):
         self.btn_search_actress=QPushButton("更新热门女优")
         self.btn_search_actress.setToolTip("更新javatext热门女优前50")
 
+        self.btn_update_needactress=QPushButton("更新标记需要更新的女优数据")
+        self.btn_update_needactress.setToolTip("把所有被标记为需要更新的女优一个一个进行数据更新")
+
         #self.btn_search_actor.clicked.connect(update_actor_db)
         self.btn_search_story.clicked.connect(update_title_story_db)
         self.btn_search_actress.clicked.connect(top_actresses)
@@ -25,6 +28,7 @@ class UpdateManyTabPage(LazyWidget):
         layout1.addWidget(self.btn_search_story)
         #layout1.addWidget(self.btn_search_actor)
         layout1.addWidget(self.btn_search_actress)
+        layout1.addWidget(self.btn_update_needactress)
 
         mainlayout=QVBoxLayout(self)
         mainlayout.addLayout(layout1)

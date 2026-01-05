@@ -52,6 +52,7 @@ all_years AS (
     JOIN year_range ON year + 1 <= year_range.max_year
 )
 '''
+
 #----------------------------------------------------------------------------------------------------------
 #                                               公共数据库的查询
 #----------------------------------------------------------------------------------------------------------
@@ -84,9 +85,6 @@ def get_all_work_addtime()->list[datetime]:
         cursor.execute(query)
         rows = cursor.fetchall()
         return [datetime.strptime(row[0], "%Y-%m-%d %H:%M:%S") for row in rows]
-
-
-
 
 def query_studio(work_id:int)->str|None:
     '''根据work_id返回发行商，如果为非标准发行商，就是私拍，或者没有封面的，就返回None'''
@@ -264,9 +262,10 @@ WHERE redirect_tag_id=?
         results = [dict(zip(column_names, row)) for row in rows]#转成列表字典
     return results
 
-# 加载tag_selector使用
 def getTags()->list[tuple]:
-    '''读取所有的tag库里的信息'''
+    '''读取所有的tag库里的信息
+    供加载tag_selector使用
+    '''
     query='''
 SELECT 
 	tag_id, 
@@ -345,7 +344,6 @@ WHERE tag_id=?
 
     return dict(zip(column_names, row))
 
-
 def get_tagid_by_keyword(keyword:str,match_hole_word=False)->list:
     '''这个递归搜索到所有的没有重定向的tag'''
     query=f"""
@@ -399,8 +397,6 @@ def exist_minnao_id(actress_id)->int:
         else:
             return id[0]
 
-
-#纯纯的单查询，获得不重复的东西，给提示框用
 def get_tag_name()->list:
     '''获得库中所有的tag_name'''
     query = "SELECT tag_name FROM tag"
@@ -502,7 +498,6 @@ def get_actor_allname(actor_id)->list[dict]:
         column_names = [description[0] for description in cursor.description]
         results = [dict(zip(column_names, row)) for row in rows]#转成列表字典
         return results
-
 
 def get_actorname()->list:
     '''返回所有的男优的名字，包括曾用名'''
@@ -615,7 +610,6 @@ def get_unique_tag_type()->list:
         rows = cursor.fetchall()
         return [row[0] for row in rows]
     
-# 根据work_id去查数据
 def get_workinfo_by_workid(work_id:int)->dict:
     '''根据work_id获得单部作品的基本数据'''
     query = f'''
@@ -641,7 +635,6 @@ WHERE work_id = ?
         rows = cursor.fetchall()
         column_names = [description[0] for description in cursor.description]
     return [dict(zip(column_names, row)) for row in rows][0]#转成字典
-
 
 def get_workcardinfo_by_workid(work_id:int)->dict:
     '''根据work_id获得单部作品的卡片数据'''
@@ -896,6 +889,8 @@ WHERE actress_id=?
     result = [dict(zip(column_names, row)) for row in rows]#转为字典
     #logging.debug(result)
     return result
+
+
 #----------------------------------------------------------------------------------------------------------
 #                                      混合数据库的查询，连接公有数据库然后附加私有
 #----------------------------------------------------------------------------------------------------------
@@ -1750,6 +1745,30 @@ WHERE masturbation_count is NULL
         count=cursor.fetchone()[0]
         detach_private_db(cursor)
     return count
+
+def fetch_actress_debut_age()->list[tuple]:
+    """
+    获取女优的出道年龄及权重。
+
+    参数：
+
+
+    返回：
+        list[tuple]: [(debut_age, weight), ...]
+    """
+    query='''
+SELECT
+	round((julianday(a.debut_date) - julianday(a.birthday)) / 365.25,1)-0.5 AS debut_age, -- 使用 julianday 计算日期差（以天为单位），然后除以 365.25 得到年龄假设发布前6个月拍摄
+	1 AS weight
+FROM actress a 
+WHERE  a.birthday IS NOT NULL AND a.debut_date IS NOT NULL AND a.debut_date !='' AND a.birthday !=''
+    '''
+    #logging.debug(query)
+    with get_connection(DATABASE,True) as conn:
+        cursor = conn.cursor()
+        cursor.execute(query)
+        results = cursor.fetchall()
+    return results
 
 #----------------------------------------------------------------------------------------------------------
 #                                      私有数据库的查询

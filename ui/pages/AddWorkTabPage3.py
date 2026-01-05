@@ -1,5 +1,5 @@
 from PySide6.QtWidgets import QPushButton, QHBoxLayout, QLabel,QVBoxLayout,QLineEdit,QTextEdit,QSizePolicy,QPlainTextEdit
-from PySide6.QtCore import Qt,QObject,Signal,Property,SignalInstance,Slot
+from PySide6.QtCore import Qt,QObject,Signal,Property,SignalInstance,Slot,QThreadPool
 
 from ui.widgets.CrawlerToolBox import CrawlerToolBox
 import logging,json,asyncio
@@ -16,7 +16,8 @@ from utils.utils import mse,load_ini_ids,covert_fanza,translate_text
 from ui.basic import IconPushButton
 from ui.base import LazyWidget
 from controller.MessageService import MessageBoxService,IMessageService
-from core.crawler import CrawlerThreadResult
+
+from core.crawler.Worker import Worker
 from core.crawler.download import download_image
 
 class ButtonState(Enum):
@@ -565,19 +566,16 @@ class ViewModel(QObject):
     @Slot()
     def _trans_title(self):
         '''调用google第三方翻译，不稳定，将日文翻译成中文写到框内'''
-
-        self.title_thread=CrawlerThreadResult(lambda:asyncio.run(translate_text(self.get_jp_title())))#传一个函数名进去
-        self.title_thread.finished.connect(self._on_trans_title)
-        self.title_thread.start()
+        worker=Worker(lambda:asyncio.run(translate_text(self.get_jp_title())))
+        worker.signals.finished.connect(self._on_trans_title)
+        QThreadPool.globalInstance().start(worker)
 
     @Slot()
     def _trans_story(self):
         '''调用google第三方翻译，不稳定，将日文翻译成中文写到框内'''
-
-        #后台线程爬虫
-        self.story_thread=CrawlerThreadResult(lambda:asyncio.run(translate_text(self.get_jp_story())))#传一个函数名进去
-        self.story_thread.finished.connect(self._on_trans_story)
-        self.story_thread.start()
+        worker=Worker(lambda:asyncio.run(translate_text(self.get_jp_story())))#传一个函数名进去
+        worker.signals.finished.connect(self._on_trans_story)
+        QThreadPool.globalInstance().start(worker)
 
     @Slot(str)
     def _on_trans_title(self,result:str):
@@ -885,9 +883,9 @@ class AddWorkTabPage3(LazyWidget):
             self.crawler_toolbox.cb_cover
         ]):#这里还要再改一下如果只下载图片，有缓存的话就不要继续爬虫了，直接目标图片地址下载就行了
             #在爬好之前不要去切换就没有什么关系
-            self.thread1=CrawlerThreadResult(lambda:SearchInfoDanyukiwi(self.input_serial_number.text()))#传一个函数名进去
-            self.thread1.finished.connect(self._on_danyukiwi_result)
-            self.thread1.start()
+            worker1=Worker(lambda:SearchInfoDanyukiwi(self.input_serial_number.text()))#传一个函数名进去
+            worker1.signals.finished.connect(self._on_danyukiwi_result)
+            QThreadPool.globalInstance().start(worker1)
 
         #有一个被勾选了就去爬javtxt，里面的故事信息很全面  
         if any(cb.isChecked() for cb in [
@@ -896,9 +894,9 @@ class AddWorkTabPage3(LazyWidget):
             self.crawler_toolbox.cb_jp_title,
             self.crawler_toolbox.cb_jp_story
         ]):
-            self.thread2=CrawlerThreadResult(lambda:fetch_javtxt_movie_info(self.input_serial_number.text()))#传一个函数名进去
-            self.thread2.finished.connect(self._on_javtxt_result)
-            self.thread2.start()
+            worker2=Worker(lambda:fetch_javtxt_movie_info(self.input_serial_number.text()))#传一个函数名进去
+            worker2.signals.finished.connect(self._on_javtxt_result)
+            QThreadPool.globalInstance().start(worker2)
 
     @Slot(dict)
     def _on_danyukiwi_result(self,result):
@@ -973,9 +971,9 @@ class AddWorkTabPage3(LazyWidget):
             logging.debug(self.viewmodel.work_id)
             if self.viewmodel.work_id is not None:
                 update_fanza_cover_url(self.viewmodel.work_id,imageurl)#更新封面的缓存
-            self.thread2=CrawlerThreadResult(lambda:download_image(imageurl,dst_path))#下载图片放后台线程
-            self.thread2.finished.connect(lambda result:self._on_download_image_result(result,dst_path))
-            self.thread2.start()
+            worker=Worker(lambda:download_image(imageurl,dst_path))#下载图片放后台线程
+            worker.signals.finished.connect(lambda result:self._on_download_image_result(result,dst_path))
+            QThreadPool.globalInstance().start(worker)
 
     @Slot(tuple,Path)
     def _on_download_image_result(self,result:tuple,dst_path:Path):
@@ -1000,9 +998,11 @@ class AddWorkTabPage3(LazyWidget):
         dst_path = Path(TEMP_PATH) / dst_name#这个是个绝对地址
 
         imageurl="https://fourhoi.com/"+serial_number+"/cover-n.jpg"#这个是misav的封面获取方式
-        self.thread4=CrawlerThreadResult(lambda:download_image(imageurl,dst_path))#下载图片放后台线程
-        self.thread4.finished.connect(lambda result:self._on_download_image_result1(result,dst_path))
-        self.thread4.start()
+
+        worker=Worker(lambda:download_image(imageurl,dst_path))#下载图片放后台线程
+        worker.signals.finished.connect(lambda result:self._on_download_image_result1(result,dst_path))
+        QThreadPool.globalInstance().start(worker)
+        
 
     @Slot(tuple,Path)
     def _on_download_image_result1(self,result:tuple,dst_path:Path):

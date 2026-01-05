@@ -1,5 +1,5 @@
 import os,psutil,logging
-from PySide6.QtWidgets import QWidget,QStackedWidget,QPushButton,QHBoxLayout, QVBoxLayout,QLineEdit,QLabel
+from PySide6.QtWidgets import QWidget,QStackedWidget,QPushButton,QHBoxLayout, QVBoxLayout,QLineEdit,QLabel,QStatusBar
 from PySide6.QtCore import Qt,Signal,QTimer,Slot,QSize
 from PySide6.QtGui import QIcon,QKeySequence,QShortcut,QPainter,QColor
 from config import ICONS_PATH,set_size_pos,get_size_pos,is_max_window,set_max_window,is_first_lunch
@@ -92,6 +92,10 @@ class MainWindow(FramelessWindow):
         self.resize(1200,800)
         self.center()
 
+        # ==================== 状态栏设置 ====================
+        #self.statusBar = QStatusBar()
+        #self.setStatusBar(self.statusBar)
+        #self.statusBar().showMessage("就绪 - 这是状态栏")
 
         # 恢复上次打开时的窗口大小
         #QTimer.singleShot(0, self.restore_window_settings)

@@ -160,7 +160,7 @@ class MplCanvas(FigureCanvas):
         '''女优出道年份的分布直方图'''
         from core.database.query import fetch_actressDebutByYear_by_scope
         data = fetch_actressDebutByYear_by_scope(scope)
-        logging.debug(f"发行年份数据：{data}")
+        logging.debug(f"女优出道年份统计：{data}")
         # 分离年份和数量
         years = [item[0] for item in data]      # ['2000', '2001', ...]
         counts = [item[1] for item in data]     # [1, 2, 5, ...]
@@ -190,17 +190,23 @@ class MplCanvas(FigureCanvas):
         #这个现在有问题后面再改
         bodyData=getActressBodyData()
         cup_colors = {
-            'A': '#d0d1e6',  # 浅蓝灰
-            'B': '#a6bddb',  # 淡蓝
-            'C': '#74a9cf',  # 中淡蓝
-            'D': '#3690c0',  # 中蓝
-            'E': '#0570b0',  # 深蓝
-            'F': '#045a8d',  # 深靛蓝
-            'G': '#023858',  # 更深蓝
-            'H': '#238b45',  # 绿调混入（大）
-            'I': '#006d2c',  # 深绿（巨）
-            'J': '#00441b'   # 极深绿黑（超巨）
-        }
+    # 使用蓝紫渐变到橙红的完整色系，确保15个级别都有良好区分度
+    'A': '#F7FBFF',  # 极淡蓝色（几乎白）
+    'B': '#E3EFF9',  # 非常浅蓝
+    'C': '#C6DBEF',  # 浅天蓝
+    'D': '#9ECAE1',  # 淡蓝
+    'E': '#6BAED6',  # 柔和蓝
+    'F': '#4292C6',  # 标准蓝
+    'G': '#2171B5',  # 中蓝
+    'H': '#08519C',  # 深蓝
+    'I': '#08306B',  # 深靛蓝
+    'J': '#6A51A3',  # 蓝紫色（过渡开始）
+    'K': '#8C6BB1',  # 紫
+    'L': '#8C6BB1',  # 中紫
+    'M': '#CC6677',  # 紫红色
+    'N': '#E6553E',  # 橙红
+    'O': '#FD8D3C'   # 亮橙
+}
 
         # 2. 映射颜色列表（DataFrame中要先填充空值或剔除）
         colors = [
@@ -618,3 +624,39 @@ class MplCanvas(FigureCanvas):
         self.draw()
         file=Path(TEMP_PATH)/"tag_cloud_1600x900.png"
         wc.to_file(file)# 保存到临时文件
+
+    def plotActressDebutAge(self):
+        '''绘制女优出道年龄的分布，频率图'''
+        from core.database.query import fetch_actress_debut_age
+        tuple_list = fetch_actress_debut_age()
+        
+        age = np.array([item[0] for item in tuple_list])
+        weight = np.array([item[1] for item in tuple_list])
+
+        low = weighted_percentile(age, weight, 0.05)
+        high = weighted_percentile(age, weight, 0.95)
+        mid = (low + high) / 2
+
+        self.fig.clf()
+        self.ax = self.fig.add_subplot(111)
+
+        # 画直方图
+        counts, bins, _ = self.ax.hist(age, bins=40, weights=weight, color='skyblue', edgecolor='#7D9CE8', density=True)
+
+        # KDE 平滑频率曲线
+        grid = np.linspace(min(age), max(age), 500)
+        bandwidth = 1.0  # 控制平滑程度，值越大越平滑
+        kde_vals = gaussian_kde_manual(age, weight, grid, bandwidth)
+        self.ax.plot(grid, kde_vals, color='blue', linewidth=2, label='频率曲线 (KDE)')
+        # 辅助线
+        ymin, ymax = self.ax.get_ylim()
+        self.ax.axvline(low, color='red', linestyle='--', label='5th percentile')
+        self.ax.axvline(high, color='red', linestyle='--', label='95th percentile')
+        self.ax.text(mid, ymax * 0.9, '90%区间', ha='center', fontsize=12, color='black', fontname='SimHei')
+
+        # 标题设置
+        self.ax.set_title("公共库内女优平均出道年龄分布(以出道日期减半年计算)", fontname='SimHei')
+        self.ax.set_xlabel("出道年龄", fontname='SimHei')
+        self.ax.set_ylabel("频率", fontname='SimHei')
+        self.ax.legend()
+        self.draw()

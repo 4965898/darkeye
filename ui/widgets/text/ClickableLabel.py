@@ -1,5 +1,5 @@
 from PySide6.QtWidgets import QLabel,QApplication,QSizePolicy
-from PySide6.QtCore import Qt, Signal,QTimer,QPoint,QSize,Slot
+from PySide6.QtCore import Qt, Signal,QTimer,QPoint,QSize,Slot,QThreadPool
 from PySide6.QtGui import QMouseEvent
 
 
@@ -44,10 +44,11 @@ class ClickableLabel(QLabel):
     def searchActressinfo(self,id):
         #开始后台线程
         from core.crawler.SearchActressInfo import SearchSingleActressInfo
-        from core.crawler.CrawlerThreadResult import CrawlerThreadResult
-        self.thread:CrawlerThreadResult=CrawlerThreadResult(lambda id=id:SearchSingleActressInfo(id,self.text()))#传一个函数名进去
-        self.thread.finished.connect(self.on_result)
-        self.thread.start()
+        from core.crawler.Worker import Worker
+        worker=Worker(lambda id=id:SearchSingleActressInfo(id,self.text()))#传一个函数名进去
+        worker.signals.finished.connect(self.on_result)
+        QThreadPool.globalInstance().start(worker)
+        
 
     @Slot(object)
     def on_result(self,result:str):#Qsignal回传信息

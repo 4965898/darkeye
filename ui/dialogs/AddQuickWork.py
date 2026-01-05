@@ -1,12 +1,12 @@
 from PySide6.QtWidgets import QPushButton,QLabel,QGridLayout,QDialog,QLineEdit
-from PySide6.QtCore import Slot
+from PySide6.QtCore import Slot,QThreadPool
 from PySide6.QtGui import QIcon
 from config import ICONS_PATH,WORKCOVER_PATH
 import logging
 from controller import MessageBoxService
 from core.database.update import update_work_byhand_
-from core.crawler import CrawlerThreadResult
 from core.crawler.download import download_image
+from core.crawler.Worker import Worker
 
 class AddQuickWork(QDialog):
     #快速记录作品番号的窗口，能在局外响应
@@ -52,17 +52,17 @@ class AddQuickWork(QDialog):
             #查找中英文标题信息写入
             from core.crawler.SearchAvdanyuwiki import SearchInfoDanyukiwi
             from core.crawler.SearchJavtxt import fetch_javtxt_movie_info
-            from core.crawler import CrawlerThreadResult
-            logging.info(f"查询的番号：{self.input_serial_number.text()}")
-            thread1=CrawlerThreadResult(lambda:fetch_javtxt_movie_info(self.input_serial_number.text()))#传一个函数名进去
-            thread1.finished.connect(lambda result:self._on_javtxt_result(result,work_id))
-            thread1.start()
-            self._threads.append(thread1)
 
-            thread2=CrawlerThreadResult(lambda:SearchInfoDanyukiwi(self.input_serial_number.text()))#传一个函数名进去
-            thread2.finished.connect(lambda result:self._on_danyuwiki_result(result,work_id))
-            thread2.start()
-            self._threads.append(thread2)
+
+            logging.info(f"查询的番号：{self.input_serial_number.text()}")
+            work1=Worker(lambda:fetch_javtxt_movie_info(self.input_serial_number.text()))#传一个函数名进去
+            work1.signals.finished.connect(lambda result:self._on_javtxt_result(result,work_id))
+            QThreadPool.globalInstance().start(work1)
+
+            work2=Worker(lambda:SearchInfoDanyukiwi(self.input_serial_number.text()))#传一个函数名进去
+            work2.signals.finished.connect(lambda result:self._on_danyuwiki_result(result,work_id))
+            QThreadPool.globalInstance().start(work2)
+
 
         else:#work_id为None表示插入失败
             self.msg.show_warning("失败","添加新作品失败")
@@ -89,9 +89,10 @@ class AddQuickWork(QDialog):
             serial_number=data.get("serial_number").lower()
             dst_path = WORKCOVER_PATH / image_url#这个是个绝对地址
             imageurl="https://fourhoi.com/"+serial_number+"/cover-n.jpg"#这个是misav的封面获取方式
-            self.thread3=CrawlerThreadResult(lambda:download_image(imageurl,dst_path))#下载图片放后台线程
-            self.thread3.finished.connect(lambda result:self._on_download_image1(result,work_id,image_url))#现在不需要回调了
-            self.thread3.start()
+
+            worker1=Worker(lambda:download_image(imageurl,dst_path))#下载图片放后台线程
+            worker1.signals.finished.connect(lambda result:self._on_download_image1(result,work_id,image_url))#现在不需要回调了
+            QThreadPool.globalInstance().start(worker1)
             return
         #写入封面url,导演，拍摄时间
         update_work_byhand_(work_id,director=data.get("director"),release_date=data.get("release_date"),fcover_url=data.get("cover"))
@@ -110,9 +111,9 @@ class AddQuickWork(QDialog):
         dst_path = WORKCOVER_PATH / image_url#这个是个绝对地址
         imageurl=data.get("cover")
 
-        self.thread2=CrawlerThreadResult(lambda:download_image(imageurl,dst_path))#下载图片放后台线程
-        self.thread2.finished.connect(lambda result:self._on_download_image(result,work_id,image_url))#现在不需要回调了
-        self.thread2.start()
+        worker2=Worker(lambda:download_image(imageurl,dst_path))#下载图片放后台线程
+        worker2.signals.finished.connect(lambda result:self._on_download_image(result,work_id,image_url))#现在不需要回调了
+        QThreadPool.globalInstance().start(worker2)
 
         #直接写入女优
         actress_list=data.get("actress_list",[])
@@ -183,9 +184,10 @@ class AddQuickWork(QDialog):
             serial_number=data.get("serial_number").lower()
             dst_path = WORKCOVER_PATH / image_url#这个是个绝对地址
             imageurl="https://fourhoi.com/"+serial_number+"/cover-n.jpg"#这个是misav的封面获取方式
-            self.thread3=CrawlerThreadResult(lambda:download_image(imageurl,dst_path))#下载图片放后台线程
-            self.thread3.finished.connect(lambda result:self._on_download_image1(result,work_id,image_url))#现在不需要回调了
-            self.thread3.start()
+            worker=Worker(lambda:download_image(imageurl,dst_path))#下载图片放后台线程
+            worker.signals.finished.connect(lambda result:self._on_download_image1(result,work_id,image_url))#现在不需要回调了
+            QThreadPool.globalInstance().start(worker)
+            
             
             #不写入数据库
 

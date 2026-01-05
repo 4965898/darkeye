@@ -30,7 +30,7 @@ class ImageLoaderRunnable(QRunnable):
 
 class ImageLoaderRunnable2(QRunnable):
     '''QImage异步加载图片并裁剪，回到UI线程后显示'''
-    def __init__(self, path: str, aspect_ratio: float, target_size, callback_signal: Signal):
+    def __init__(self, path: str, aspect_ratio: float, target_size, callback_signal: SignalInstance):
         super().__init__()
         self.path = path
         self.target_size = target_size

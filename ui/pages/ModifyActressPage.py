@@ -1,6 +1,6 @@
 
 from PySide6.QtWidgets import QPushButton, QHBoxLayout, QLabel,QVBoxLayout,QLineEdit,QTextEdit,QSizePolicy,QFormLayout,QSpinBox,QComboBox,QWidget
-from PySide6.QtCore import Qt,QObject,Signal,Property,Signal,Slot
+from PySide6.QtCore import Qt,QObject,Signal,Property,Signal,Slot,QThreadPool
 
 from ui.widgets.CrawlerToolBox import CrawlerToolBox
 import logging,json,asyncio
@@ -219,12 +219,13 @@ class ViewModel(QObject):
     def clawer_update(self):
         '''爬虫更新单个女优的数据，是直接更新，而不是写界面后提交'''
         from core.crawler.SearchActressInfo import SearchSingleActressInfo
-        from core.crawler.CrawlerThreadResult import CrawlerThreadResult
+        from core.crawler.Worker import Worker
+
         logging.info(self.actress_id)
         logging.info(self.actress_name[0]["jp"])
-        self.thread:CrawlerThreadResult=CrawlerThreadResult(lambda:SearchSingleActressInfo(self.actress_id,self.actress_name[0]["jp"]))#传一个函数名进去
-        self.thread.finished.connect(self.on_result)
-        self.thread.start()
+        worker=Worker(lambda:SearchSingleActressInfo(self.actress_id,self.actress_name[0]["jp"]))#传一个函数名进去，注意这里
+        worker.signals.finished.connect(self.on_result)
+        QThreadPool.globalInstance().start(worker)
 
     @Slot(bool)
     def on_result(self,result:bool):#Qsignal回传信息

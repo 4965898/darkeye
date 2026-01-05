@@ -28,6 +28,7 @@ class PlotTabPage(LazyWidget):
         self.btn_mostLikeActress= QPushButton("最喜欢的女优柱状图")
         self.btn_ActressBodyHWratio= QPushButton("女优身材腰臀比气泡图")
 
+        self.btn_actress_debutage_distribution= QPushButton("女优出道年龄分布直方图")
         self.btn_TagWordClould=QPushButton("Tag词云生成")
 
         btn_YearReport=QPushButton("撸管年回忆录")
@@ -98,6 +99,7 @@ class PlotTabPage(LazyWidget):
         toolbar_layout.addWidget(self.btn_BWH_Distribution)
         toolbar_layout.addWidget(self.btn_mostLikeActress)
         toolbar_layout.addWidget(self.btn_addTimeDistribution)
+        toolbar_layout.addWidget(self.btn_actress_debutage_distribution)
 
         toolbar_layout.addWidget(btn_YearReport)
 
@@ -122,6 +124,7 @@ class PlotTabPage(LazyWidget):
         self.btn_TagWordClould.clicked.connect(self.tagWordCloud)
         self.btn_workReleaseYearDistribution.clicked.connect(self.workReleaseYear_distribution)
         self.btn_actressDebutYearDistribution.clicked.connect(self.ActressDebutYearDistribution)
+        self.btn_actress_debutage_distribution.clicked.connect(self.canvas.plotActressDebutAge)
 
     @Slot()
     def ActressDebutYearDistribution(self):

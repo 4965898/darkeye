@@ -1,6 +1,6 @@
 from PySide6.QtWidgets import QHBoxLayout, QWidget,QVBoxLayout,QToolButton,QFileDialog,QLabel,QSizePolicy,QTabWidget
 from PySide6.QtGui import QIcon
-from PySide6.QtCore import Qt,Slot
+from PySide6.QtCore import Qt,Slot,QThreadPool
 from pathlib import Path
 from config import ICONS_PATH,DATABASE,DATABASE_BACKUP_PATH,PRIVATE_DATABASE,PRIVATE_DATABASE_BACKUP_PATH
 from ui.pages.TagManagement import TagManagement
@@ -184,11 +184,12 @@ class ManagementPage(QWidget):
     def searchActressinfo(self):
         #开始后台线程
         from core.crawler.SearchActressInfo import actress_need_update,SearchActressInfo
-        from core.crawler.CrawlerThreadResult import CrawlerThreadResult
+        from core.crawler.Worker import Worker
+
         if actress_need_update():
-            self.thread:CrawlerThreadResult=CrawlerThreadResult(SearchActressInfo)#传一个函数名进去
-            self.thread.finished.connect(self.on_result)
-            self.thread.start()
+            worker=Worker(SearchActressInfo)#传一个函数名进去
+            worker.signals.finished.connect(self.on_result)
+            QThreadPool.globalInstance().start(worker)
             self.msg.show_info("开始更新","开始更新，可能需要一段时间")
         else:
             self.msg.show_info("提示","没有要更新的女优")
