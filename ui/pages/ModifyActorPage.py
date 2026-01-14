@@ -174,7 +174,7 @@ class ModifyActorPage(LazyWidget):
     def init_ui(self):
         mainlayout = QVBoxLayout(self)
         mainlayout.setContentsMargins(0, 0, 0, 0)
-        mainlayout.addSpacing(70)
+        #mainlayout.addSpacing(70)
         
         hlayout=QHBoxLayout()
         mainlayout.addLayout(hlayout)
@@ -209,7 +209,7 @@ class ModifyActorPage(LazyWidget):
 
         #self.btn_printModel=QPushButton("打印数据")
 
-        self.btn_delete=IconPushButton("trash-2.png")
+        self.btn_delete=IconPushButton("trash-2.svg")
         
 
         formlayout.addRow("颜值",self.handsomeSlider)

@@ -155,12 +155,14 @@ class CoverCard(QWidget):
 
     @staticmethod
     def backgroundcolor_from_tagid(tag_id:int|None)->str:
+        #color_list=["#00d8f3","#79ec82","#fede2a"]
+        color_list=["#80B0F8","#ffa475","#ffeb28"]
         match tag_id:
             case 1:
-                return "#80B0F8"
+                return color_list[0]
             case 2:
-                return "#F88441"
+                return color_list[1]
             case 3:  
-                return "#FDEB48"
+                return color_list[2]
             case None:
                 return "#00000000"

@@ -40,11 +40,11 @@ class ModelSearch(QWidget):
         self.search_input.setFixedWidth(200)
         self.search_input.setPlaceholderText("搜索")
 
-        self.btn_prev=IconPushButton("arrow-up.png")
+        self.btn_prev=IconPushButton("arrow-up.svg")
         self.btn_prev.setWhatsThis("向前搜索")
         self.btn_prev.setToolTip("向前搜索(Shift+Enter)")
 
-        self.btn_next=IconPushButton("arrow-down.png")
+        self.btn_next=IconPushButton("arrow-down.svg")
         self.btn_next.setWhatsThis("向后搜索")
         self.btn_next.setToolTip("向后搜索(Enter)")
 

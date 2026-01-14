@@ -15,8 +15,8 @@ class LazyScrollArea(QScrollArea):
                 border: none;
             }
             QScrollBar:vertical, QScrollBar:horizontal {
-                width: 0px;
-                height: 0px;
+                width: 10px;
+                height: 10px;
             }
         """)
         self.msg=MessageBoxService(self)
@@ -113,7 +113,7 @@ class LazyScrollArea(QScrollArea):
             for w in widgets:
                 self.waterfall_layout.addWidget(w)
             self.current_page += 1
-        #logging.debug(self.waterfall_layout._items.__len__())
+        logging.debug(self.waterfall_layout._items.__len__())
         self.loading = False
     # 延迟到下一轮事件循环再检查滚动条
         if not self.reached_end:

@@ -2,11 +2,13 @@ from PySide6.QtWidgets import QPushButton,QLabel,QGridLayout,QDialog,QLineEdit
 from PySide6.QtCore import Slot,QThreadPool
 from PySide6.QtGui import QIcon
 from config import ICONS_PATH,WORKCOVER_PATH
-import logging
-from controller import MessageBoxService
+import logging,asyncio
+from controller import MessageBoxService,TaskManager
 from core.database.update import update_work_byhand_
 from core.crawler.download import download_image
 from core.crawler.Worker import Worker
+from utils.utils import translate_text
+
 
 class AddQuickWork(QDialog):
     #快速记录作品番号的窗口，能在局外响应
@@ -45,7 +47,7 @@ class AddQuickWork(QDialog):
         from core.database.insert import InsertNewWork
         work_id=InsertNewWork(serialNumber)
         if work_id:
-            self.msg.show_info("成功","添加新作品成功")
+            self.msg.show_info("成功","录入新作品番号")
             self.accept()
             #尝试自动化的写入，能写的就写
 
@@ -99,11 +101,6 @@ class AddQuickWork(QDialog):
 
         #下载图片并写入
 
-        from core.database.update import update_fanza_cover_url
-        from datetime import datetime
-
-
-        from pathlib import Path
         #这个要开全局访问才能下载图片
 
         image_url=self.input_serial_number.text().strip().lower().replace('-', '') + 'pl.jpg'#默认的替换规则
@@ -170,7 +167,9 @@ class AddQuickWork(QDialog):
 
     @Slot(tuple,int,str)
     def _on_download_image(self,result:tuple,work_id:int,image_url:str):
-        '''下载图片的结果回调'''
+        '''下载图片的结果回调
+        这个复杂的回调需要后面修改
+        '''
         success, msg = result
         if success:
             logging.info("封面图片下载成功")
@@ -206,40 +205,30 @@ class AddQuickWork(QDialog):
 
     @Slot(dict, int)
     def _on_javtxt_result(self,data:dict,work_id:int):
-        '''返回的数据更新到面板上'''
+        '''返回的数据直写入数据库中'''
         if data is None:
             logging.warning("爬javtxt产生错误信息")
             return
         #写入中英文标题
+        if data.get("cn_title")=="":#这样会堵，需要放到后台线程，#测试SNIS-495
+            cn_title=asyncio.run(translate_text(data.get("jp_title")))
+        else:
+            cn_title=data.get("cn_title")
 
-        update_work_byhand_(work_id,cn_title=data.get("cn_title"),jp_title=data.get("jp_title"),cn_story=data.get("cn_story"),jp_story=data.get("jp_story"))
+        if data.get("cn_story")=="":
+            cn_story=asyncio.run(translate_text(data.get("jp_story")))
+        else:
+            cn_story=data.get("cn_story")
+
+        update_work_byhand_(work_id,cn_title=cn_title,jp_title=data.get("jp_title"),cn_story=cn_story,jp_story=data.get("jp_story"))
 
         #常试性分解tag然后写入
-        from core.database.query import get_tagid_by_keyword
         from core.database.insert import add_tag2work
-        import json
-        from config import TAG_MAP_PATH
-        with open(TAG_MAP_PATH, "r", encoding="utf-8") as f:
-            tag_map:dict= json.load(f)
+        from utils.utils import text2tag_id_list
+        tag_id_list=text2tag_id_list(data.get("jp_title"))
+        if tag_id_list:
+            add_tag2work(work_id,tag_ids=tag_id_list)#直写入数据库
 
-        for key,value in tag_map.items():
-            if '|' in key:
-                #有多个关键字
-                match=True
-                for k in key.split('|'):
-                    if k not in data.get("jp_title"):
-                        match=False
-                if match:#全匹配后写入
-                    for v in (value if isinstance(value,list) else [value]):
-                        tag_id_list=get_tagid_by_keyword(v,match_hole_word=True)
-                        if tag_id_list:
-                            add_tag2work(work_id,tag_ids=tag_id_list)
 
-            else:#单个关键字
-                if key in data.get("jp_title"):
-                    #找到了，写入
-                    for v in (value if isinstance(value,list) else [value]):
-                        tag_id_list=get_tagid_by_keyword(v,match_hole_word=True)
-                        if tag_id_list:
-                            add_tag2work(work_id,tag_ids=tag_id_list)
+
 

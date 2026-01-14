@@ -286,7 +286,8 @@ def timeit(func):
         start = time.perf_counter()
         result = func(*args, **kwargs)
         end = time.perf_counter()
-        logging.debug(f"⏱ {func.__name__} 执行耗时: {end - start:.4f} 秒")
+        #logging.debug(f"⏱ {func.__name__} 执行耗时: {end - start:.4f} 秒")
+        print(f"⏱ {func.__name__} 执行耗时: {end - start:.4f} 秒")
         return result
     return wrapper
 
@@ -496,3 +497,44 @@ def play_video_with_default_player(self):
 def play_video(video_path: Path):
     """用系统默认播放器打开视频"""
     os.startfile(video_path)
+
+
+def load_tag_map_from_json()->dict:
+    '''从json格式里读要映射的tag_map表'''
+    from core.database.query import get_tagid_by_keyword
+    from core.database.insert import add_tag2work
+    import json
+    from config import TAG_MAP_PATH
+    with open(TAG_MAP_PATH, "r", encoding="utf-8") as f:
+        return json.load(f)
+    
+
+def text2tag_id_list(text:str)->list:
+    '''检测输入的文字，根据tag_map映射表去匹配相应的tag_id输出匹配的列表'''
+    from core.database.query import get_tagid_by_keyword
+    from core.database.insert import add_tag2work
+
+    from utils.utils import load_tag_map_from_json
+    tag_map=load_tag_map_from_json()
+
+    tag_id_set=set()#空集
+    for key,value in tag_map.items():
+        match=False#标记
+        if '|' in key:#有多个关键字
+            match=True#默认是成功的，有一个关键词找不到就是失败
+            for k in key.split('|'):
+                if k not in text:
+                    match=False
+                    break
+        else:#单个关键字
+            if key in text:#找到了，写入
+                match=True
+
+        if match:
+            for v in (value if isinstance(value,list) else [value]):
+                tag_id_list=get_tagid_by_keyword(v,match_hole_word=True)
+                if tag_id_list:
+                    tag_id_set |= set(tag_id_list)
+
+    return list(tag_id_set)
+

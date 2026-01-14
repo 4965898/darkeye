@@ -185,6 +185,7 @@ class ViewModel(QObject):
 
     def get_tag(self)->list[int]: return self.model._tag
     def set_tag(self, value:list[int]):
+        '''设置tag的id列表'''
         if self.model._tag != value:
             self.model._tag = value
             self.tag_changed.emit(value)
@@ -559,6 +560,12 @@ class ViewModel(QObject):
         work_id = get_workid_by_serialnumber(self.get_serial_number().strip())
         if work_id:
             global_signals.work_clicked.emit(work_id)
+
+    def appendTags(self,tag_list:list[int]):
+        '''添加tag,不重复'''
+        new_tag_list=list(set(self.tag)|set(tag_list))
+        self.set_tag(new_tag_list)
+
 #----------------------------------------------------------
 #                        翻译函数
 #----------------------------------------------------------
@@ -604,8 +611,8 @@ class AddWorkTabPage3(LazyWidget):
         #第一列控件
         self.crawler_toolbox=CrawlerToolBox()
         self.coverdroplabel=CoverDropWidget()#加载拖动图片控件
-        self.coverdroplabel.setMinimumWidth(400)
-        self.coverdroplabel.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.coverdroplabel.setMaximumWidth(200)
+        self.coverdroplabel.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
 
         #第一列布局
         leftleftlayout=QVBoxLayout()
@@ -627,7 +634,7 @@ class AddWorkTabPage3(LazyWidget):
         self.input_serial_number=CompleterLineEdit(get_serial_number)
 
         self.btn_load_form_db=QPushButton("加载")
-        self.btn_jump_detail=IconPushButton("eye.png")
+        self.btn_jump_detail=IconPushButton("eye.svg")
 
 
         self.label_time=QLabel("发布日期：")
@@ -651,9 +658,9 @@ class AddWorkTabPage3(LazyWidget):
         self.label_jp_story=QLabel("日文剧情")
         self.jp_story=QPlainTextEdit()
 
-        self.btn_trans_title=IconPushButton("languages.png")
+        self.btn_trans_title=IconPushButton(iconpath="languages.svg",iconsize=16,outsize=16)
         self.btn_trans_title.setToolTip("翻译日文标题成中文并写在上方 中文标题框 内")
-        self.btn_trans_story=IconPushButton("languages.png")
+        self.btn_trans_story=IconPushButton(iconpath="languages.svg",iconsize=16,outsize=16)
         self.btn_trans_story.setToolTip("翻译日文剧情成中文并写在上方 中文剧情框 内")
         
     
@@ -968,12 +975,16 @@ class AddWorkTabPage3(LazyWidget):
             # 构建目标路径（自动处理跨平台路径分隔符）
             dst_path = Path(TEMP_PATH) / dst_name#这个是个绝对地址
             imageurl=data['cover']
-            logging.debug(self.viewmodel.work_id)
-            if self.viewmodel.work_id is not None:
-                update_fanza_cover_url(self.viewmodel.work_id,imageurl)#更新封面的缓存
-            worker=Worker(lambda:download_image(imageurl,dst_path))#下载图片放后台线程
-            worker.signals.finished.connect(lambda result:self._on_download_image_result(result,dst_path))
-            QThreadPool.globalInstance().start(worker)
+            if imageurl!='':#如果是空的导致运行两次后会崩溃比如LUXU-1788这个下载图片的例子
+                logging.debug(self.viewmodel.work_id)
+                if self.viewmodel.work_id is not None:
+                    update_fanza_cover_url(self.viewmodel.work_id,imageurl)#更新封面的缓存
+                
+                worker=Worker(lambda:download_image(imageurl,dst_path))#下载图片放后台线程
+                worker.signals.finished.connect(lambda result:self._on_download_image_result(result,dst_path))
+                QThreadPool.globalInstance().start(worker)
+            else:
+                self.download_image_missav()
 
     @Slot(tuple,Path)
     def _on_download_image_result(self,result:tuple,dst_path:Path):
@@ -1015,18 +1026,32 @@ class AddWorkTabPage3(LazyWidget):
 
 
     @Slot(dict)
-    def _on_javtxt_result(self,data):
+    def _on_javtxt_result(self,data:dict):
         '''返回的数据更新到面板上'''
         if data is None:
             logging.warning("爬javtxt产生错误信息")
             self.msg.show_warning("错误","爬javtxt产生错误信息，可能被阻挡了，可能爬虫策略失效，请稍后再试")
             return
-        if self.crawler_toolbox.cb_cn_title.isChecked():
-            self.viewmodel.set_cn_title(data["cn_title"])
+        if self.crawler_toolbox.cb_cn_title.isChecked():#测试SNIS-495，先这样要加速的时候采用后台线程
+            if data["cn_title"]=="" and data["jp_title"]!="":
+                cn_title=asyncio.run(translate_text(data["jp_title"]))
+            else:
+                cn_title=data["cn_title"]
+            self.viewmodel.set_cn_title(cn_title)
         if self.crawler_toolbox.cb_cn_story.isChecked():
-            self.viewmodel.set_cn_story(data["cn_story"])
+            if data["cn_story"]==""and data["jp_story"]!="":
+                cn_story=asyncio.run(translate_text(data["jp_story"]))
+            else:
+                cn_story=data["cn_story"]
+            self.viewmodel.set_cn_story(cn_story)
         if self.crawler_toolbox.cb_jp_title.isChecked():
             self.viewmodel.set_jp_title(data["jp_title"])
+                    #常试性分解tag然后写入
+            from utils.utils import text2tag_id_list
+            tag_id_list=text2tag_id_list(data.get("jp_title"))
+            logging.debug(tag_id_list)
+            if tag_id_list:
+                self.viewmodel.appendTags(tag_id_list)#加载
         if self.crawler_toolbox.cb_jp_story.isChecked():
             self.viewmodel.set_jp_story(data["jp_story"])
 

@@ -1,6 +1,7 @@
 from PySide6.QtWidgets import QLabel,QApplication,QSizePolicy
 from PySide6.QtCore import Qt, Signal,QTimer,QPoint,QSize,Slot,QThreadPool
 from PySide6.QtGui import QMouseEvent
+from controller.GlobalSignalBus import global_signals
 
 
 class ClickableLabel(QLabel):
@@ -25,7 +26,8 @@ class ClickableLabel(QLabel):
         if event.button() == Qt.LeftButton:
             clipboard = QApplication.clipboard()
             clipboard.setText(self.text())
-            self.show_copy_tip()
+            global_signals.status_msg_changed.emit("复制文本到剪贴板")
+            #self.show_copy_tip()
         if self.actress_jump:
             if event.button() == Qt.RightButton:
                 #跳转功能

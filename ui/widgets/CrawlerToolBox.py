@@ -23,7 +23,7 @@ class CrawlerToolBox(QToolBox):
         self.cb_jp_story=QCheckBox("日文故事")
         self.cb_actress=QCheckBox("女优")
         self.cb_actor=QCheckBox("男优")
-        self.btn_get_crawler=IconPushButton("arrow-down-to-line.png",24,32)
+        self.btn_get_crawler=IconPushButton("arrow-down-to-line.svg",24,32)
 
         self.cb_release_date.setChecked(True)
         self.cb_director.setChecked(True)

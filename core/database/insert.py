@@ -135,7 +135,7 @@ def insert_tag(tag_name:str,tag_type_id:int,tag_color:str,tag_detail:str,tag_red
     return success
 
 def add_tag2work(work_id:int,tag_ids:list[int])->bool:
-    '''给作品添加标签,只添加没有的'''
+    '''给作品添加标签,只添加没有的,是直写入数据库'''
     success=False
     try:
         conn = get_connection(DATABASE,False)

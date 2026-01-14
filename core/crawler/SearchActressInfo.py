@@ -12,7 +12,7 @@ from config import DATABASE,ACTRESSIMAGES_PATH
 from core.database.update import update_db_actress,update_actress_image,update_actress_minnano_id
 from pathlib import Path
 from core.crawler.download import download_image
-
+from .basic import fetch_url
 
 #测试情况英文名的都有问题，日向なつ，杏奈，高瀬りな,白石もも重名问题
 #有年份内的重名问题，这个问题可以通过哪年出道的数据来解决
@@ -20,8 +20,19 @@ from core.crawler.download import download_image
 def isActress(response):
     '''判断是否返回多个搜索结果'''
     soup = BeautifulSoup(response.text, 'html.parser')
-    has_section = soup.find("section", class_="main-column list-table") is not None
-    return has_section
+    target = soup.find(class_="headline")
+
+    if target:
+        # 2. 获取标签内的文本
+        text_content = target.get_text()
+        
+        # 3. 判断是否含有“AV女優検索結果”
+        if "AV女優検索結果" in text_content:
+            return True
+        else:
+            return False
+    else:
+        return False
     
 def analyse(resopnse)->dict:
     '''返回标准女优信息页面html后提取信息函数，这个占90%
@@ -46,6 +57,7 @@ def analyse(resopnse)->dict:
     #提取图片地址，方便下载
     # 找到 class="thumb" 的 div
     thumb_div = soup.find('div', class_='thumb')
+    img_src=""
     if thumb_div:
         # 在 thumb_div 中查找 img 标签
         img_tag = thumb_div.find('img')
@@ -293,6 +305,7 @@ def SearchActressInfo()->str:
                     else:
                         logging.warning("未找到女优数据")
                 else:#遇到直接搜索的界面，还有种情况，遇到搜索不出来的界面
+                    logging.info("遇到直接是女优界面")
                     new_data=analyse(response)
                     #更新写入数据库
                     update_db_actress(id,new_data)
@@ -355,8 +368,13 @@ def SearchSingleActressInfo(actress_id,name:str)->bool:
         url="https://www.minnano-av.com/actress"+str(minnano_url)+".html"
     else:#不存在缓存，或者说就就是新添加的
         url=url1+name+url2 #合成的url
-    response = requests.get(url, headers=headers)#实际请求在这里
 
+        
+    response = fetch_url(url=url, headers=headers,timeout=10)
+    if not response:
+        logging.warning("--------------------请求失败--------------------")
+        return False
+    
     if response.status_code == 200:#判断请求成功
         logging.info("--------------------请求成功--------------------")
         if isActress(response):#判断是否是真的女优信息页面
@@ -367,7 +385,11 @@ def SearchSingleActressInfo(actress_id,name:str)->bool:
             urlB=choosehtml(response,name)
             if urlB:
                 url=urlA+urlB
-                response = requests.get(url, headers=headers)
+                response = fetch_url(url=url, headers=headers,timeout=10)
+                if not response:
+                    logging.warning("--------------------请求失败--------------------")
+                    return False
+                
                 if response.status_code == 200:
                     logging.info("--------------------请求成功--------------------")
                     new_data=analyse(response)
@@ -379,11 +401,12 @@ def SearchSingleActressInfo(actress_id,name:str)->bool:
                     success=True
                 else:
                     logging.warning("--------------------请求失败--------------------")
-                    success=False
+                    return False
             else:
                 logging.warning("未找到女优数据")
-                success=False
+                return False
         else:#遇到直接搜索的界面，还有种情况，遇到搜索不出来的界面
+            logging.info("遇到直接是女优界面")
             new_data=analyse(response)
             #更新写入数据库
             update_db_actress(actress_id,new_data)
@@ -393,7 +416,7 @@ def SearchSingleActressInfo(actress_id,name:str)->bool:
             success=True
     else:
         logging.warning("--------------------请求失败--------------------")
-        success=False
+        return False
     return success
 
 

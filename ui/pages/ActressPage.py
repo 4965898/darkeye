@@ -9,7 +9,7 @@ from config import DATABASE
 from core.database.query import get_actressname,get_cup_type
 from core.database.db_utils import attach_private_db,detach_private_db
 from ui.widgets import ActressCard,CompleterLineEdit
-from ui.basic import LazyScrollArea,IconPushButton
+from ui.basic import LazyScrollArea,IconPushButton,RotateButton,ShakeButton
 from ui.base import LazyWidget
 from utils.utils import timeit
 
@@ -68,8 +68,8 @@ class ActressPage(LazyWidget):
         self.scope="公共库范围"
         self.cup=None
 
-        self.spacer_widget = QWidget()
-        self.spacer_widget.setFixedHeight(70)
+        #self.spacer_widget = QWidget()
+        #self.spacer_widget.setFixedHeight(70)
 
         self.filter_widget = QWidget()
         self.filter_widget.setFixedHeight(26)
@@ -85,9 +85,9 @@ class ActressPage(LazyWidget):
         self.info=QLabel()#用来显示信息
         self.info.setFixedWidth(100)
         
-        #self.filter_btn =IconPushButton("search.png")
-        self.btn_eraser=IconPushButton("eraser.png")
-        self.btn_reload=IconPushButton("refresh-cw.png")
+        #self.filter_btn =IconPushButton("search.svg")
+        self.btn_eraser=ShakeButton("eraser.svg")
+        self.btn_reload=RotateButton("refresh-cw.svg")
         #排序选择器
         self.order_combo = QComboBox()
         self.order_combo.addItems(["年龄顺序", "年龄逆序","出道顺序","出道逆序","添加顺序","添加逆序","身高顺序","身高逆序","罩杯顺序","罩杯逆序","腰臀比顺序","腰臀比逆序"])
@@ -113,7 +113,7 @@ class ActressPage(LazyWidget):
         #总体布局
         mainlayout = QVBoxLayout(self)
         mainlayout.setContentsMargins(0, 0, 0, 0)
-        mainlayout.addWidget(self.spacer_widget)
+        #mainlayout.addWidget(self.spacer_widget)
         mainlayout.addWidget(self.filter_widget)
         mainlayout.addWidget(self.lazy_area)
         
@@ -303,13 +303,13 @@ WHERE cn LIKE ? OR jp LIKE ? OR en LIKE ? OR kana LIKE ?
             # 向下滚动，隐藏顶部
             if self.filter_widget.isVisible():
                 self.filter_widget.hide()
-                self.spacer_widget.hide()
+                #self.spacer_widget.hide()
 
         elif direction < -5:
             # 向上滚动，显示顶部
             if not self.filter_widget.isVisible():
                 self.filter_widget.show()
-                self.spacer_widget.show()
+                #self.spacer_widget.show()
 
         self.last_scroll_value = value
 

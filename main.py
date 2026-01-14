@@ -1,5 +1,6 @@
 import sys
 from PySide6.QtWidgets import QApplication,QDialog
+
 from ui.main_window import MainWindow
 from core.utils import log_config #全局导入一次就可以用logging来打印了
 import logging
@@ -17,7 +18,8 @@ def load_global_style():
 
 if __name__ == "__main__":
     app = QApplication()
-
+    QApplication.setAttribute(Qt.AA_EnableHighDpiScaling)
+    QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps) # 关键：使用高分位图
     if is_first_lunch():#判断是否是第一次启动
         from ui.dialogs import TermsDialog
         dialog=TermsDialog()

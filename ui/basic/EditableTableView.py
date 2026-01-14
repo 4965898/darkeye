@@ -154,10 +154,10 @@ class EditableTableView(QWidget):
 
     def setup_buttons(self):
         """创建按钮"""
-        #self.btn_up = IconPushButton("triangle-up.png")
-        #self.btn_down = IconPushButton("triangle-down.png")
-        self.btn_add = IconPushButton("list-plus.png")
-        self.btn_delete = IconPushButton("list-x.png")
+        #self.btn_up = IconPushButton("triangle-up.svg")
+        #self.btn_down = IconPushButton("triangle-down.svg")
+        self.btn_add = IconPushButton("list-plus.svg")
+        self.btn_delete = IconPushButton("list-x.svg")
         #self.btn_refresh = QPushButton("刷新")
         #self.btn_save = QPushButton("保存")
         #self.btn_print = QPushButton("打印数据")

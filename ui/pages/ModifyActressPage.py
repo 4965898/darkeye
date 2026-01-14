@@ -10,10 +10,10 @@ from enum import Enum
 from config import settings,WORKCOVER_PATH
 from ui.base import LazyWidget
 from controller.MessageService import MessageBoxService,IMessageService
+from controller import TaskManager
 from ui.basic import ToggleSwitch,MovableTableView,IconPushButton
 from core.database.query import get_actress_allname
 from ui.widgets import ActressAvatarDropWidget
-
 
 class Model():
     '''纯放要显示数据的model'''
@@ -221,18 +221,22 @@ class ViewModel(QObject):
         from core.crawler.SearchActressInfo import SearchSingleActressInfo
         from core.crawler.Worker import Worker
 
+        taskmanager=TaskManager.instance()
+        task=taskmanager.add_task("爬虫更新单个女优数据")
         logging.info(self.actress_id)
         logging.info(self.actress_name[0]["jp"])
         worker=Worker(lambda:SearchSingleActressInfo(self.actress_id,self.actress_name[0]["jp"]))#传一个函数名进去，注意这里
-        worker.signals.finished.connect(self.on_result)
+        worker.signals.finished.connect(lambda result:self.on_result(result,self.actress_name[0]["jp"],task))
         QThreadPool.globalInstance().start(worker)
 
     @Slot(bool)
-    def on_result(self,result:bool):#Qsignal回传信息
+    def on_result(self,result:bool,actressName:str,task):#Qsignal回传信息
+        from controller.GlobalSignalBus import global_signals
+        taskmanager=TaskManager.instance()
         if result:
-            self.msg.show_info("提示消息","查询完成")
+            taskmanager.complete_task(task,"查询完成")
         else:
-            self.msg.show_warning("提示消息","查询失败")
+            taskmanager.error_task(task,"查询失败")
 
     @Slot()
     def print(self):
@@ -274,7 +278,7 @@ class ModifyActressPage(LazyWidget):
     def init_ui(self):
         mainlayout = QVBoxLayout(self)
         mainlayout.setContentsMargins(0, 0, 0, 0)
-        mainlayout.addSpacing(70)
+        #mainlayout.addSpacing(70)
         
         hlayout=QHBoxLayout()
         mainlayout.addLayout(hlayout)
@@ -307,8 +311,8 @@ class ModifyActressPage(LazyWidget):
         self.btn_minnano=QPushButton("minnano-av")
         self.smallwidget=QWidget()#放一些小按钮
         self.smalllayout=QHBoxLayout(self.smallwidget)
-        self.btn_delete=IconPushButton("trash-2.png")
-        self.btn_show=IconPushButton("eye.png")
+        self.btn_delete=IconPushButton("trash-2.svg")
+        self.btn_show=IconPushButton("eye.svg")
         self.smalllayout.addWidget(self.btn_show)
         self.smalllayout.addWidget(self.btn_delete)
         

@@ -6,12 +6,13 @@ import logging
 
 from config import ICONS_PATH
 from core.database.query import getTags
-from ui.basic import WaterfallLayout,VLabel,IconPushButton
+from ui.basic import WaterfallLayout,VLabel,IconPushButton,RotateButton,ShakeButton
 from ui.widgets.text.VerticalTagLabel2 import VerticalTagLabel2
 from controller import MessageBoxService
 from ui.widgets.VerticalTabBar import VerticalTabBar
 from ui.base import SearchLineBase
 from controller.GlobalSignalBus import global_signals
+from utils.utils import timeit
 
 class FloatingPanel(QWidget):
 
@@ -27,7 +28,7 @@ class FloatingPanel(QWidget):
         #hlayout=QHBoxLayout(search_group)
         #hlayout.setContentsMargins(5,0,5,5)
         #self.searchLine=QLineEdit()
-        #self.btn_search=IconPushButton("search.png",iconsize=24,outsize=32)
+        #self.btn_search=IconPushButton("search.svg",iconsize=24,outsize=32)
         #hlayout.addWidget(self.searchLine)
         #hlayout.addWidget(self.btn_search)
 
@@ -107,9 +108,9 @@ class TagSelector4(QWidget):
         self.vlabel=VLabel("作品标签",background_color="#00000000",border_color="#000000")
         self.tag_receive_layout.addWidget(self.vlabel)
         
-        self.btn_clear=IconPushButton("brush-cleaning.png")
-        self.btn_reload_tag=IconPushButton("refresh-cw.png")
-        self.btn_expand=IconPushButton("arrow-right.png")
+        self.btn_clear=ShakeButton("brush-cleaning.svg")
+        self.btn_reload_tag=RotateButton("refresh-cw.svg")
+        self.btn_expand=IconPushButton("arrow-right.svg")
 
         #self.btn_get_tag_ids=QPushButton("获\n得\nid")
         #self.btn_get_tag_ids.setFixedWidth(30)
@@ -300,9 +301,11 @@ class TagSelector4(QWidget):
             # 高亮标签
             label.flash_invert(duration=1000, interval=200) 
 
-
+    @timeit
     def load_tags(self):
-        '''加载tag,这个只运行一次，而且是全部加载到右侧的容器里，后面的操作就是实例移来移去'''
+        '''加载tag,这个只运行一次，而且是全部加载到右侧的容器里，后面的操作就是实例移来移去
+        这个目前非常的消耗时间需要120ms,需要分散加载，看不见的暂时不加载到GUI中
+        '''
         logging.debug("tagselector加载tag数据库")
         tags=getTags()
 
@@ -388,8 +391,11 @@ class TagSelector4(QWidget):
         self.selected_ids.clear()
         self.selection_changed.emit()
 
+    @timeit
     def reload_tag(self):
-        '''重新从数据库里加载tag，本来在上面的东西还是移上去'''
+        '''重新从数据库里加载tag，本来在上面的东西还是移上去
+        这个东西目前来说很消耗时间需要150ms,导致了动画的卡顿
+        '''
         logging.debug("重新加载tag数据库")
         #记住当前的index
         index=self.panel.tag_emit_tabwidget.currentIndex()
@@ -424,10 +430,10 @@ class TagSelector4(QWidget):
     def toggle_panel(self):
         if self.panel_visible:
             self.panel.animate_width(0)
-            self.btn_expand.set_icon("arrow-right.png")
+            self.btn_expand.set_icon("arrow-right.svg")
         else:
             self.panel.animate_width(self.panel_fix_width)
-            self.btn_expand.set_icon("arrow-left.png")
+            self.btn_expand.set_icon("arrow-left.svg")
         self.panel_visible = not self.panel_visible
 
 

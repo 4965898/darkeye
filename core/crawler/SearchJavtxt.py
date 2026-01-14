@@ -5,7 +5,7 @@ from utils.utils import covert_fanza,serial_number_equal
 import logging
 from core.database.update import update_work_javtxt
 from core.database.query import get_workid_by_serialnumber,get_javtxt_id_by_serialnumber
-
+from .basic import fetch_url
 
 '''需要非日本ip才能爬'''
 def search_work(serial_number)->str|None:
@@ -146,7 +146,12 @@ def top_actresses():
     url="https://javtxt.com/top-actresses"
     headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:141.0) Gecko/20100101 Firefox/141.0",
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"}
-    response = requests.get(url, headers=headers)
+    
+    response = fetch_url(url=url, headers=headers,timeout=10)
+    if not response:
+        logging.warning("-----请求失败-----")
+        return False
+
     result:list[str]=[]
     if response.status_code == 200:#判断请求成功
         logging.info("-----请求成功-----")
@@ -157,18 +162,21 @@ def top_actresses():
     else:
         logging.info("-----请求失败-----")
         logging.info(response.status_code)
-        return None
+        return False
+    
+    #下面是写入
     logging.info(f"获取到热门女优{result}")
     from core.database.query import exist_actress
     for actress in result[:50]:#只取前50个
         actress= actress.replace("卜", "ト")
         if not exist_actress(actress):
             from core.database.insert import InsertNewActress
-            InsertNewActress(actress,actress)
-            logging.info(f"添加热门女优{actress}")
+            if InsertNewActress(actress,actress):
+                logging.info(f"添加热门女优{actress}")
+
             from controller.GlobalSignalBus import global_signals
             global_signals.actress_data_changed.emit()
         else:
             logging.info(f"热门女优{actress}已存在")
-    return result
+    return True
 

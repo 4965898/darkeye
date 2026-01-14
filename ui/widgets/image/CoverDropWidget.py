@@ -21,7 +21,7 @@ class CoverDropWidget(QLabel):
     def __init__(self):
         super().__init__()
         self._aspect_ratio = 0.7 # 宽高比 
-        self.setMaximumHeight(800)
+        self.setMaximumHeight(500)
         self.setScaledContents(False)  # 关闭默认拉伸
         self.setAcceptDrops(True)  # 允许拖放
         self.setText("把JAV封面拖进来")
@@ -65,7 +65,7 @@ class CoverDropWidget(QLabel):
 
         menu.exec(event.globalPos())
 
-    # ✅ 新增：打开图片所在文件夹
+    # 新增：打开图片所在文件夹
     def open_image_folder(self):
         if not self._path or not os.path.exists(self._path):
             self.msg.show_info("错误", "当前没有可打开的图片。")

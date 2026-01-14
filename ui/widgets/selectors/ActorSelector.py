@@ -46,11 +46,11 @@ class ActorSelector(QWidget):
         self.label_actor.setAlignment(Qt.AlignCenter)
 
         # 按钮
-        self.btn_to_left = IconPushButton("arrow-down.png")
+        self.btn_to_left = IconPushButton("arrow-down.svg")
         self.btn_to_left.setToolTip("选择参演男优")
-        self.btn_to_right = IconPushButton("arrow-up.png")
+        self.btn_to_right = IconPushButton("arrow-up.svg")
         self.btn_to_right.setToolTip("移除参演男优")
-        self.btn_add_actor=IconPushButton("circle-plus.png")
+        self.btn_add_actor=IconPushButton("circle-plus.svg")
         self.btn_add_actor.setToolTip("添加男优并选择")
 
         # 男优中间按钮布局

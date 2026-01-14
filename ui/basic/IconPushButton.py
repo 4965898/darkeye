@@ -3,14 +3,18 @@ from PySide6.QtCore import QSize,Qt
 from PySide6.QtGui import QIcon
 import logging
 from config import ICONS_PATH
-
+from utils.image import create_colored_icon,create_colored_icon_vector
 
 class IconPushButton(QPushButton):
     '''专门的只有icon的PushButton'''
 
-    def __init__(self,iconpath:str="arrow-up.png",iconsize=20,outsize=24,hoverable=True):
+    def __init__(self,iconpath:str="arrow-up.png",iconsize=24,outsize=24,hoverable=True,color="#000000"):
         super().__init__()
-        self.setIcon(QIcon(str(ICONS_PATH / iconpath)))
+        if iconpath.endswith(".svg"):
+            qicon=create_colored_icon_vector(str(ICONS_PATH / iconpath),color,iconsize,iconsize)
+            self.setIcon(qicon)
+        else:
+            self.setIcon(QIcon(str(ICONS_PATH / iconpath)))
         self.setCursor(Qt.PointingHandCursor)
         self.setFlat(True)
         self.setIconSize(QSize(iconsize,iconsize))

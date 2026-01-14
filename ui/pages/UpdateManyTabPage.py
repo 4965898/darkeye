@@ -1,8 +1,11 @@
 from PySide6.QtWidgets import QPushButton, QHBoxLayout,QVBoxLayout
+from PySide6.QtCore import Slot,QThreadPool
 import logging
 from core.crawler.download import update_title_story_db
 from core.crawler.SearchJavtxt import top_actresses
 from ui.base import LazyWidget
+from controller import TaskManager
+
 
 class UpdateManyTabPage(LazyWidget):
     #软件的设置
@@ -22,7 +25,7 @@ class UpdateManyTabPage(LazyWidget):
 
         #self.btn_search_actor.clicked.connect(update_actor_db)
         self.btn_search_story.clicked.connect(update_title_story_db)
-        self.btn_search_actress.clicked.connect(top_actresses)
+        self.btn_search_actress.clicked.connect(self.task_search_actress)
 
         layout1=QHBoxLayout()
         layout1.addWidget(self.btn_search_story)
@@ -32,6 +35,34 @@ class UpdateManyTabPage(LazyWidget):
 
         mainlayout=QVBoxLayout(self)
         mainlayout.addLayout(layout1)
+
+    @Slot()
+    def task_search_actress(self):
+        taskmanager=TaskManager.instance()
+        task=taskmanager.add_task("更新热门女优前50")
+        if top_actresses():
+            taskmanager.complete_task(task,"更新完成")
+        else:
+            taskmanager.error_task(task,"失败")
+
+
+    @Slot()
+    def searchActressinfo(self):
+        #开始后台线程
+        from core.crawler.SearchActressInfo import actress_need_update,SearchActressInfo
+        from core.crawler.Worker import Worker
+
+        if actress_need_update():
+            worker=Worker(SearchActressInfo)#传一个函数名进去
+            worker.signals.finished.connect(self.on_result)
+            QThreadPool.globalInstance().start(worker)
+            self.msg.show_info("开始更新","开始更新，可能需要一段时间")
+        else:
+            self.msg.show_info("提示","没有要更新的女优")
+
+    @Slot(object)
+    def on_result(self,result:str):#Qsignal回传信息
+        self.msg.show_info("提示",result)
 
 
 

@@ -3,7 +3,7 @@ from PySide6.QtWidgets import QHBoxLayout, QWidget, QLabel,QSizePolicy,QVBoxLayo
 from PySide6.QtCore import Signal,QThreadPool,Slot,Qt,QTimer
 import sqlite3,logging
 from ui.widgets import CompleterLineEdit,CoverCard,TagSelector4
-from ui.basic import LazyScrollArea,IconPushButton,HorizontalScrollArea
+from ui.basic import LazyScrollArea,IconPushButton,HorizontalScrollArea,RotateButton,ShakeButton
 from config import DATABASE
 from core.database.query import get_actressname,getUniqueDirector,get_actorname,get_serial_number,get_maker_name
 from core.database.db_utils import attach_private_db,detach_private_db
@@ -15,6 +15,8 @@ class WorkPage(LazyWidget):
     '''主要是展示作品的页面，包括筛选的装置，比如标签筛选，包括滚动加载'''
     def __init__(self):
         super().__init__()
+        #这里后台执消耗时间的操作，比如首次数据的加载
+
         
     def _lazy_load(self):
         logging.info("----------加载作品界面----------")
@@ -37,8 +39,8 @@ class WorkPage(LazyWidget):
         self.order="添加逆序"#排序的内在的值
         self.scope="公共库范围"
 
-        self.spacer_widget = QWidget()
-        self.spacer_widget.setFixedHeight(70)
+        #self.spacer_widget = QWidget()
+        #self.spacer_widget.setFixedHeight(70)
 
 
         #横向的区域
@@ -100,9 +102,9 @@ class WorkPage(LazyWidget):
         self.info=QLabel()#用来显示信息
         self.info.setFixedWidth(100)
 
-        #self.filter_btn =IconPushButton("search.png")
-        self.btn_reload=IconPushButton("refresh-cw.png")
-        self.btn_eraser=IconPushButton("eraser.png")
+        #self.filter_btn =IconPushButton("search.svg")
+        self.btn_reload=RotateButton("refresh-cw.svg")
+        self.btn_eraser=ShakeButton("eraser.svg")
 
         #排序选择器
         self.order_combo = QComboBox()
@@ -143,7 +145,7 @@ class WorkPage(LazyWidget):
         #总体布局
         mainlayout = QVBoxLayout(self)
         mainlayout.setContentsMargins(0, 0, 0, 0)
-        mainlayout.addWidget(self.spacer_widget)
+        #mainlayout.addWidget(self.spacer_widget)
         mainlayout.addWidget(self.filter_widget)
         mainlayout.addLayout(self.hlayout)
 
@@ -242,11 +244,15 @@ class WorkPage(LazyWidget):
 
     def update_info(self):
         '''更新查询到几条数据'''
-        if self.load_data(0,0,True) is None:
+        num=len(self.load_data(0,0,True))
+        if num is None:
             self.info.setText("没有查询到数据")
         else:
-            self.info.setText("过滤总数:"+str(len(self.load_data(0,0,True))))
+            logging.debug(f"过滤总数:{num}")
+            self.info.setText("过滤总数:"+str(num))
+            
 
+    @timeit
     def load_data(self, page_index: int, page_size: int,count:bool=False)->tuple:
         """返回一个页面的 CoverCard 所需要的数据,这个是非常的快的，不消耗时间"""
         offset = page_index * page_size
@@ -428,7 +434,7 @@ HAVING COUNT(DISTINCT wtr2.tag_id) = ?
         if not count:
             query +=f"{order} LIMIT ? OFFSET ?"#最后拼这个
             params.extend([page_size, offset])
-        #logging.debug(f"WorkPageExecute SQL\n{query}")
+        logging.debug(f"WorkPageExecute SQL\n{query}")
         #logging.debug(f"{params}")
 
         with sqlite3.connect(f"file:{DATABASE}?mode=ro",uri=True) as conn:
@@ -440,7 +446,7 @@ HAVING COUNT(DISTINCT wtr2.tag_id) = ?
 
         return results
 
-
+    
     def load_page(self, page_index: int, page_size: int) -> list[CoverCard]:
         """返回一个页面的 CoverCard 列表，在这里进行实际的构造"""
         data=self.load_data(page_index,page_size)
@@ -472,14 +478,14 @@ HAVING COUNT(DISTINCT wtr2.tag_id) = ?
             # 向下滚动，隐藏顶部
             if self.filter_widget.isVisible():
                 self.filter_widget.hide()
-                self.spacer_widget.hide()
+                #self.spacer_widget.hide()
                 self.tagselector.hide()
 
         elif direction < -5:
             # 向上滚动，显示顶部
             if not self.filter_widget.isVisible():
                 self.filter_widget.show()
-                self.spacer_widget.show()
+                #self.spacer_widget.show()
                 self.tagselector.show()
 
         self.last_scroll_value = value

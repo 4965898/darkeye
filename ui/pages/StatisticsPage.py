@@ -11,7 +11,7 @@ class StatisticsPage(QWidget):
         mainlayout = QVBoxLayout(self)
         mainlayout.setContentsMargins(0, 0, 0, 0)
         
-        mainlayout.addSpacing(70)
+        #mainlayout.addSpacing(70)
         
         self.tab_widget=QTabWidget()
         plot_tabpage=PlotTabPage()

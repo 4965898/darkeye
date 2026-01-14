@@ -331,6 +331,7 @@ class CoverBrowser(QWidget):
 
     def createbuttons(self):
         '''这个是按钮层'''
+        from utils.image import create_colored_icon_vector
         self.prev_button = QPushButton()
         self.next_button = QPushButton()
 
@@ -346,8 +347,10 @@ class CoverBrowser(QWidget):
             QSizePolicy.Expanding
         )
         self.next_button.setCursor(Qt.PointingHandCursor) 
+
         
-        self.next_button.setIcon(QIcon(str(ICONS_PATH / "chevron-right.png")))
+
+        self.next_button.setIcon(create_colored_icon_vector(str(ICONS_PATH / "chevron-right.svg"),"#CCCCCC",48,48))
         self.next_button.setIconSize(QSize(48,48))
         self.next_button.setStyleSheet("""
             QPushButton {
@@ -363,7 +366,7 @@ class CoverBrowser(QWidget):
             QSizePolicy.Expanding
         )
         self.prev_button.setCursor(Qt.PointingHandCursor) 
-        self.prev_button.setIcon(QIcon(str(ICONS_PATH / "chevron-left.png")))
+        self.prev_button.setIcon(create_colored_icon_vector(str(ICONS_PATH / "chevron-left.svg"),"#CCCCCC",48,48))
         self.prev_button.setIconSize(QSize(48,48))
         self.prev_button.setStyleSheet("""
             QPushButton {

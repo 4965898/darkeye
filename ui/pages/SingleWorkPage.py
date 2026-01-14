@@ -153,9 +153,9 @@ class WorkInfo(QWidget):
         self.label_layout.addWidget(self.label_tag)
 
         self.heart=HeartLabel()
-        self.trash=IconPushButton("trash-2.png",24,24)
-        self.modify=IconPushButton("square-pen.png",24,24)
-        self.watch=IconPushButton("tv.png",24,24)
+        self.trash=IconPushButton("trash-2.svg",24,24,True,color="#FFFFFF")
+        self.modify=IconPushButton("square-pen.svg",24,24,True,color="#FFFFFF")
+        self.watch=IconPushButton("tv.svg",24,24,True,color="#FFFFFF")
         
         tool_v_layout=QVBoxLayout()
         tool_v_layout.addWidget(self.heart,0,Qt.AlignCenter)
@@ -186,14 +186,14 @@ class WorkInfo(QWidget):
 
         mainlayout.addStretch()
 
-        
+        mainlayout.addLayout(tool_v_layout)
         mainlayout.addWidget(self.label)
         mainlayout.addWidget(self.actress)
         mainlayout.addLayout(director_v_layout)
         mainlayout.addWidget(self.story, 0, Qt.AlignLeft|Qt.AlignTop)  # stretch改为0，让它根据内容决定宽度
         mainlayout.addLayout(serialnumber_v_layout)
         mainlayout.addWidget(self.title, 0, Qt.AlignLeft|Qt.AlignTop)
-        mainlayout.addLayout(tool_v_layout)
+        
 
         self.signal_connect()
         
@@ -403,7 +403,7 @@ class SingleWorkPage(LazyWidget):
         logging.info("----------加载单独作品界面----------")
         mainlayout = QVBoxLayout(self)
         mainlayout.setContentsMargins(0, 0, 0, 0)
-        mainlayout.addSpacing(70)
+        #mainlayout.addSpacing(70)
 
         self.cover=SingleWork()
 

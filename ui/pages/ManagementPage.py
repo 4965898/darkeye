@@ -21,7 +21,7 @@ class ManagementPage(QWidget):
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         mainlayout = QVBoxLayout(self)
         mainlayout.setContentsMargins(0, 0, 0, 0)
-        mainlayout.addSpacing(72)
+        #mainlayout.addSpacing(72)
 
         self.msg=MessageBoxService(self)
         # 工具栏区域
@@ -75,7 +75,7 @@ class ManagementPage(QWidget):
         btn_reNewAdress=QToolButton()
         btn_reNewAdress.setText("更新女优数据")
         btn_reNewAdress.setToolTip("根据标记自动更新女优的数据，包括身高，三维，罩杯，出生年月，出道日期，照片")
-        btn_reNewAdress.setIcon(QIcon(str(ICONS_PATH / "refresh-cw.png")))
+        btn_reNewAdress.setIcon(QIcon(str(ICONS_PATH / "refresh-cw.svg")))
         btn_reNewAdress.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
 
         btn_addMasturbate=QToolButton()
@@ -105,13 +105,13 @@ class ManagementPage(QWidget):
 
 
         # 事件连接
-        btn_addAdress.clicked.connect(self.openAddActressDialog)
-        btn_reNewAdress.clicked.connect(self.searchActressinfo)
-        btn_addWork.clicked.connect(self.openAddQuickWorkDialog)
-        btn_addMasturbate.clicked.connect(self.openAddMasturbationDialog)
-        btn_addSex.clicked.connect(self.openAddMakeLoveDialog)
-        btn_addGenitalAarousal.clicked.connect(self.openAddSexualArousalDialog)
-        btn_addActor.clicked.connect(self.openAddActorDialog)
+        #btn_addAdress.clicked.connect(self.openAddActressDialog)
+        #btn_reNewAdress.clicked.connect(self.searchActressinfo)
+        #btn_addWork.clicked.connect(self.openAddQuickWorkDialog)
+        #btn_addMasturbate.clicked.connect(self.openAddMasturbationDialog)
+        #btn_addSex.clicked.connect(self.openAddMakeLoveDialog)
+        #btn_addGenitalAarousal.clicked.connect(self.openAddSexualArousalDialog)
+        #btn_addActor.clicked.connect(self.openAddActorDialog)
 
 
 
@@ -143,60 +143,9 @@ class ManagementPage(QWidget):
         """)
         return toolbar
 
-    @Slot()
-    def openAddActorDialog(self):
-        from ui.dialogs import AddActorDialog
-        dialog=AddActorDialog()
-        dialog.exec()
 
-    @Slot()
-    def openAddSexualArousalDialog(self):
-        from ui.dialogs import AddSexualArousalDialog
-        dialog=AddSexualArousalDialog()
-        dialog.exec()
-
-    @Slot()
-    def openAddMasturbationDialog(self):
-        from ui.dialogs import AddMasturbationDialog
-        dialog=AddMasturbationDialog()
-        dialog.exec()
     
-    @Slot()
-    def openAddActressDialog(self):
-        from ui.dialogs import AddActressDialog
-        dialog = AddActressDialog()
-        dialog.success.connect(self.worktab.actressselector.handle_actress_result)
-        dialog.exec()  # 模态显示对话框，阻塞主窗口直到关闭
 
-    @Slot()
-    def openAddQuickWorkDialog(self):
-        from ui.dialogs import AddQuickWork
-        dialog=AddQuickWork()
-        dialog.exec()
-
-    @Slot()
-    def openAddMakeLoveDialog(self):
-        from ui.dialogs import AddMakeLoveDialog
-        dialog=AddMakeLoveDialog()
-        dialog.exec()
-
-    @Slot()
-    def searchActressinfo(self):
-        #开始后台线程
-        from core.crawler.SearchActressInfo import actress_need_update,SearchActressInfo
-        from core.crawler.Worker import Worker
-
-        if actress_need_update():
-            worker=Worker(SearchActressInfo)#传一个函数名进去
-            worker.signals.finished.connect(self.on_result)
-            QThreadPool.globalInstance().start(worker)
-            self.msg.show_info("开始更新","开始更新，可能需要一段时间")
-        else:
-            self.msg.show_info("提示","没有要更新的女优")
-
-    @Slot(object)
-    def on_result(self,result:str):#Qsignal回传信息
-        self.msg.show_info("提示",result)
         
 
 

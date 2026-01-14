@@ -20,7 +20,7 @@ def download_image(url, save_path)->tuple[bool,str]:
         print(f"图片已保存到: {save_path}")
         return True,"成功下载"
     except Exception as e:
-        print(f"下载失败: {e}")
+        print(f"下载图片失败: {e}")
         return False,str(e)
 
 def update_title_story_db():

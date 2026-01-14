@@ -2,6 +2,9 @@ import sys
 from PySide6.QtWidgets import QApplication, QMainWindow, QLabel
 from PySide6.QtCore import Qt, QRect, QPoint
 from PySide6.QtGui import QCursor
+import sys
+import os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 MARGIN = 8  # 可拉伸边缘范围
 
@@ -13,11 +16,13 @@ class FramelessWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.Window)
+        #self.setWindowFlag(Qt.WindowTitleHint, False)      # 隐藏标题文字和按钮
         self.setMinimumSize(400,300)
         #self.setAttribute(Qt.WA_TranslucentBackground)
         self.setMouseTracking(True)  # 使 mouseMoveEvent 在不按键时也能响应
 
         # 内部状态
+        
 
         self._is_resizing = False
         self._resize_dir = None
@@ -179,3 +184,8 @@ class FramelessWindow(QMainWindow):
             self.showNormal()
             print("正常")
 
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
+    window = FramelessWindow()
+    window.show()
+    sys.exit(app.exec())

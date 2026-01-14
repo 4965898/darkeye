@@ -16,7 +16,7 @@ class TermsDialog(QDialog):
 
         self.setWindowTitle("用户使用条款")
 
-        self.setWindowIcon(QIcon(str(ICONS_PATH / "jav.png")))   
+        self.setWindowIcon(QIcon(str(ICONS_PATH / "logo.svg")))   
         self.setModal(True)
         self.setFixedSize(500, 400)
 

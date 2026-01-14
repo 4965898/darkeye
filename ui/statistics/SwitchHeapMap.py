@@ -20,8 +20,8 @@ class SwitchHeapMap(QWidget):
         self.buttonlist=ButtonList(year_list)
         self.buttonlist.setFixedHeight(200)
         # 左右切换按钮
-        self.btn_prev =IconPushButton("arrow-up.png")
-        self.btn_next =IconPushButton("arrow-down.png")
+        self.btn_prev =IconPushButton("arrow-up.svg")
+        self.btn_next =IconPushButton("arrow-down.svg")
 
         today_year = datetime.today().year# 获取当前年份
         # 绑定按钮点击

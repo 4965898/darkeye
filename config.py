@@ -73,8 +73,8 @@ PRIVATE_DATABASE=get_PATH("Paths/PrivateDatabase","resources/private/private.db"
 PRIVATE_DATABASE_BACKUP_PATH=get_PATH("Paths/PrivateDatabaseBackups","resources/private/private_backup/")#私有数据库库备份地址
 
 SENSITIVE_WORDS_PATH=get_PATH("Paths/SensitiveWords","resources/config/sensitive_words.txt")#敏感词文件地址
-
 TAG_MAP_PATH=get_PATH("Paths/TagMap","resources/config/tag_map.json")#敏感词文件地址
+USER_SHORTCUT_PATH=get_PATH("Paths/ShortcutMap","resources/config/shortcuts.json")#用户快捷键列表文件地址
 
 SQLPATH=get_PATH("Paths/Sql","resources/sql/")
 ICONS_PATH = get_PATH("Paths/Icons","resources/icons/")#软件图标的地址

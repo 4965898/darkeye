@@ -1,4 +1,5 @@
 
+#这个依赖注入使用，但是现在还是有问题
 from PySide6.QtWidgets import QMessageBox
 from abc import ABC, abstractmethod
 

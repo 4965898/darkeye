@@ -1,5 +1,5 @@
 '''
-这个包里主要都是基础控件，可拿到其他项目里用，只有基础的东西,就是封装好的小组件
+这个包里主要都是基础控件，可拿到其他项目里用，只有基础的东西,就是封装好的小组件，项目独有的放到widget里
 '''
 from .VerticalTextLabel import VerticalTextLabel
 from .ColorPicker import ColorPicker
@@ -19,6 +19,12 @@ from .ToggleSwitch   import ToggleSwitch
 from .MovableTableView import MovableTableView
 from .EditableTableView import EditableTableView
 from .HorizontalScrollArea import HorizontalScrollArea
+from ..widgets.StatusBarNotification import StatusBarNotification
+from .StateToggleButton import StateToggleButton
+from .RotateButton import RotateButton
+from .ShakeButton import ShakeButton
+from .ModernScrollMenu import ModernScrollMenu
+
 
 from .path.MultiplePathManagement import MultiplePathManagement
 from .path.SinglePathManagement import SinglePathManagement

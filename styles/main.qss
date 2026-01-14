@@ -46,7 +46,7 @@ QComboBox::drop-down {
 }
 
 QComboBox::down-arrow {
-    image: url('resources/icons/arrow-down.png'); /* 可换成自己的箭头图标 */
+    image: url('resources/icons/arrow-down.svg'); /* 可换成自己的箭头图标 */
     width: 12px;
     height: 12px;
 }
@@ -233,45 +233,40 @@ QToolBox::tab:hover {
 
 
 
-QTabWidget {
-    color:rgb(0,0,0);
-    background-color:#000000;
-}
-QTabWidget::pane {
-    border-color: #050a0e;
-    background-color: #ffffffff;
-    border-width: 1px;
-    border-radius: 4px;
-    position: absolute;
-    /*top: -0.5em;
-    padding-top: 0.5em;*/
+
+
+
+/* 1. 整个 TabBar 的背景，去掉原生边框 */
+QTabBar {
+    background-color: transparent;
+    border: none;
 }
 
-QTabWidget::tab-bar {
-    alignment: center;
-}
-
+/* 2. 基础 Tab 样式：控制间距、颜色、字体 */
 QTabBar::tab {
-    border-bottom: 1px solid #c0c0c0;
-    padding: 3px;
-    color: #272727;
-    background-color: #fefefc;
-    margin-left:0px;
+    background-color: transparent;
+    color: #888888;              /* 未选中时为灰色 */
+    padding: 5px 0px;          /* 字与字的间距通过 padding 保持一致 */
+    margin-right: 20px;          /* 每个标签之间的额外间距 */
+    font-size: 14px;
+    border: none;
 }
-QTabBar::tab:!last {
-    border-right: 1px solid;
-    border-right-color: #c0c0c0;
-    border-bottom-color: #c0c0c0;
+
+/* 3. 鼠标悬停时的样式（提升交互感） */
+QTabBar::tab:hover {
+    color: #555555;
 }
-QTabBar::tab:first {
-    border-top-left-radius: 4px;
-    border-bottom-left-radius: 4px;
+
+/* 4. 选中状态：变黑、加粗、显示底线 */
+QTabBar::tab:selected {
+    color: #000000;              /* 选中时为黑色 */
+    font-weight: bold;           /* 加粗 */
+    /* 实现底线：通过底部边框模拟 */
+    border-bottom: 2px solid #000000; 
 }
-QTabBar::tab:last {
-    border-top-right-radius: 4px;
-    border-bottom-right-radius: 4px;
-}
-QTabBar::tab:selected, QTabBar::tab:last:selected, QTabBar::tab:hover {
-    color: #FFFFFF;
-    background-color: qlineargradient(spread:pad, x1:0.5, y1:0, x2:0.5, y2:1, stop:0 #84afe5, stop:1 #1168e4);
+
+/* 5. 解决原生 QTabWidget 的边框线问题 */
+QTabWidget::pane {
+    border: none;               /* 去掉下方内容区域的顶部边线 */
+    top: -1px;                  /* 视觉微调，让底线看起来贴合内容 */
 }

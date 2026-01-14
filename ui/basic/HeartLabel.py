@@ -4,6 +4,7 @@ from PySide6.QtCore import Qt, QPropertyAnimation, Property,Signal
 from PySide6.QtGui import QImage,QPainter
 from config import ICONS_PATH
 from pathlib import Path
+from utils.image import svg_to_qimage
 
 class HeartLabel(QLabel):
     '''单个爱心控件，用来表示喜欢或者不喜欢'''
@@ -12,8 +13,10 @@ class HeartLabel(QLabel):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setFixedSize(32,32)
-        self._img_off = QImage(Path(ICONS_PATH/"love_off.png"))
-        self._img_on = QImage(Path(ICONS_PATH/"love_on.png"))
+
+        self._img_off=svg_to_qimage(str(ICONS_PATH/"love-off.svg"),32,32)
+        self._img_on=svg_to_qimage(str(ICONS_PATH/"love-on.svg"),32,32)
+
         self._checked = False
 
         #self.setPixmap(self._pix_off)
@@ -74,7 +77,7 @@ class HeartLabel(QLabel):
         self._anim.setDuration(350)  # 毫秒
         self._anim.setKeyValueAt(0, 1.0)
         self._anim.setKeyValueAt(0.3, 0.7)  # 先缩小
-        self._anim.setKeyValueAt(0.6, 1.2)  # 再放大
+        self._anim.setKeyValueAt(0.6, 1.1)  # 再放大
         self._anim.setKeyValueAt(1, 1.0)    # 回归正常
         self._anim.start()
         # 仅在喜欢时生成粒子

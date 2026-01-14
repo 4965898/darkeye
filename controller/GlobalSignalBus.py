@@ -21,7 +21,9 @@ class GlobalSignalBus(QObject):
     work_clicked=Signal(int)#点击后跳转到单作品详细页
     modify_work_clicked=Signal(str)#点击后跳转到修改作品页面
     modify_actress_clicked=Signal(int)#点击后跳转到修改女优页面
-    modify_actor_clicked=Signal(int)
+    modify_actor_clicked=Signal(int)#点击后跳转男优页面
+
+    status_msg_changed = Signal(str)  # 通知状态栏文字
 
 
 global_signals = GlobalSignalBus()

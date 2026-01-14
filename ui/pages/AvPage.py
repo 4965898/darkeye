@@ -13,7 +13,7 @@ class AvPage(LazyWidget):
         mainlayout = QVBoxLayout(self)
         mainlayout.setContentsMargins(0, 0, 0, 0)
 
-        mainlayout.addSpacing(70)
+        #mainlayout.addSpacing(70)
 
         self.label = QLabel("AV知识科普页面")
         self.label.setAlignment(Qt.AlignCenter)

@@ -53,11 +53,11 @@ class ActressSelector(QWidget):
         )
 
         # 按钮
-        self.btn_to_left = IconPushButton("arrow-down.png")
+        self.btn_to_left = IconPushButton("arrow-down.svg")
         self.btn_to_left.setToolTip("选择参演女优")
-        self.btn_to_right = IconPushButton("arrow-up.png")
+        self.btn_to_right = IconPushButton("arrow-up.svg")
         self.btn_to_right.setToolTip("移除参演女优")
-        self.btn_add_actress=IconPushButton("circle-plus.png")
+        self.btn_add_actress=IconPushButton("circle-plus.svg")
         self.btn_add_actress.setToolTip("添加女优并选择")
 
         self.btn_to_left.clicked.connect(self.move_to_left)
