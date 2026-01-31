@@ -3,16 +3,101 @@ import sys
 root_dir = Path(__file__).resolve().parents[3]  # 上两级
 sys.path.insert(0, str(root_dir))
 import re
-from PySide6.QtWidgets import QTextEdit, QCompleter
-from PySide6.QtCore import Qt, Signal, QStringListModel
-from PySide6.QtGui import QTextCursor, QDesktopServices
+from PySide6.QtWidgets import QTextEdit, QCompleter, QLabel, QWidget, QVBoxLayout, QApplication
+from PySide6.QtCore import Qt, Signal, QStringListModel, QEvent, QTimer, QSize
+from PySide6.QtGui import QTextCursor, QDesktopServices, QPixmap,QImage
 from ui.widgets.text.WikiHighlighter import WikiHighlighter
 from ui.navigation.router import Router
-from core.database.query import get_workid_by_serialnumber
+from core.database.query import get_workid_by_serialnumber, exist_actress, get_actress_info, get_coveriamgeurl
+from config import WORKCOVER_PATH, ACTRESSIMAGES_PATH
+from functools import lru_cache
+
+class ImagePreviewWindow(QWidget):
+    """
+    自动补全时的图片预览窗口
+    """
+    def __init__(self, parent=None):
+        super().__init__(parent, Qt.ToolTip | Qt.FramelessWindowHint)
+        self.setAttribute(Qt.WA_ShowWithoutActivating) # 不抢占焦点
+        
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(2, 2, 2, 2)
+        
+        self.image_label = QLabel()
+        self.image_label.setAlignment(Qt.AlignCenter)
+        layout.addWidget(self.image_label)
+        
+        # 设置样式：白色背景，带边框和阴影
+        self.setStyleSheet("""
+            background-color: #333333;
+            border: 1px solid #555555;
+            border-radius: 4px;
+        """)
+        
+        self.current_path = None
+
+    def show_image(self, path):
+        """显示图片"""
+        if not path:
+            self.hide()
+            return
+            
+        path_str = str(path)
+        if self.current_path == path_str and self.isVisible():
+            return
+            
+        self.current_path = path_str
+        img = QImage(str(path_str))
+        if not img.isNull():
+            w, h = img.width(), img.height()
+            crop_x = w - h * 0.7
+            crop_w = h * 0.7
+            img = img.copy(crop_x, 0, crop_w, h)#裁剪
+            img = img.scaled(
+                QSize(140,200),
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation
+            )
+        # 异步或直接加载图片
+        #pixmap = QPixmap(path_str)
+        #if pixmap.isNull():
+        #    self.hide()
+        #    return
+            
+        # 限制最大高度，保持比例
+        #max_height = 200
+        #if pixmap.height() > max_height:
+        #    pixmap = pixmap.scaledToHeight(max_height, Qt.SmoothTransformation)
+        pixmap=QPixmap.fromImage(img)
+            
+        self.image_label.setPixmap(pixmap)
+        self.resize(pixmap.size() + QSize(4, 4)) # 加上边距
+        self.show()
+
+@lru_cache(maxsize=128)
+def get_image_path_for_text(text):
+    """
+    根据文本（番号或女优名）查找图片路径
+    """
+    if not text:
+        return None
+    text = str(text).strip()
+    
+
+    from core.database.query import get_coverimageurl_
+    # 2. 尝试作为番号查询
+    cover_url = get_coverimageurl_(text)
+    if cover_url:
+        path = WORKCOVER_PATH / cover_url
+        if path.exists():
+            return path
+                
+    return None
 
 class WikiTextEdit(QTextEdit):
     """
     支持 Markdown 高亮和 [[Wikilink]] 点击跳转的编辑器
+    [[跳出自动补全，并且有预览图片的功能
     """
     
     # 信号：当点击了内部链接时触发，参数为 (target, alias)
@@ -39,10 +124,166 @@ class WikiTextEdit(QTextEdit):
         # 补全数据模型
         self.model = QStringListModel()
         self.completer.setModel(self.model)
+        
+        # 美化补全框样式
+        self._setup_completer_style()
+        
+        # 图片预览窗口
+        self.preview_window = ImagePreviewWindow(self) 
+
+        # 监听 Popup 事件
+        popup = self.completer.popup()
+        # 必须开启 MouseTracking 才能实时获取 MouseMove
+        popup.setMouseTracking(True)
+        popup.installEventFilter(self)
+        
+        # 关键：QAbstractItemView 的内容在 viewport 上，必须监听 viewport 的事件
+        popup.viewport().setMouseTracking(True)
+        popup.viewport().installEventFilter(self)
+        
+        # 监听键盘选择
+        if popup.selectionModel():
+            popup.selectionModel().currentChanged.connect(self._on_popup_selection_changed)
+        
+        self.func= None
+        self._current_selected_text = None
+        from controller.GlobalSignalBus import global_signals
+        global_signals.work_data_changed.connect(self._on_model_changed)
+    
+    def set_completer_func(self,func):
+        """设置自动补全的函数，通过自动调用函数获取补全词库"""
+        self.func=func
+        self._on_model_changed()
+
+    def _on_model_changed(self):
+        """当数据库变化时，自动补全词库更新"""
+        if self.func:
+            words = self.func()
+            self.set_completer_list(words)
+
 
     def set_completer_list(self, words):
         """设置自动补全的词库"""
         self.model.setStringList(words)
+
+    def eventFilter(self, obj, event):
+        popup = self.completer.popup()
+        if self.completer and (obj == popup or obj == popup.viewport()):
+            if event.type() == QEvent.MouseMove:
+                # 获取鼠标位置
+                pos = event.pos()
+                
+                # indexAt 需要的是 viewport 坐标
+                # 如果 obj 是 popup (Frame)，需要映射到 viewport 坐标
+                # 如果 obj 是 viewport，pos 本身就是 viewport 坐标
+                if obj == popup:
+                    # 将 popup 坐标转换为 viewport 坐标
+                    # viewport() 是 popup 的子控件，通常位于 (frameWidth, frameWidth)
+                    pos = popup.viewport().mapFromParent(pos)
+                
+                index = popup.indexAt(pos)
+                
+                if index.isValid():
+                    # 鼠标悬停在某项上 -> 显示该项预览
+                    text = index.data()
+                    self._update_preview(text)
+                else:
+                    # 鼠标在列表内但不在项上（如空白处） -> 恢复选中项预览
+                    self._update_preview(self._current_selected_text)
+                    
+            elif event.type() == QEvent.Leave:
+                 # 鼠标离开列表 -> 恢复选中项预览
+                 self._update_preview(self._current_selected_text)
+                 
+            elif event.type() == QEvent.Hide:
+                self.preview_window.hide()
+                self._current_selected_text = None
+                
+        return super().eventFilter(obj, event)
+
+    def _on_popup_selection_changed(self, current, previous):
+        if current.isValid():
+            text = current.data()
+            self._current_selected_text = text
+            self._update_preview(text)
+
+    def _update_preview(self, text, rect=None):
+        """更新预览窗口位置和内容"""
+        # 如果 text 为空，则隐藏
+        if not text:
+            self.preview_window.hide()
+            return
+
+        path = get_image_path_for_text(text)
+        if path:
+            self.preview_window.show_image(path)
+            
+            # 计算位置
+            popup = self.completer.popup()
+            # 获取整个 Popup 的全局坐标，而不是单个 Item 的坐标
+            popup_global_rect = popup.mapToGlobal(popup.rect().topLeft())
+            
+            # 默认在左侧，距离 5px
+            # Y 轴与 Popup 的顶部对齐，而不是跟随当前 Item
+            x = popup_global_rect.x() - self.preview_window.width() - 5
+            y = popup_global_rect.y()
+            
+            # 如果左侧空间不足，显示在右侧
+            if x < 0:
+                x = popup_global_rect.x() + popup.width() + 5
+                
+            self.preview_window.move(x, y)
+        else:
+            self.preview_window.hide()
+
+    def _setup_completer_style(self):
+        """设置自动补全框的样式"""
+        popup = self.completer.popup()
+        
+        # 使用 QSS 美化：
+        # 1. 设置背景色和圆角
+        # 2. 增加 padding 来撑大行高（行间距）
+        # 3. 设置选中和悬停效果
+        popup.setStyleSheet("""
+            QListView {
+                background-color: #FFFFFF;
+                color: #111111;
+                border: 1px solid #454545;
+                border-radius: 4px;
+                padding: 2px;
+                outline: 0;
+            }
+            
+            QListView::item {
+                padding: 4px 10px;  /* 上下 8px，增加行高 */
+                margin: 2px 0;      /* 增加项目之间的微小间距 */
+                border-radius: 4px;
+            }
+            
+            QListView::item:selected {
+                background-color: #d5d5d5;
+                color: #ffffff;
+            }
+            
+            QListView::item:hover:!selected {
+                background-color: #d5d5d5;
+            }
+            
+            QScrollBar:vertical {
+                border: none;
+                background: #e5e5e5;
+                width: 8px;
+                margin: 0px;
+            }
+            QScrollBar::handle:vertical {
+                background: #cccccc;
+                min-height: 20px;
+                border-radius: 4px;
+            }
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+                height: 0px;
+            }
+        """)
 
     def mousePressEvent(self, event):
         """处理鼠标点击事件，检测是否点击了 [[链接]]"""
@@ -239,7 +480,10 @@ class WikiTextEdit(QTextEdit):
         
         # 关键：刷新 popup 位置
         cr = self.cursorRect()
-        cr.setWidth(self.completer.popup().sizeHintForColumn(0) + self.completer.popup().verticalScrollBar().sizeHint().width())
+        min_width = 150          # 你想要的最小宽度（像素），可根据实际内容调整
+        popup_width = max(min_width, self.completer.popup().sizeHintForColumn(0) + self.completer.popup().verticalScrollBar().sizeHint().width())
+        cr.setWidth(popup_width)
+        #cr.setWidth(self.completer.popup().sizeHintForColumn(0) + self.completer.popup().verticalScrollBar().sizeHint().width())
         self.completer.complete(cr)
 
     def _get_completion_prefix(self):
@@ -279,10 +523,15 @@ class WikiTextEdit(QTextEdit):
             return
             
         tc = self.textCursor()
-        extra = len(completion) - len(self.completer.completionPrefix())
-        tc.movePosition(QTextCursor.Left)
-        tc.movePosition(QTextCursor.EndOfWord)
-        tc.insertText(completion[-extra:])
+        # 获取当前前缀长度
+        prefix_len = len(self.completer.completionPrefix())
+        
+        # 选中光标左侧的前缀文本
+        tc.movePosition(QTextCursor.Left, QTextCursor.KeepAnchor, prefix_len)
+        
+        # 直接用完整的补全内容替换选中的前缀
+        tc.insertText(completion)
+        
         # 自动补全后加上 ]]
         tc.insertText("]]")
         self.setTextCursor(tc)
@@ -319,7 +568,7 @@ if __name__ == "__main__":
     editor.setPlainText(initial_text)
     
     # 设置补全词库
-    sample_data = ["SNIS-123", "SNIS-456", "ABP-123", "ABP-999", "IPX-001", "a1024", "w2048"]
+    sample_data = ["SONE-979", "START-451", "START-108", "START-403", "IPX-327", "HODV-21134", "ATID-412"]
     editor.set_completer_list(sample_data)
     
     # 监听点击事件

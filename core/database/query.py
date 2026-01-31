@@ -89,15 +89,15 @@ def get_all_work_addtime()->list[datetime]:
 def query_studio(work_id:int)->str|None:
     '''根据work_id返回发行商，如果为非标准发行商，就是私拍，或者没有封面的，就返回None'''
     query='''
-SELECT 
-	(SELECT cn_name FROM maker WHERE maker_id =p.maker_id) AS studio_name
-FROM 
-    work w
-INNER JOIN 
-    prefix_maker_relation p ON p.prefix = SUBSTR(w.serial_number, 1, INSTR(w.serial_number, '-') - 1)
-WHERE 
-   work_id=?
-'''
+    SELECT 
+        (SELECT cn_name FROM maker WHERE maker_id =p.maker_id) AS studio_name
+    FROM 
+        work w
+    INNER JOIN 
+        prefix_maker_relation p ON p.prefix = SUBSTR(w.serial_number, 1, INSTR(w.serial_number, '-') - 1)
+    WHERE 
+    work_id=?
+    '''
     with get_connection(DATABASE,True) as conn:
         cursor = conn.cursor()
         cursor.execute(query,(work_id,))
@@ -196,13 +196,13 @@ def get_all_actress_data()->list[dict]:
 def get_null_actress()->list:
     '''返回所有的没有作品的actress_id列表'''
     query="""
-SELECT a.actress_id
-	--(SELECT cn FROM actress_name WHERE actress_id=a.actress_id )AS name
-FROM actress AS a
-LEFT JOIN work_actress_relation AS r
-    ON a.actress_id = r.actress_id
-WHERE r.actress_id IS NULL;
-"""
+    SELECT a.actress_id
+        --(SELECT cn FROM actress_name WHERE actress_id=a.actress_id )AS name
+    FROM actress AS a
+    LEFT JOIN work_actress_relation AS r
+        ON a.actress_id = r.actress_id
+    WHERE r.actress_id IS NULL;
+    """
     with get_connection(DATABASE,True) as conn:
         cursor = conn.cursor()
         cursor.execute(query)
@@ -212,13 +212,13 @@ WHERE r.actress_id IS NULL;
 def get_null_actor()->list:
     '''返回所有的没有作品的actor_id列表'''
     query="""
-SELECT a.actor_id
-	--(SELECT cn FROM actor_name WHERE actor_id=a.actor_id )AS name
-FROM actor AS a
-LEFT JOIN work_actor_relation AS r
-    ON a.actor_id = r.actor_id
-WHERE r.actor_id IS NULL;
-"""
+    SELECT a.actor_id
+        --(SELECT cn FROM actor_name WHERE actor_id=a.actor_id )AS name
+    FROM actor AS a
+    LEFT JOIN work_actor_relation AS r
+        ON a.actor_id = r.actor_id
+    WHERE r.actor_id IS NULL;
+    """
     with get_connection(DATABASE,True) as conn:
         cursor = conn.cursor()
         cursor.execute(query)
@@ -360,13 +360,13 @@ def get_tagid_by_keyword(keyword:str,match_hole_word=False)->list|int|None:
     FROM tag t
     JOIN tag_chain tc ON t.tag_id = tc.tag_id
     WHERE t.redirect_tag_id IS NOT NULL
-)
--- 最终只保留没有重定向的 tag_id
-SELECT DISTINCT tc.tag_id
-FROM tag_chain tc
-LEFT JOIN tag t2 ON tc.tag_id = t2.tag_id AND t2.redirect_tag_id IS NOT NULL
-WHERE t2.tag_id IS NULL;
-"""
+    )
+    -- 最终只保留没有重定向的 tag_id
+    SELECT DISTINCT tc.tag_id
+    FROM tag_chain tc
+    LEFT JOIN tag t2 ON tc.tag_id = t2.tag_id AND t2.redirect_tag_id IS NOT NULL
+    WHERE t2.tag_id IS NULL;
+    """
     with get_connection(DATABASE,True) as conn:
         cursor = conn.cursor()
         if match_hole_word:
@@ -428,7 +428,7 @@ def get_actressname()->list:
 def get_actress_allname(actress_id)->list[dict]:
     '''反回某个女优的所有名字,而且是根据链式返回的，最前面的是最新的'''
     query = '''
-WITH RECURSIVE chain AS (
+    WITH RECURSIVE chain AS (
     -- 递归的起始部分：找到链条的起点
     -- 这里的起点是redirect_actress_name_id为NULL，并且actress_id匹配的那条记录
     SELECT
@@ -459,19 +459,19 @@ WITH RECURSIVE chain AS (
         actress_name AS t2
     JOIN
         chain ON t2.redirect_actress_name_id = chain.actress_name_id
-)
-SELECT
-    actress_name_id,
-    cn,
-    jp,
-    kana,
-    en,
-    redirect_actress_name_id,
-	level
-FROM
-    chain
-ORDER BY
-    level;
+    )
+    SELECT
+        actress_name_id,
+        cn,
+        jp,
+        kana,
+        en,
+        redirect_actress_name_id,
+        level
+    FROM
+        chain
+    ORDER BY
+        level;
     '''
     with get_connection(DATABASE,True) as conn:
         cursor = conn.cursor()
@@ -618,22 +618,22 @@ def get_unique_tag_type()->list:
 def get_workinfo_by_workid(work_id:int)->dict:
     '''根据work_id获得单部作品的基本数据'''
     query = f'''
-SELECT 
-serial_number,
-director,
-story,
-release_date,
-image_url,
-cn_title,
-cn_story,
-jp_title,
-jp_story,
-(SELECT cn_name FROM maker WHERE maker_id =p.maker_id) AS studio_name
-FROM work 
-LEFT JOIN 
-    prefix_maker_relation p ON p.prefix = SUBSTR(work.serial_number, 1, INSTR(work.serial_number, '-') - 1)
-WHERE work_id = ?
-'''
+    SELECT 
+    serial_number,
+    director,
+    story,
+    release_date,
+    image_url,
+    cn_title,
+    cn_story,
+    jp_title,
+    jp_story,
+    (SELECT cn_name FROM maker WHERE maker_id =p.maker_id) AS studio_name
+    FROM work 
+    LEFT JOIN 
+        prefix_maker_relation p ON p.prefix = SUBSTR(work.serial_number, 1, INSTR(work.serial_number, '-') - 1)
+    WHERE work_id = ?
+    '''
     with get_connection(DATABASE,True) as conn:
         cursor = conn.cursor()
         cursor.execute(query, (work_id,))
@@ -689,6 +689,28 @@ def get_coveriamgeurl(work_id:int)->str|None:
         with get_connection(DATABASE,True) as conn:
             cursor = conn.cursor()
             cursor.execute(query, (work_id,))
+            image_rul = cursor.fetchone()
+            if image_rul:
+                return image_rul[0]
+            else:
+                return None
+    except sqlite3.Error as e:
+        logging.info(f"get_coverimageurl查询时数据库错误: {e}")
+        return None
+
+def get_coverimageurl_(serial_number:str)->str|None:
+    '''根据serial_number查找对应的封面图片的地址'''
+    query = '''
+    SELECT 
+        image_url
+    FROM work
+    WHERE serial_number = ?
+    LIMIT 1
+    '''
+    try:
+        with get_connection(DATABASE,True) as conn:
+            cursor = conn.cursor()
+            cursor.execute(query, (serial_number,))
             image_rul = cursor.fetchone()
             if image_rul:
                 return image_rul[0]

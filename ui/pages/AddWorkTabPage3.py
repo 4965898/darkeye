@@ -751,6 +751,9 @@ class AddWorkTabPage3(LazyWidget):
         self.input_story=WikiTextEdit()
         self.input_story.setFixedHeight(600)
         self.input_story.setMinimumWidth(400)
+        from core.database.query import get_serial_number
+        self.input_story.set_completer_func(get_serial_number)
+        
         bottomarea.addWidget(self.forceview)
         bottomarea.addWidget(self.input_story)
         bottomarea.setStretchFactor(0, 0) # 索引1（右侧）拉伸
