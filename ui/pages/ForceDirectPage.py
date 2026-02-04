@@ -10,7 +10,7 @@ from ui.base import LazyWidget
 import numpy as np
 from controller.GlobalSignalBus import global_signals
 from core.crawler.Worker import Worker
-from ui.statistics.force_view_multi_processing import ForceViewControlWidget
+from ui.statistics.ForceGraphView import ForceViewControlWidget
 
 
 from core.graph.graph import generate_graph,generate_random_graph,generate_similar_graph

@@ -737,7 +737,7 @@ class AddWorkTabPage3(LazyWidget):
         hlayout.addWidget(self.tag_selector)
 
         bottomarea=QSplitter(Qt.Horizontal)
-        from ui.statistics.force_view_multi_processing import ForceViewControlWidget
+        from ui.statistics.ForceGraphView import ForceViewControlWidget
 
 
 
