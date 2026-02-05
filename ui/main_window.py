@@ -11,6 +11,7 @@ from ui.widgets.text.CompleterLineEdit import CompleterLineEdit
 from controller import ShortcutRegistry
 from controller.ShortcutBindings import setup_mainwindow_actions
 from ui.widgets.Sidebar import Sidebar
+from ui.widgets.Sidebar2 import Sidebar2
 from ui.navigation.router import Router
 from ui.widgets.StatusBarNotification import TaskListWindow, StatusBarNotification
 from controller.StatusManager import StatusManager
@@ -95,7 +96,7 @@ class MainWindow(QMainWindow):
              ("graph","关系图","share-2.svg"),
              ("av", "暗黑界", "scroll-text.svg"), 
          ]
-        self.sidebar = Sidebar(menu_defs=menu_defs)#侧边栏的按钮在这里改
+        self.sidebar = Sidebar2(menu_defs=menu_defs)#侧边栏的按钮在这里改
         self.right_widget=QWidget()
         self.right_layout=QVBoxLayout(self.right_widget)
         self.right_layout.setContentsMargins(0, 0, 0, 0)

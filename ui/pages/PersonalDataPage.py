@@ -1,6 +1,6 @@
 #个人女优详细的面板
 from PySide6.QtWidgets import QHBoxLayout, QWidget, QLabel,QVBoxLayout
-from PySide6.QtGui import QPixmap
+from PySide6.QtGui import QPixmap, QPainter, QPainterPath, QBrush, QColor, QPen
 from PySide6.QtCore import Qt,Slot
 from core.database.query import get_record_count_in_days,get_top_actress_by_masturbation_count
 import logging
@@ -18,7 +18,7 @@ class PersonalDataPage(LazyWidget):
     def _lazy_load(self):
         logging.info("----------个人数据界面----------")
         mainlayout = QVBoxLayout(self)
-        mainlayout.setContentsMargins(0, 0, 0, 0)
+        mainlayout.setContentsMargins(0, 10, 0, 0)
         
         self.hlayout=QHBoxLayout()
         
@@ -50,14 +50,54 @@ class PersonalDataPage(LazyWidget):
         global_signals.lovemaking_changed.connect(lambda:calendar_heatmap.update(datetime.now().year))
         global_signals.sexarousal_changed.connect(lambda:calendar_heatmap.update(datetime.now().year))
 
-class WorkSaleCycle(QWidget,ShadowEffectMixin):
+
+class OctagonCard(QWidget, ShadowEffectMixin):
+    """通用八边形卡片外框，子类只负责填充内容。"""
+
+    def __init__(self, object_name: str, margins: tuple[int, int, int, int] = (0, 0, 0, 0)) -> None:
+        super().__init__()
+        self.setFixedSize(170, 250)
+        self.setAttribute(Qt.WA_StyledBackground, True)
+        self.setObjectName(object_name)
+        self.set_shadow()
+
+        # 提供给子类使用的主布局
+        self.mainlayout = QVBoxLayout(self)
+        self.mainlayout.setContentsMargins(*margins)
+
+    def paintEvent(self, event):  # type: ignore[override]
+        """绘制八边形背景，替代圆角矩形。"""
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing, True)
+
+        # 留一点边距，避免贴边，同时给阴影留空间
+        r = self.rect().adjusted(0, 0, -0, -0)
+        w, h = r.width(), r.height()
+        x, y = r.x(), r.y()
+        chamfer = 20
+
+        path = QPainterPath()
+        path.moveTo(x + chamfer, y)
+        path.lineTo(x + w - chamfer, y)
+        path.lineTo(x + w, y + chamfer)
+        path.lineTo(x + w, y + h - chamfer)
+        path.lineTo(x + w - chamfer, y + h)
+        path.lineTo(x + chamfer, y + h)
+        path.lineTo(x, y + h - chamfer)
+        path.lineTo(x, y + chamfer)
+        path.closeSubpath()
+
+        # 统一为白色卡片背景，描边略淡
+        painter.setPen(QPen(QColor("#E0E0E0"), 1))
+        painter.setBrush(QBrush(QColor("#FFFFFF")))
+        painter.drawPath(path)
+
+
+class WorkSaleCycle(OctagonCard):
     '''去化周期显示'''
     def __init__(self):
-        super().__init__()
-        self.setFixedSize(170,250)
-        self.setAttribute(Qt.WA_StyledBackground, True)
-        mainlayout=QVBoxLayout(self)
-        mainlayout.setContentsMargins(0,0,0,0)
+        super().__init__("WorkSaleCycle", margins=(0, 0, 0, 0))
+        mainlayout = self.mainlayout
         label1=QLabel(f"收藏作品中未观看去化周期")
         label1.setAlignment(Qt.AlignCenter)
 
@@ -67,16 +107,6 @@ class WorkSaleCycle(QWidget,ShadowEffectMixin):
 
         mainlayout.addWidget(label1)
         mainlayout.addWidget(self.label2)
-
-
-        self.setObjectName("WorkSaleCycle")  # 给外层起名字
-        self.setStyleSheet("""
-            #WorkSaleCycle {
-                border-radius: 12px;
-                background-color: white;
-            }
-        """)
-        self.set_shadow()
 
     def work_not_watch(self):
         '''#按过去3个月平均的撸管频率去计算去化周期并显示,当去化周期大于14天时就进入选择模式'''
@@ -99,24 +129,13 @@ class WorkSaleCycle(QWidget,ShadowEffectMixin):
         else:
             self.label2.setStyleSheet("font-size: 30pt; color: #000000;")  # 纯红
 
-class MostLikeActress(QWidget,ShadowEffectMixin):
+
+class MostLikeActress(OctagonCard):
     '''最喜欢的女优卡片'''
     def __init__(self,beforeday):
-        super().__init__()
+        super().__init__("mostLikeActress", margins=(10,0,10,10))
         self._bday=beforeday
         
-                # 加圆角边框的样式
-        self.setAttribute(Qt.WA_StyledBackground, True)
-        self.setObjectName("mostLikeActress")  # 给外层起名字
-        self.setStyleSheet("""
-            #mostLikeActress {
-                border-radius: 12px;
-                background-color: white;
-            }
-        """)
-        self.set_shadow()
-        self.setFixedSize(170,250)
-
         label1=QLabel(f"过去{beforeday}天最喜欢的女优")
         actress=get_top_actress_by_masturbation_count(beforeday)
         if actress:
@@ -125,8 +144,7 @@ class MostLikeActress(QWidget,ShadowEffectMixin):
             self.actress_card=ActressCard()
 
         #总装
-        mainlayout=QVBoxLayout(self)
-        mainlayout.setContentsMargins(10,0,10,10)
+        mainlayout=self.mainlayout
         mainlayout.addWidget(label1,alignment=Qt.AlignCenter)
         mainlayout.addWidget(self.actress_card)
 
@@ -134,8 +152,3 @@ class MostLikeActress(QWidget,ShadowEffectMixin):
     @Slot()
     def update_actress(self):
         '''初始化或者更新'''
-        actress=get_top_actress_by_masturbation_count(self._bday)
-        if actress:
-            self.actress_card.update_data(actress['actress_name'],actress['image_urlA'],actress['actress_id'])
-
-

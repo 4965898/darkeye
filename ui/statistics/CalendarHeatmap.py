@@ -7,15 +7,15 @@ class CalendarHeatmap(QWidget):
     '''日历热力图仿github那种'''
     def __init__(self, year=2025, data=None, parent=None):
         super().__init__(parent)
-        self.setFixedSize(1020,190)
+        self.setFixedSize(750,155)
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.year = year
         # data: dict of QDate -> bool (是否撸管)
         self.data = data or {}
         
-        self.cell_width = 14
-        self.cell_height = 14
-        self.cell_spacing = 4
+        self.cell_width = 10
+        self.cell_height = 10
+        self.cell_spacing = 3
         
         self.margin_top = 40
         self.margin_left = 40
@@ -110,7 +110,7 @@ class CalendarHeatmap(QWidget):
                     color = QColor(230, 230, 230)
             
             # 设置圆角半径
-            radius = 3  # 可以调节，单位像素
+            radius = 2  # 可以调节，单位像素
 
             # 画圆角矩形填充
             painter.setBrush(color)
