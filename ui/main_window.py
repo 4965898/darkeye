@@ -16,7 +16,8 @@ from ui.widgets.StatusBarNotification import TaskListWindow, StatusBarNotificati
 from controller.StatusManager import StatusManager
 from controller.TaskService import TaskManager
 from server.bridge import bridge
-
+from core.crawler.CrawlerManager import get_manager
+get_manager()
 
 class TopBar(QWidget):
     '''顶栏'''

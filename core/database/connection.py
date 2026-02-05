@@ -93,22 +93,45 @@ class QSqlDatabaseManager:
         return db
     
     def close_connection(self, name: str):
-        """关闭指定的数据库连接（在关闭前做 WAL checkpoint）"""
-        if name in self._connections:
-            db = self._connections[name]
-            if db.isOpen():
-                try:
-                    self.logger.debug(f"执行 WAL checkpoint: {name}")
-                    query = QSqlQuery(db)
-                    query.exec("PRAGMA wal_checkpoint(FULL);")
-                    query.exec("PRAGMA journal_mode=DELETE;")#强制切回DELETE模式，为了清除-wal模式
-                except Exception as e:
-                    self.logger.error(f"WAL checkpoint 执行失败: {e}")
-                finally:
-                    db.close()
-            QSqlDatabase.removeDatabase(name)
-            del self._connections[name]
-            self.logger.info(f"已关闭数据库连接: {name}")
+        """关闭指定的数据库连接，并确保 WAL 内容落盘、清理 -wal/-shm 文件。
+
+        先关闭 Qt 连接，再用 sqlite3 对同一文件做一次 checkpoint 并关闭，
+        这样在程序退出时能可靠地合并 WAL 并删除 -wal/-shm 文件。
+        """
+        if name not in self._connections:
+            return
+        db = self._connections[name]
+        # 先保存路径，关闭 Qt 后还要用 sqlite3 做最终 checkpoint
+        db_path = Path(db.databaseName()) if db.databaseName() else None
+
+        if db.isOpen():
+            try:
+                self.logger.debug(f"关闭 Qt 连接前执行 WAL checkpoint: {name}")
+                query = QSqlQuery(db)
+                query.exec("PRAGMA wal_checkpoint(FULL);")
+                query.exec("PRAGMA journal_mode=DELETE;")
+                query.finish()  # 释放查询，减少 "connection still in use" 引用
+            except Exception as e:
+                self.logger.error(f"WAL checkpoint 执行失败: {e}")
+            finally:
+                db.close()
+        QSqlDatabase.removeDatabase(name)
+        del self._connections[name]
+        self.logger.info(f"已关闭数据库连接: {name}")
+
+        # 用 sqlite3 再打开同一文件做一次 checkpoint 并关闭，确保 -wal/-shm 被合并并删除
+        if db_path and db_path.exists():
+            self._checkpoint_and_close_with_sqlite3(db_path, name)
+
+    def _checkpoint_and_close_with_sqlite3(self, db_path: Path, name: str):
+        """用 Python sqlite3 打开数据库，执行 FULL checkpoint 后关闭，以清理 -wal/-shm。"""
+        try:
+            conn = sqlite3.connect(str(db_path), timeout=10.0)
+            conn.execute("PRAGMA wal_checkpoint(FULL);")
+            conn.close()
+            self.logger.debug(f"已通过 sqlite3 完成 checkpoint 并关闭: {name}")
+        except Exception as e:
+            self.logger.warning(f"sqlite3 checkpoint 清理 -wal/-shm 失败 ({name}): {e}")
     
     def close_all(self):
         """关闭所有数据库连接"""

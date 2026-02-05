@@ -66,7 +66,16 @@ def _run_main_app():
     profiler.checkpoint("启动画面显示")
 
     # 首次启动协议对话框（已注释）
-    # if is_first_lunch(): ...
+    if is_first_lunch():#判断是否是第一次启动
+        from ui.dialogs import TermsDialog
+        dialog=TermsDialog()
+
+        if dialog.exec() == QDialog.Accepted:# type: ignore[arg-type]
+            set_first_luch(False)
+        else:
+            set_first_luch(True)
+            splash.close()
+            sys.exit(0)  # 拒绝则退出
 
     # 数据库初始化（同步，阻塞主线程）
     splash.showMessage("数据库初始化")

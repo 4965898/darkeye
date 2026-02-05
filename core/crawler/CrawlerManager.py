@@ -512,3 +512,8 @@ class DataUpdate:
 
 # 全局实例
 crawler_manager2 = CrawlerManager2()
+
+def get_manager()->CrawlerManager2:
+    """返回全局单例。导入并调用此函数可避免被 linter 判为未使用而删除导入。
+    """
+    return crawler_manager2

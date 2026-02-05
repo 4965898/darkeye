@@ -3,6 +3,9 @@ import logging
 
 logger = logging.getLogger("server")
 
+from .bridge import get_bridge
+
+get_bridge()  # 在主线程确保单例已创建，避免 linter 判为未使用
 
 class ServerLauncher:
     def __init__(self, host="127.0.0.1", port=56789):
@@ -13,7 +16,7 @@ class ServerLauncher:
     def _run(self):
         try:
             # 在后台线程内导入，避免主线程加载 FastAPI/uvicorn（约省 3s）
-            from .app import app
+            from .app import app#注意这个不能放到下载到后台线程导入
             import uvicorn
             logger.info(f"Starting API server at http://{self.host}:{self.port}")
             # log_config=None 防止 uvicorn 覆盖我们的 logging 配置

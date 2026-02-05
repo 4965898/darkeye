@@ -1,5 +1,6 @@
 from PySide6.QtCore import QObject, Signal
 
+#这个一行要在主线程
 class ServerBridge(QObject):
     """
     用于连接 FastAPI 线程和 PyQt 主线程的桥梁。
@@ -24,5 +25,11 @@ class ServerBridge(QObject):
             super().__init__()
             self._initialized = True
 
-# 全局单例
+
+# 全局单例（必须在主线程首次 import 本模块时创建）
 bridge = ServerBridge()
+
+
+def get_bridge() -> ServerBridge:
+    """返回全局单例。导入并调用此函数可避免被 linter 判为未使用而删除导入。"""
+    return bridge

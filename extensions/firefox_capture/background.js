@@ -148,7 +148,7 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {//这�
         .then(res => res.json())
         .then(data => sendResponse(data))
         .catch(err => sendResponse({ error: err.message }));
-
+        console.log("DarkEye: 抓取指令 to server", message);
         return true; // Async response
     }
     if (message.command === "capture_minnano_id") {

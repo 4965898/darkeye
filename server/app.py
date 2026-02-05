@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 
 from .bridge import bridge
+
 from config import DATABASE
 
 # 配置日志
