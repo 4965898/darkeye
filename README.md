@@ -26,13 +26,20 @@
 
 # 快速开始
 #使用下面创建虚拟环境
-conda create -n avlite python=3.12
+conda create -n avlite python=3.14
 conda activate avlite
 
 pip install -r requirements.txt
 
 下载后请复制public基本数据包到resource/文件夹下面
 ## 运行
+vscode解释器选择
+Ctrl + Shift + P
+
+```
+Python: Select Interpreter
+```
+avlite
 python main.py
 
 # 打包发布

@@ -1,3 +1,6 @@
+#这个暂时没有用了代码已经转到C++上面去了
+
+
 import sys, os, math
 import numpy as np
 from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QSlider, QLabel, QHBoxLayout, QSizePolicy,QLineEdit,QPushButton

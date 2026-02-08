@@ -2,12 +2,12 @@ from PySide6.QtWidgets import QStackedWidget, QWidget
 from PySide6.QtCore import QObject
 import logging
 from typing import Dict, Any, Optional, Callable, Union
-from ui.widgets.Sidebar import Sidebar
+from ui.widgets.Sidebar2 import Sidebar2
 
 class Router(QObject):
     _instance = None
 
-    def __init__(self, stack_widget: QStackedWidget, sidebar:Sidebar):
+    def __init__(self, stack_widget: QStackedWidget, sidebar:Sidebar2):
         super().__init__()
         if Router._instance is not None:
             raise Exception("Router is a singleton!")

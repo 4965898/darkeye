@@ -1,7 +1,11 @@
+# Python 3.14.x is required
+pyside6==6.10.1
+shiboken6==6.10.1
+shiboken6-generator==6.10.1
+
 numpy
 numba
 matplotlib
-pyside6
 bs4
 requests
 pyinstaller
@@ -11,6 +15,7 @@ anyio
 psutil
 networkx
 uvicorn[standard]
+googletrans
 
 # Documentation
 mkdocs

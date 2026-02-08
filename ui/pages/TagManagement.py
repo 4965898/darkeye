@@ -3,7 +3,7 @@ from PySide6.QtWidgets import  QVBoxLayout, QLabel,QWidget,QHBoxLayout,QLineEdit
 from PySide6.QtCore import Qt,QObject,Signal,Property,Slot,SignalInstance
 from PySide6.QtSql import QSqlRelation,QSqlRelationalTableModel,QSqlTableModel,QSqlRelationalDelegate,QSqlQueryModel,QSqlQuery,QSqlDatabase
 
-from ui.widgets.selectors.TagSelector6 import TagSelector6
+from ui.widgets.selectors.TagSelector5 import TagSelector5
 from ..widgets.text.CompleterLineEdit import CompleterLineEdit
 from core.database.query import get_tag_name,get_tag_type_dict,get_unique_tag_type
 from ..basic.ColorPicker import ColorPicker
@@ -329,8 +329,9 @@ class TagManagement(LazyWidget):
         #leftlayout.addWidget(self.m_group)
 
         #第三列
-        self.tag_selector=TagSelector6(enbale_mutex_check=False)#这个有个问题，复用这个会有组检查
-        self.tag_selector.tag_receive_widget.setFixedWidth(116)
+        self.tag_selector=TagSelector5(enbale_mutex_check=False)#这个有个问题，复用这个会有组检查
+        #self.tag_selector.tag_receive_widget.setFixedWidth(116)
+        self.tag_selector.left_view.setFixedWidth(116)
         self.tag_selector.panel_fix_width=400
         self.tag_selector.btn_expand.click()
 

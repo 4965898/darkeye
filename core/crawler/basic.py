@@ -2,7 +2,7 @@ import requests
 from requests.exceptions import RequestException, Timeout, ConnectionError, HTTPError
 
 import requests
-import cloudscraper
+
 
 #这个好像没有什么用，遇到clould我去浏览器插件里爬
 class Request:
@@ -13,6 +13,7 @@ class Request:
             timeout (int): 请求超时时间
             proxy (str): 代理地址 (e.g., 'http://127.0.0.1:7890')
         """
+        import cloudscraper
         self.headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36'
         }

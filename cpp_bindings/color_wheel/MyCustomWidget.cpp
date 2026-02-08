@@ -1,4 +1,4 @@
-#include "../include/MyCustomWidget.h"
+#include "MyCustomWidget.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -600,7 +600,7 @@ void OKLCHColorWheel::generateSquare()
         // If y=side (bottom), C = 0.
         // My code: (side - 0 - 1)/side = ~1 * 0.37. Correct.
         
-        QRgb *line = reinterpret_cast<QRgb*>(image.scanLine(y));//»ñµÃµ±Ç°ÐÐµÄÏñËØÖ¸Õëx´Ó×óµ½ÓÒ
+        QRgb *line = reinterpret_cast<QRgb*>(image.scanLine(y));//ï¿½ï¿½Ãµï¿½Ç°ï¿½Ðµï¿½ï¿½ï¿½ï¿½ï¿½Ö¸ï¿½ï¿½xï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
         for (int x = 0; x < m_side; ++x) {
             float l = x / (float)m_side;
             

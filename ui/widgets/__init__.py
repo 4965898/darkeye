@@ -20,4 +20,4 @@ from .text.ClickableLabel import ClickableLabel
 
 from .CrawlerToolBox import CrawlerToolBox
 from .SingleActressInfo import SingleActressInfo
-from .selectors.TagSelector4 import TagSelector4
+

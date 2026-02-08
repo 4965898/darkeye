@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from pathlib import Path
 
-from PySide6.QtCore import Qt, QPointF, QRect, QTimer, Signal, Slot, QThreadPool, QRunnable
+from PySide6.QtCore import Qt, QPointF, QRect, QTimer, Signal, Slot, QThreadPool, QRunnable, QObject
 from PySide6.QtGui import (
     QColor,
     QImage,
@@ -85,6 +85,10 @@ class ShelfImageResult:
     right_strip_full_w: int
 
 
+class ShelfImageLoaderSignals(QObject):
+    image_ready = Signal(object)
+
+
 class ShelfImageLoaderRunnable(QRunnable):
     """后台加载、裁剪、缩放封面为 spine/left/right，用 QImage 处理，emit ShelfImageResult。"""
 
@@ -92,17 +96,16 @@ class ShelfImageLoaderRunnable(QRunnable):
         self,
         path: str,
         target_h: int,
-        callback_signal: Signal,
     ) -> None:
         super().__init__()
         self.path = path
         self.target_h = target_h
-        self.callback_signal = callback_signal
+        self.signals = ShelfImageLoaderSignals()
 
     def run(self) -> None:
         img = QImage(str(self.path))
         if img.isNull():
-            self.callback_signal.emit(
+            self.signals.image_ready.emit(
                 ShelfImageResult(
                     spine_img=None,
                     left_img=None,
@@ -117,7 +120,7 @@ class ShelfImageLoaderRunnable(QRunnable):
         h = img.height()
         w = img.width()
         if h <= 0 or w <= 0:
-            self.callback_signal.emit(
+            self.signals.image_ready.emit(
                 ShelfImageResult(
                     spine_img=None,
                     left_img=None,
@@ -180,7 +183,7 @@ class ShelfImageLoaderRunnable(QRunnable):
                 Qt.TransformationMode.SmoothTransformation,
             )
 
-        self.callback_signal.emit(#这个加载过快的时候有概率出问题
+        self.signals.image_ready.emit(#这个加载过快的时候有概率出问题
             ShelfImageResult(
                 spine_img=spine_img,
                 left_img=left_img,
@@ -216,6 +219,7 @@ class ShelfItemWidget(QWidget):
         self._right_strip_pix: QPixmap | None = None
         self._left_strip_full_w = TRAP_WIDTH
         self._right_strip_full_w = TRAP_WIDTH
+        self._image_loader: ShelfImageLoaderRunnable | None = None
         # 展开状态：用动画插值，不随鼠标连续变化
         self._left_expand = 0.0
         self._right_expand = 0.0
@@ -251,8 +255,10 @@ class ShelfItemWidget(QWidget):
 
         path = Path(WORKCOVER_PATH / self._image_url)
         runnable = ShelfImageLoaderRunnable(
-            str(path), self._h, self.image_ready
+            str(path), self._h
         )
+        runnable.signals.image_ready.connect(self._on_image_loaded)
+        self._image_loader = runnable
         QThreadPool.globalInstance().start(runnable)
 
     @Slot(object)
@@ -512,13 +518,11 @@ class ShelfItemWidget(QWidget):
             self._set_expand_targets_from_zone("middle")
             return
 
-        # 如果鼠标在控件内，检查区域是否改变
+        # 如果鼠标在控件内，仅更新记录的区域，避免滚动触发展开
         if is_inside:
             zone = self._zone_from_mouse_x(pos.x())
-            # 仅当区域实际改变时才更新
             if zone != self._last_zone:
                 self._last_zone = zone
-                self._set_expand_targets_from_zone(zone)
 
     def mouseDoubleClickEvent(self, event) -> None:
         if event.button() == Qt.MouseButton.LeftButton:

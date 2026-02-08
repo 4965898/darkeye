@@ -9,7 +9,8 @@ from enum import Enum
 from datetime import datetime
 
 from config import settings,WORKCOVER_PATH,TEMP_PATH
-from ui.widgets import ActressSelector,CompleterLineEdit,ActorSelector,CoverDropWidget,TagSelector4
+from ui.widgets import ActressSelector,CompleterLineEdit,ActorSelector,CoverDropWidget
+from ui.widgets.selectors.TagSelector5 import TagSelector5
 from core.database.query import getUniqueDirector,get_work_tags,get_workinfo_by_workid,get_actressid_by_workid,get_actorid_by_workid,get_unique_short_story,exist_actor,get_workid_by_serialnumber,exist_actress
 from core.database.insert import InsertNewWorkByHand,InsertNewActor,InsertNewActress
 from core.database.update import update_work_byhand
@@ -713,9 +714,9 @@ class AddWorkTabPage3(LazyWidget):
         selector_layout.addWidget(self.actorselector)
 
         #第四列控件
-        self.tag_selector=TagSelector4()#tag选择器
+        self.tag_selector=TagSelector5()#tag选择器
         self.tag_selector.left_widget.setFixedWidth(140)
-        self.tag_selector.tag_receive_widget.setFixedWidth(116)
+        self.tag_selector.left_view.setFixedWidth(116)
         self.tag_selector.btn_expand.click()
 
         scroll_area=QScrollArea()
@@ -737,7 +738,7 @@ class AddWorkTabPage3(LazyWidget):
         hlayout.addWidget(self.tag_selector)
 
         bottomarea=QSplitter(Qt.Horizontal)
-        from ui.statistics.ForceGraphView import ForceViewControlWidget
+        from core.graph.ForceGraphView import ForceViewControlWidget
 
 
 

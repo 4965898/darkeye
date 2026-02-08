@@ -9,8 +9,8 @@ from PySide6.QtCore import Qt,Signal, QPoint, QEvent
 from ui.basic.Effect import ShadowEffectMixin
 import logging
 
-from ui.basic.ColorPickerOKLCH import ColorWheelSimple
 
+from cpp_bindings.color_wheel.PyColorWheel import ColorWheelSimple
 class ColorPicker(QLabel):
     colorChanged = Signal(str)
 
@@ -100,10 +100,10 @@ class ColorPicker(QLabel):
         self._color_wheel.show()
         self._color_wheel.activateWindow()
         self._color_wheel.setFocus()
-
-        self._color_wheel.wheel.vm.L_changed.connect(lambda:self._update_color(QColor(self._color_wheel.wheel.get_OKLCH_hexrgb())))
-        self._color_wheel.wheel.vm.C_changed.connect(lambda:self._update_color(QColor(self._color_wheel.wheel.get_OKLCH_hexrgb())))
-        self._color_wheel.wheel.vm.H_changed.connect(lambda:self._update_color(QColor(self._color_wheel.wheel.get_OKLCH_hexrgb())))
+        self._color_wheel.colorChanged.connect(lambda:self._update_color(QColor(self._color_wheel.getHexColor())))
+        #self._color_wheel.wheel.vm.L_changed.connect(lambda:self._update_color(QColor(self._color_wheel.wheel.get_OKLCH_hexrgb())))
+        #self._color_wheel.wheel.vm.C_changed.connect(lambda:self._update_color(QColor(self._color_wheel.wheel.get_OKLCH_hexrgb())))
+        #self._color_wheel.wheel.vm.H_changed.connect(lambda:self._update_color(QColor(self._color_wheel.wheel.get_OKLCH_hexrgb())))
 
         # 监听点击位置 → 关闭
         self._color_wheel.installEventFilter(self)

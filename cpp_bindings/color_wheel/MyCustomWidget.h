@@ -1,5 +1,16 @@
+
 #ifndef MYCUSTOMWIDGET_H
 #define MYCUSTOMWIDGET_H
+
+#if defined(_WIN32)
+#if defined(BINDINGS_BUILD)
+#define COLORWHEEL_API __declspec(dllexport)
+#else
+#define COLORWHEEL_API __declspec(dllimport)
+#endif
+#else
+#define COLORWHEEL_API
+#endif
 
 #include <QWidget>
 #include <QPixmap>
@@ -15,12 +26,14 @@
 #include <QRectF>
 #include <QKeyEvent>
 
+
+
 // 前置声明，减少头文件依赖，加快编译速度
 class QVBoxLayout;
 class QLabel;
 class QFocusEvent;
 
-class HexColorLineEdit : public QLineEdit
+class COLORWHEEL_API HexColorLineEdit : public QLineEdit
 {
     Q_OBJECT
 
@@ -42,7 +55,7 @@ private:
     bool m_settingText = false;
 };
 
-class ColorLabel : public QPushButton
+class COLORWHEEL_API ColorLabel : public QPushButton
 {
     Q_OBJECT
 
@@ -66,7 +79,7 @@ private:
     bool m_showText = true;
 };
 
-class OKLCHColorWheel : public QWidget
+class COLORWHEEL_API OKLCHColorWheel : public QWidget
 {
     Q_OBJECT
 
@@ -130,7 +143,7 @@ private:
     QPixmap m_squarePixmap;
 };
 
-class ColorWheelSimple : public QWidget
+class COLORWHEEL_API ColorWheelSimple : public QWidget
 {
     Q_OBJECT
 

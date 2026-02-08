@@ -284,6 +284,15 @@ class TagWaterfallScene(QGraphicsScene):
         if item.tag_type not in self.type_items:
             self.type_items[item.tag_type] = []
         self.type_items[item.tag_type].append(item)
+
+    def remove_tag_item(self, item: TagGraphicsItem):
+        self.removeItem(item)
+        if item.tag_id in self.items_map:
+            del self.items_map[item.tag_id]
+        if item.tag_type in self.type_items:
+            items = self.type_items[item.tag_type]
+            if item in items:
+                items.remove(item)
         
     def move_to_end(self, item: TagGraphicsItem):
         """将指定 item 移到该类型列表的末尾，以实现'恢复时追加到最后'的效果"""
@@ -592,7 +601,13 @@ class TagSelector5(QWidget):
     @Slot(int)
     def on_tab_changed(self, index):
         # 可以在这里做懒加载或动画
-        pass
+        if index < 0:
+            return
+        tag_type = self.panel.tag_emit_tabwidget.tabText(index)
+        view = self.views_map.get(tag_type)
+        if not view:
+            return
+        view.set_current_type(tag_type)
 
     def signal_connect(self):
         self.btn_expand.clicked.connect(self.toggle_panel)
@@ -717,8 +732,7 @@ class TagSelector5(QWidget):
         # 1. 左侧移除 Item
         if tag_id in self.left_scene.items_map:
             item = self.left_scene.items_map[tag_id]
-            self.left_scene.removeItem(item)
-            del self.left_scene.items_map[tag_id]
+            self.left_scene.remove_tag_item(item)
             if item in self.left_view.custom_items:
                 self.left_view.custom_items.remove(item)
         
