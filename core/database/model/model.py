@@ -6,24 +6,7 @@ from typing import Optional, List
 @dataclass
 class Work:
     """作品模型类
-    Attributes:
-        work_id: 作品ID，主键
-        serial_number: 番号，唯一标识
-        director: 导演
-        release_date: 发布日期
-        image_url: 图片地址
-        video_url: 视频地址
-        cn_title: 中文标题
-        jp_title: 日文标题
-        cn_story: 中文剧情
-        jp_story: 日文剧情
-        actress_ids: 参演女优ID列表
-        actor_ids: 参演男优ID列表
-        tag_ids: 标签ID列表
-        create_time: 创建时间
-        update_time: 更新时间
-        story: 自定义剧情
-        is_deleted: 是否删除（软删除）
+
     """
     # 必填字段
     serial_number: str

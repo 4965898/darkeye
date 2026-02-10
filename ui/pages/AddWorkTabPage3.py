@@ -1,5 +1,5 @@
 from PySide6.QtWidgets import QPushButton, QHBoxLayout, QLabel,QVBoxLayout,QLineEdit,QTextEdit,QSizePolicy,QPlainTextEdit,QScrollArea, QWidget,QSplitter
-from PySide6.QtCore import Qt,QObject,Signal,Property,SignalInstance,Slot,QThreadPool
+from PySide6.QtCore import Qt,QObject,Signal,Property,SignalInstance,Slot,QThreadPool,QTimer
 from PySide6.QtGui import QIntValidator
 
 from ui.widgets.CrawlerToolBox import CrawlerToolBox
@@ -440,6 +440,7 @@ class ViewModel(QObject):
         self.set_btn_state('add_work',ButtonState.DISABLED)
         #样式还原
         self.set_change_widget_default()
+        logging.debug("加载信息完成")
 
     def _clear_all_info(self):
         '''清空所有的面板里的内容除了input_serial_number'''
@@ -738,24 +739,20 @@ class AddWorkTabPage3(LazyWidget):
         hlayout.addWidget(self.tag_selector)
 
         bottomarea=QSplitter(Qt.Horizontal)
-        from core.graph.ForceGraphView import ForceViewControlWidget
+        self.bottomarea = bottomarea
+        self.forceview = None
+        self.forceview_placeholder = QLabel("正在生成力导向图...")
+        self.forceview_placeholder.setAlignment(Qt.AlignCenter)# type: ignore[arg-type]
 
-
-
-        self.forceview=ForceViewControlWidget()
-        self.view_session = self.forceview.view.session
-        
         self.viewmodel.workload.connect(self.on_set_directview)
 
-        self.forceview.setFixedHeight(600)
-        self.forceview.setMinimumWidth(400)
         self.input_story=WikiTextEdit()
         self.input_story.setFixedHeight(600)
         self.input_story.setMinimumWidth(400)
         from core.database.query import get_serial_number
         self.input_story.set_completer_func(get_serial_number)
         
-        bottomarea.addWidget(self.forceview)
+        bottomarea.addWidget(self.forceview_placeholder)
         bottomarea.addWidget(self.input_story)
         bottomarea.setStretchFactor(0, 0) # 索引1（右侧）拉伸
         bottomarea.setStretchFactor(1, 0) # 索引1（右侧）拉伸
@@ -764,6 +761,7 @@ class AddWorkTabPage3(LazyWidget):
 
         main_layout=QHBoxLayout(self)
         main_layout.addWidget(scroll_area)
+        QTimer.singleShot(0, self._init_forceview)#延迟初始化
 
 
     def bind_model(self) -> None:
@@ -819,6 +817,36 @@ class AddWorkTabPage3(LazyWidget):
             widget.textChanged.connect(lambda p=prop_name,w=widget:self.textedit_ui_to_model(w,p))#匿名函数作为槽函数
             vm_signal:SignalInstance=getattr(self.viewmodel,f"{prop_name}_changed")
             vm_signal.connect(lambda text, w=widget,p=prop_name:self.textedit_model_to_ui(w,p,text))#匿名函数作为槽函数
+
+    def _init_forceview(self):
+        if self.forceview is not None:
+            return
+        try:
+            from core.graph.ForceDirectedViewWidget import ForceDirectedViewWidget
+            self.forceview = ForceDirectedViewWidget()
+        except Exception as e:
+            logging.error("初始化力导向图失败: %s", e)
+            return
+        self.forceview.setFixedHeight(600)
+        self.forceview.setMinimumWidth(400)
+        if self.forceview_placeholder is not None:
+            idx = self.bottomarea.indexOf(self.forceview_placeholder)
+            if idx == -1:
+                self.bottomarea.addWidget(self.forceview)
+            else:
+                self.bottomarea.insertWidget(idx, self.forceview)
+                self.forceview_placeholder.setParent(None)
+                self.forceview_placeholder.deleteLater()
+            self.forceview_placeholder = None
+        else:
+            self.bottomarea.addWidget(self.forceview)
+        from core.graph.graph_manager import GraphManager
+        manager = GraphManager.instance()
+        if manager._initialized:
+            self.forceview.session.reload()
+        else:
+            manager.initialize()
+            manager.initialization_finished.connect(self.forceview.session.reload)
 
     #处理绑定循环的问题
     def textedit_ui_to_model(self,widget:QPlainTextEdit,prop_name:str):
@@ -930,10 +958,14 @@ class AddWorkTabPage3(LazyWidget):
         
 
     def on_set_directview(self,id:str):
+        if self.forceview is None:
+            self._init_forceview()
+        if self.forceview is None:
+            return
         from core.graph.graph_filter import EgoFilter
-        self.forceview.view.session.set_filter(EgoFilter(center_id=id, radius=2))
-        self.forceview.view.session.reload()
-        self.forceview.view.nodelayer.center_node_id=id
+        self.forceview.session.set_filter(EgoFilter(center_id=id, radius=2))#这里设置过滤
+        self.forceview.session.reload()
+
 
 #----------------------------------------------------------
 #                         UI样式修改

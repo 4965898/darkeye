@@ -1,0 +1,86 @@
+
+import os
+from pathlib import Path
+import PySide6
+qt_bin = Path(PySide6.__file__).resolve().parent
+print(qt_bin)
+here = Path(__file__).resolve().parent
+
+if hasattr(os, "add_dll_directory"):
+    os.add_dll_directory(str(here))  # 把当前目录加入 DLL 搜索路径
+    os.add_dll_directory(str(qt_bin)) 
+
+from PySide6.QtWidgets import QGraphicsView, QOpenGLWidget, QWidget
+from PySide6.QtGui import QColor
+from PySide6.QtCore import QRectF, Signal
+
+
+
+class ForceViewOpenGL(QOpenGLWidget):
+    # Qt signals (nodeId = node id string from m_ids[index], not index)
+    nodeLeftClicked = Signal(str)
+    nodeRightClicked = Signal(str)
+    nodeHovered = Signal(str)   # empty string = no hover
+    nodePressed = Signal(str)
+    nodeDragged = Signal(str)
+    nodeReleased = Signal(str)
+    scaleChanged = Signal(float)
+    alphaUpdated = Signal(float)
+    fpsUpdated = Signal(float)
+    paintTimeUpdated = Signal(float)
+    tickTimeUpdated = Signal(float)
+    simulationStarted = Signal()
+    simulationStopped = Signal()
+
+    def __init__(self, parent: QWidget | None = ...) -> None: ...
+
+    # ======================== Graph Data ========================
+    def setGraph(
+        self,
+        nNodes: int,
+        edges: list[int],
+        pos: list[float],
+        id: list[str],
+        labels: list[str],
+        radii: list[float],
+        nodeColors: list[QColor] | None = ...,
+    ) -> None: ...
+
+    # ======================== Simulation Control ========================
+    def pauseSimulation(self) -> None: ...
+    def resumeSimulation(self) -> None: ...
+    def restartSimulation(self) -> None: ...
+
+    # ======================== Force Parameters ========================
+    def setManyBodyStrength(self, value: float) -> None: ...
+    def setCenterStrength(self, value: float) -> None: ...
+    def setLinkStrength(self, value: float) -> None: ...
+    def setLinkDistance(self, value: float) -> None: ...
+    def setCollisionRadius(self, value: float) -> None: ...
+    def setCollisionStrength(self, value: float) -> None: ...
+
+    # ======================== Visual Parameters ========================
+    def setRadiusFactor(self, f: float) -> None: ...
+    def setSideWidthFactor(self, f: float) -> None: ...
+    def setTextThresholdFactor(self, f: float) -> None: ...
+    def setNeighborDepth(self, depth: int) -> None: ...
+
+    # ======================== Misc ========================
+    def setDragging(self, nodeId: int, dragging: bool) -> None: ...
+    def getContentRect(self) -> QRectF: ...
+    def fitViewToContent(self) -> None: ...
+
+    # ======================== Runtime Graph Modification ========================
+    def add_node_runtime(
+        self,
+        nodeId: str,
+        x: float = 0.0,
+        y: float = 0.0,
+        label: str = "",
+        radius: float = 7.0,
+        color: QColor | None = None,
+    ) -> None: ...
+    def remove_node_runtime(self, nodeId: str) -> None: ...
+    def add_edge_runtime(self, uNodeId: str, vNodeId: str) -> None: ...
+    def remove_edge_runtime(self, uNodeId: str, vNodeId: str) -> None: ...
+

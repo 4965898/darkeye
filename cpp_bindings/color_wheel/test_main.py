@@ -6,7 +6,7 @@ from PyColorWheel import ColorWheelSimple
 
 if __name__ == "__main__":
     app = QApplication()
-    w = ColorWheelSimple()
+    w :ColorWheelSimple = ColorWheelSimple()
     w.show()
     w.setInitialColor("#FF0000")
     sys.exit(app.exec())

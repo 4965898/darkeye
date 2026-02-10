@@ -83,4 +83,27 @@ private:
     float m_cutoff2;
 };
 
+// ---------------------------------------------------------------------------
+// CollisionForce – point-to-point repulsion when dist < radius   O(N^2)
+//   Only acts when distance < radius; no force beyond. Uses cutoff + OpenMP.
+// ---------------------------------------------------------------------------
+class CollisionForce : public Force
+{
+public:
+    CollisionForce(float radius = 10.0f, float strength = 50.0f);
+
+    void apply(float alpha) override;
+
+    void setRadius(float r)      { m_radius = r; }
+    float radius() const         { return m_radius; }
+    void setStrength(float s)    { m_strength = s; }
+    float strength() const        { return m_strength; }
+
+private:
+    void applyParallel(float alpha);
+
+    float m_radius;
+    float m_strength;
+};
+
 #endif // FORCES_H

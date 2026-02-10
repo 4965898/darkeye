@@ -1,0 +1,283 @@
+#ifndef FORCEVIEWOPENGL_H
+#define FORCEVIEWOPENGL_H
+
+#include <QOpenGLWidget>
+#include <QOpenGLFunctions_3_3_Core>
+#include <QTimer>
+#include <QWheelEvent>
+#include <QMouseEvent>
+#include <QEnterEvent>
+#include <QEvent>
+#include <QVector>
+#include <QStringList>
+#include <QColor>
+#include <QRectF>
+#include <QFont>
+#include <QFontMetrics>
+#include <QStaticText>
+#include <QPair>
+
+#include <memory>
+#include <vector>
+#include <thread>
+#include <atomic>
+#include <mutex>
+#include <unordered_map>
+
+#include "PhysicsState.h"
+#include "Simulation.h"
+#include "Forces.h"
+
+class GraphRenderer;
+
+#ifdef BINDINGS_BUILD
+#  define FORCEVIEW_OPENGL_EXPORT Q_DECL_EXPORT
+#else
+#  define FORCEVIEW_OPENGL_EXPORT Q_DECL_IMPORT
+#endif
+
+/**
+ * ForceViewOpenGL — QOpenGLWidget that renders the same force-directed graph
+ * as ForceView but using OpenGL for points, lines, and QPainter overlay for text.
+ *
+ * Same public API as ForceView (setGraph, simulation control, visual params, signals).
+ * Does not use NodeLayer or ForceView; duplicates display logic and reuses
+ * PhysicsState + Simulation unchanged.
+ */
+class FORCEVIEW_OPENGL_EXPORT ForceViewOpenGL : public QOpenGLWidget, protected QOpenGLFunctions_3_3_Core
+{
+    Q_OBJECT
+
+public:
+    explicit ForceViewOpenGL(QWidget* parent = nullptr);
+    ~ForceViewOpenGL() override;
+
+    // ======================== Graph Data ========================
+    void setGraph(int nNodes,
+                  const QVector<int>&   edges,
+                  const QVector<float>& pos,
+                  const QStringList&   id,
+                  const QStringList&   labels,
+                  const QVector<float>& radii,
+                  const QVector<QColor>& nodeColors = QVector<QColor>());
+
+    // ======================== Simulation Control ========================
+    void pauseSimulation();
+    void resumeSimulation();
+    void restartSimulation();
+
+    // ======================== Force Parameters ========================
+    void setManyBodyStrength(float value);
+    void setCenterStrength(float value);
+    void setLinkStrength(float value);
+    void setLinkDistance(float value);
+    void setCollisionRadius(float value);
+    void setCollisionStrength(float value);
+
+    // ======================== Visual Parameters ========================
+    void setRadiusFactor(float f);
+    void setSideWidthFactor(float f);
+    void setTextThresholdFactor(float f);
+    void setNeighborDepth(int depth);  // 1-5
+
+    // ======================== Misc ========================
+    void setDragging(int nodeId, bool dragging);
+    QRectF getContentRect() const;
+    void fitViewToContent();
+
+    // ======================== Runtime Graph Modification ========================
+    // 运行时添加节点（nodeId 为字符串 id，如 "a100"、"w123"、"c200"）
+    void add_node_runtime(const QString& nodeId, float x = 0.0f, float y = 0.0f,
+                          const QString& label = QString(), float radius = 7.0f,
+                          const QColor& color = QColor());
+    // 运行时删除节点（nodeId 为字符串 id）
+    void remove_node_runtime(const QString& nodeId);
+    // 运行时添加边（nodeId 为字符串 id）
+    void add_edge_runtime(const QString& uNodeId, const QString& vNodeId);
+    // 运行时删除边（nodeId 为字符串 id）
+    void remove_edge_runtime(const QString& uNodeId, const QString& vNodeId);
+
+signals:
+    void nodeLeftClicked(const QString& nodeId);
+    void nodeRightClicked(const QString& nodeId);
+    void nodeHovered(const QString& nodeId);   // empty string = no hover
+    void nodePressed(const QString& nodeId);
+    void nodeDragged(const QString& nodeId);
+    void nodeReleased(const QString& nodeId);
+    void scaleChanged(float scale);
+    void alphaUpdated(float alpha);
+    void fpsUpdated(float fps);
+    void paintTimeUpdated(float ms);
+    void tickTimeUpdated(float ms);
+    void simulationStarted();
+    void simulationStopped();
+
+protected:
+    void initializeGL() override;
+    void resizeGL(int w, int h) override;
+    void paintGL() override;
+
+    void wheelEvent(QWheelEvent* event) override;
+    void mousePressEvent(QMouseEvent* event) override;
+    void mouseMoveEvent(QMouseEvent* event) override;
+    void mouseReleaseEvent(QMouseEvent* event) override;
+    void enterEvent(QEnterEvent* event) override;
+    void leaveEvent(QEvent* event) override;
+
+private slots:
+    void onRenderTick();
+    void maybeStopRenderTimer();
+
+private:
+    void setupTimers();
+    void ensureRenderTimerRunning();
+    void requestRenderActivity();
+    void rebuildSimulation();
+
+    void startSimThread();
+    void stopSimThread();
+    void simLoop();
+
+    // Visible rect in scene coords (from pan/zoom + viewport)
+    void updateVisibleMask();
+    void advanceHover();
+    void updateFactor();
+
+    // Edge line buffers: float arrays [x1,y1,x2,y2, ...] for GL
+    void updateEdgeLineBuffers();
+
+    // Build node instance data (pos, radius, color) for visible nodes in draw order
+    void buildNodeInstanceData();
+
+    static QColor mixColor(const QColor& c1, const QColor& c2, float t);
+
+    // Screen (pixel) to scene coords using inverse view matrix
+    void screenToScene(float sx, float sy, float& outX, float& outY) const;
+
+    // BFS 更新 m_neighborMask / m_lastNeighborMask（由 setNeighborDepth 与 mouseMove 共用）
+    void updateNeighborMaskForHover(int hoverIndex);
+
+    // ---- Simulation (same as ForceView) ----
+    std::unique_ptr<PhysicsState> m_physicsState;
+    std::unique_ptr<Simulation>   m_simulation;
+    std::thread m_simThread;
+    std::atomic<bool> m_simThreadRunning{false};
+    std::mutex m_simMutex;
+
+    std::vector<std::vector<int>> m_neighbors;
+    QStringList m_ids;                  // same as m_labels: external id per node (string)
+
+    QTimer* m_renderTimer = nullptr;
+    QTimer* m_idleTimer   = nullptr;
+    bool    m_renderActive = false;
+
+    float m_manyBodyStrength  = 10000.0f;
+    float m_linkStrength      = 0.3f;
+    float m_linkDistance      = 30.0f;
+    float m_centerStrength    = 0.01f;
+    float m_collisionRadius   = 10.0f;
+    float m_collisionStrength = 50.0f;
+
+    std::atomic<bool> m_simActive{false};
+    std::atomic<bool> m_allowWarmup{false};
+
+    // ---- Display data (from NodeLayer logic) ----
+    QVector<float>  m_showRadiiBase;
+    QVector<float>  m_showRadii;
+    QStringList     m_labels;
+    QVector<QColor> m_nodeColors;
+
+    float m_sideWidthBase   = 2.0f;
+    float m_sideWidthFactor = 1.0f;
+    float m_sideWidth       = 1.0f;
+    float m_radiusFactor    = 1.0f;
+    float m_textThresholdBase   = 0.7f;
+    float m_textThresholdFactor = 1.0f;
+    float m_textThresholdOff    = 0.7f;
+    float m_textThresholdShow  = 1.05f;
+
+    int m_neighborDepth = 2;  // 邻居深度，1-5
+
+    QColor m_edgeColor      = QColor("#D5D5D5");
+    QColor m_edgeDimColor   = QColor("#F7F7F7");
+    QColor m_baseColor      = QColor("#5C5C5C");
+    QColor m_dimColor       = QColor("#DEDEDE");
+    QColor m_hoverColor     = QColor("#8F6AEE");
+    QColor m_textColor      = QColor("#5C5C5C");
+
+    std::vector<uint8_t> m_neighborMask;
+    std::vector<uint8_t> m_lastNeighborMask;
+    std::vector<int>    m_visibleIndices;
+    std::vector<int>    m_visibleEdges;
+    std::vector<uint8_t> m_nodeMask;
+
+    std::vector<int> m_groupBase;//节点分组，普通节点
+    std::vector<int> m_groupDim;//变暗的节点
+    std::vector<int> m_groupHover;//悬停与周边要突出显示的节点
+
+    int   m_hoverIndex     = -1;
+    int   m_lastHoverIndex = -1;
+    int   m_selectedIndex  = -1;
+    bool  m_dragging       = false;
+    float m_dragOffsetX    = 0.0f;
+    float m_dragOffsetY    = 0.0f;
+
+    float m_hoverStep   = 0.1f;
+    float m_hoverGlobal = 0.0f;
+
+    std::vector<int> m_lastDimEdges;
+    std::vector<int> m_lastHighlightEdges;
+
+    // Line vertex data for GL: [x1,y1, x2,y2, ...] per batch
+    std::vector<float> m_lineVertsAll;
+    std::vector<float> m_lineVertsDim;
+    std::vector<float> m_lineVertsHighlight;
+
+    // Node instance data: interleaved [x, y, radius, r, g, b, a] per visible node (draw order)
+
+    std::vector<float> m_nodeInstanceDataDim;
+    std::vector<float> m_nodeInstanceDataRest;
+
+    // ---- View (pan/zoom) ----
+    float m_panX  = 0.0f;
+    float m_panY  = 0.0f;
+    float m_zoom  = 1.0f;
+    int   m_viewportW = 1;
+    int   m_viewportH = 1;
+    bool  m_isPanning = false;
+    float m_panStartX = 0.0f;
+    float m_panStartY = 0.0f;
+    float m_panStartPanX = 0.0f;
+    float m_panStartPanY = 0.0f;
+
+    float m_lineHalfWidthScene = 0.5f;
+
+    // ---- Text (QPainter overlay) ----
+    QFont m_font{ QStringLiteral("Microsoft YaHei"), 5 };
+    QFontMetrics m_fontMetrics{ m_font };
+    int m_fontHeight = 0;
+    std::unordered_map<std::string, QPair<QStaticText, float>> m_staticTextCache;
+    std::vector<QPair<QStaticText, float>> m_labelCacheByIndex;
+
+    int   m_cachedHoverLabelIndex   = -1;
+    float m_cachedHoverLabelScale   = 0.0f;
+    float m_cachedHoverLabelT       = -1.0f;
+    QFont m_cachedHoverLabelFont;
+    int   m_cachedHoverLabelAdvance = 0;
+    int   m_cachedHoverLabelRectTop = 0;
+
+    void initStaticTextCache();
+
+    // ---- OpenGL ----
+    static constexpr float kPointSpriteMaxRadiusPixels = 12.0f;
+    std::unique_ptr<GraphRenderer> m_renderer;
+    float m_scenePerPixel = 0.0f;
+    bool m_glReady = false;
+
+    // ---- FPS ----
+    int    m_frameCount  = 0;
+    double m_lastFpsTime  = 0.0;
+    float  m_currentFps   = 0.0f;
+};
+
+#endif // FORCEVIEWOPENGL_H

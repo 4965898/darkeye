@@ -116,11 +116,7 @@
 
 ## 四、移植到 C++ 与去除多进程
 
-### 4.1 为何考虑 C++
 
-- 性能：力导向在大图上（如 1e4+ 节点）用 C++/SIMD/GPU 更易扩展；Numba 已能跑 2000 节点 60fps，再大时 C++ 更可控。
-- 部署：单一二进制或少量 so/dll，减少多进程与 pickle 依赖。
-- 去除多进程：避免 Pipe 序列化、共享内存在跨进程下的生命周期与平台差异，调试更简单。
 
 ### 4.2 去除多进程后的架构选项
 
@@ -209,26 +205,7 @@
 
 约定：**三者与 pos 的节点顺序一致**，即 `label[i]`、`node_id[i]`、`color[i]` 与 `pos` 第 i 个节点对应。Python 侧从 nx 按 `nodes = list(G.nodes())` 顺序填好再传即可。
 
-### 5.3 推荐：用“连续内存 + 元数据”交给 C++
 
-- **方式 1：NumPy + buffer 协议（单进程内）**
-  - Python：`pos = np.zeros((n_nodes, 2), dtype=np.float32, order='C')`；`edges = np.array(..., dtype=np.int32).reshape(-1, 2)`。
-  - 通过 pybind11 暴露：
-    - `void set_graph(int n_nodes, py::array_t<int32_t> edges, py::array_t<float> pos)`
-    - 在 C++ 中保存 `pos` 的 mutable 指针（或拷贝一份由 C++ 持有）；若约定“C++ 只写 pos，Python 只读”，可零拷贝共享一块内存（由 Python 或 C++ 任一方分配，另一方拿指针/ndarray 视图）。
-  - 优点：无序列化、无多进程；格式即 NumPy 布局，易调试。
-
-- **方式 2：简单二进制块（适合 socket/多进程 C++ 子进程）**
-  - 顺序写入：`[n_nodes:uint32][n_edges:uint32][pos: n_nodes*2*float32][edges: n_edges*2*int32]`。
-  - C++ 端一次 read 或 mmap，解析头后直接指针指到 pos 和 edges。
-  - 适合方案 C（子进程为独立 C++ 进程）或将来需要网络/文件持久化时。
-
-- **方式 3：Struct 定义（便于扩展）**
-  - 例如：
-    - `header`: magic(4B) + version(2B) + n_nodes(4B) + n_edges(4B) + reserved
-    - `pos`: n_nodes * 2 * 4 字节
-    - `edges`: n_edges * 2 * 4 字节
-  - 以后可加：节点质量、边权、分组等，用 version 区分。
 
 ### 5.4 增量/修改（modify_graph）
 

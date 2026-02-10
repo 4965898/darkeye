@@ -2,6 +2,7 @@
 #include <cmath>
 #include <algorithm>
 
+
 // =====================================================================
 // CenterForce
 // =====================================================================
@@ -75,6 +76,7 @@ void ManyBodyForce::apply(float alpha)
 
     if (N < 2000) {
         applyBlock(alpha, 256);
+        //applyParallel(alpha);
     } else {
         applyParallel(alpha);
     }
@@ -135,6 +137,7 @@ void ManyBodyForce::applyParallel(float alpha)
 
     // Each thread accumulates its own force for node i, then writes.
     // This avoids race conditions on vel[j] — only vel[i] is written per i.
+
 #pragma omp parallel for schedule(static)
     for (int i = 0; i < N; ++i) {
         float xi = pos[2 * i];
@@ -157,6 +160,86 @@ void ManyBodyForce::applyParallel(float alpha)
 
             fx_sum += s * dx * invd * alpha;
             fy_sum += s * dy * invd * alpha;
+        }
+
+        vel[2 * i]     += fx_sum;
+        vel[2 * i + 1] += fy_sum;
+    }
+}
+
+// =====================================================================
+// CollisionForce
+// =====================================================================
+CollisionForce::CollisionForce(float radius, float strength)
+    : m_radius(radius), m_strength(strength)
+{}
+
+void CollisionForce::apply(float alpha)
+{
+    const int N = m_state->nNodes;
+    if (N < 2) return;
+
+    if (N < 2000) {
+        const float* pos = m_state->pos.data();
+        float*       vel = m_state->vel.data();
+        const float  R   = m_radius;
+        const float  sa  = m_strength * alpha;
+        const float  eps = 1e-6f;
+
+        for (int i = 0; i < N; ++i) {
+            float xi = pos[2 * i];
+            float yi = pos[2 * i + 1];
+            float fx_sum = 0.0f;
+            float fy_sum = 0.0f;
+
+            for (int j = 0; j < N; ++j) {
+                if (i == j) continue;
+                float dx = xi - pos[2 * j];
+                float dy = yi - pos[2 * j + 1];
+                float dist = std::sqrt(dx * dx + dy * dy) + eps;
+                if (dist >= R) continue;
+
+                float overlap = R - dist;
+                float f = sa * overlap / dist;
+                fx_sum += f * dx;
+                fy_sum += f * dy;
+            }
+
+            vel[2 * i]     += fx_sum;
+            vel[2 * i + 1] += fy_sum;
+        }
+    } else {
+        applyParallel(alpha);
+    }
+}
+
+void CollisionForce::applyParallel(float alpha)
+{
+    const int    N        = m_state->nNodes;
+    const float* pos      = m_state->pos.data();
+    float*       vel      = m_state->vel.data();
+    const float  R        = m_radius;
+    const float  sa       = m_strength * alpha;
+    const float  eps      = 1e-6f;
+
+#pragma omp parallel for schedule(static)
+    for (int i = 0; i < N; ++i) {
+        float xi = pos[2 * i];
+        float yi = pos[2 * i + 1];
+        float fx_sum = 0.0f;
+        float fy_sum = 0.0f;
+
+        for (int j = 0; j < N; ++j) {
+            if (i == j) continue;
+            float dx = xi - pos[2 * j];
+            float dy = yi - pos[2 * j + 1];
+            float dist = std::sqrt(dx * dx + dy * dy) + eps;
+            if (dist >= R) continue;
+
+            float overlap = R - dist;
+            float f = sa * overlap / dist;
+            fx_sum += f * dx;
+            fy_sum += f * dy;
         }
 
         vel[2 * i]     += fx_sum;

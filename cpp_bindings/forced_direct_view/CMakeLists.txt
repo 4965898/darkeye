@@ -18,7 +18,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # =============================================
 # Find Qt
 # =============================================
-find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets)
+find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets OpenGLWidgets OpenGL)
 
 # =============================================
 # Names
@@ -28,9 +28,10 @@ set(bindings_library   "PyForceView")       # Python binding      (.pyd)
 set(wrapped_header     ${CMAKE_SOURCE_DIR}/bindings.h)
 set(typesystem_file    ${CMAKE_SOURCE_DIR}/bindings.xml)
 
+
 set(generated_sources
-    ${CMAKE_CURRENT_BINARY_DIR}/${bindings_library}/pyforceview_module_wrapper.cpp
-    ${CMAKE_CURRENT_BINARY_DIR}/${bindings_library}/forceview_wrapper.cpp
+    ${CMAKE_CURRENT_BINARY_DIR}/${bindings_library}/pyforceview_module_wrapper.cpp#模块包装器
+    ${CMAKE_CURRENT_BINARY_DIR}/${bindings_library}/forceviewopengl_wrapper.cpp#类包装器
 )
 
 # =============================================
@@ -73,6 +74,7 @@ foreach(INCLUDE_DIR ${pyside_include_dir})
     list(APPEND pyside_additional_includes "${INCLUDE_DIR}/QtGui")
     list(APPEND pyside_additional_includes "${INCLUDE_DIR}/QtWidgets")
 endforeach()
+find_package(OpenMP REQUIRED COMPONENTS CXX)
 
 # =============================================
 # Project 1: Shared library (forceviewlib.dll)
@@ -80,37 +82,41 @@ endforeach()
 set(${forceview_library}_sources
     src/Forces.cpp
     src/Simulation.cpp
-    src/NodeLayer.cpp
-    src/ForceView.cpp
+    src/ForceViewOpenGL.cpp
+    src/GraphRenderer.cpp
     include/Forces.h
     include/Simulation.h
-    include/NodeLayer.h
-    include/ForceView.h
+    include/ForceViewOpenGL.h
+    include/GraphRenderer.h
     include/PhysicsState.h
 )
 
 add_library(${forceview_library} SHARED ${${forceview_library}_sources})
 set_property(TARGET ${forceview_library} PROPERTY PREFIX "")
 target_compile_definitions(${forceview_library} PRIVATE BINDINGS_BUILD)
-target_include_directories(${forceview_library} PRIVATE
+target_include_directories(${forceview_library} PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
-target_link_libraries(${forceview_library} PRIVATE Qt6::Widgets)
+target_link_libraries(${forceview_library}
+    PUBLIC Qt6::Widgets Qt6::OpenGLWidgets Qt6::OpenGL
+    PRIVATE OpenMP::OpenMP_CXX
+)
 
 # =============================================
 # Project 2: Test executable
 # =============================================
-qt_add_executable(forceview_test WIN32 src/main.cpp)
+qt_add_executable(forceview_test WIN32 src/test_main.cpp)
 target_include_directories(forceview_test PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 target_link_libraries(forceview_test PRIVATE ${forceview_library} Qt6::Widgets)
 
-install(TARGETS forceview_test ${forceview_library}
-    EXPORT forceview_export
-    RUNTIME DESTINATION .
-    LIBRARY DESTINATION .
-)
+#这个测试的不要安装了
+#install(TARGETS forceview_test ${forceview_library}
+#    EXPORT forceview_export
+#    RUNTIME DESTINATION ${CMAKE_CURRENT_SOURCE_DIR}
+#    LIBRARY DESTINATION ${CMAKE_CURRENT_SOURCE_DIR}
+#)
 
 if(WIN32)
     get_target_property(_qmake_executable Qt6::qmake IMPORTED_LOCATION)
@@ -135,7 +141,7 @@ shiboken_generator_create_binding(
     HEADERS ${wrapped_header}
     TYPESYSTEM_FILE ${typesystem_file}
     LIBRARY_TARGET ${forceview_library}
-    QT_MODULES Core Gui Widgets
+    QT_MODULES Core Gui Widgets OpenGLWidgets OpenGL
 )
 
 # Windows: handle shiboken shared library and python linking

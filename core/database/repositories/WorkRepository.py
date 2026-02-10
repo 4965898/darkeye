@@ -16,7 +16,7 @@ class WorkRepository:
         query = """
         SELECT
             w.work_id,
-            w.serial_number,
+            w.serial_number, 
             w.director,
             w.story,
             w.release_date,
@@ -29,8 +29,6 @@ class WorkRepository:
             w.create_time,
             w.update_time,
             w.is_deleted,
-            w.javtxt_id,
-            w.fcover_url,
             w.on_dan,
             (SELECT GROUP_CONCAT(actress_id) FROM work_actress_relation WHERE work_id = w.work_id) as actress_ids,
             (SELECT GROUP_CONCAT(actor_id) FROM work_actor_relation WHERE work_id = w.work_id) as actor_ids,

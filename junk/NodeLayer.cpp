@@ -26,23 +26,38 @@ static double nowSec()
 // =====================================================================
 // Construction / Reset
 // =====================================================================
-
+/*
+* 绘图层，目前采用的是Qgraphicsview里加一个大的item,在一个item里用Qpainter绘图
+* 实现功能：鼠标放到节点上节点边色，其他的
+* 优化策略：
+* 1.看不到的不画
+* 2.LOD策略，缩小后文字不画
+* 3.批量绘制，减少Qpen的转换次数
+* 4.文字静态缓存，使用QStaticText缓存文字，避免单个绘制的时候计算文字尺寸
+* 其他实现
+* 自己判断交互
+*/
 NodeLayer::NodeLayer(PhysicsState* state,
                      const QVector<float>& showRadii,
                      const QStringList& labels,
                      const std::vector<std::vector<int>>& neighbors,
+                     const QStringList& id,
+                     const QVector<QColor>& nodeColors,
                      QGraphicsItem* parent)
     : QGraphicsObject(parent)
     , m_state(state)
     , m_showRadiiBase(showRadii)
     , m_labels(labels)
     , m_neighbors(neighbors)
+    , m_nodeColors(nodeColors)
     , m_font("Microsoft YaHei", 5)
     , m_fontMetrics(m_font)
 {
+    int N = m_state->nNodes;
+    m_ids=id;
+
     m_fontHeight = m_fontMetrics.height();
 
-    int N = m_state->nNodes;
     m_neighborMask.assign(N, 0);
     m_lastNeighborMask.clear();
 
@@ -62,27 +77,34 @@ NodeLayer::NodeLayer(PhysicsState* state,
 void NodeLayer::reset(PhysicsState* state,
                       const QVector<float>& showRadii,
                       const QStringList& labels,
-                      const std::vector<std::vector<int>>& neighbors)
+                      const std::vector<std::vector<int>>& neighbors,
+                      const QStringList& id,
+                      const QVector<QColor>& nodeColors)
 {
-    m_state         = state;
-    m_showRadiiBase = showRadii;
-    m_labels        = labels;
-    m_neighbors     = neighbors;
+    m_state         = state;//物理状态
+    m_showRadiiBase = showRadii;//节点半径
+    m_labels        = labels;//节点标签
+    m_neighbors     = neighbors;//邻居节点
+    m_nodeColors    = nodeColors;//每节点颜色（暂不参与绘制）
 
     int N = m_state->nNodes;
-    m_neighborMask.assign(N, 0);
-    m_lastNeighborMask.clear();
+    m_ids=id;
 
-    m_hoverIndex     = -1;
-    m_lastHoverIndex = -1;
-    m_selectedIndex  = -1;
-    m_dragging       = false;
+    m_neighborMask.assign(N, 0);//邻居节点掩码
+    m_lastNeighborMask.clear();//上一次邻居节点掩码
+
+    m_hoverIndex     = -1;//鼠标移动上去的节点索引
+    m_lastHoverIndex = -1;//上一次鼠标移动上去的节点索引
+    m_selectedIndex  = -1;//鼠标点击选中的节点索引
+    m_dragging       = false;//是否正在拖拽节点
     m_hoverGlobal    = 0.0f;
 
-    m_lastDimEdges.clear();
-    m_lastHighlightEdges.clear();
+    m_lastDimEdges.clear();//上一次暗色边
+    m_lastHighlightEdges.clear();//上一次高亮边
 
-    m_staticTextCache.clear();
+    m_staticTextCache.clear();//静态文本缓存
+    m_labelCacheByIndex.clear();
+    m_cachedHoverLabelIndex = -1;
 
     m_radiusFactor = 1.0f;
     updateFactor();
@@ -125,6 +147,12 @@ void NodeLayer::initStaticTextCache()
         float w = static_cast<float>(st.size().width());
         m_staticTextCache[key] = {st, w};
     }
+    m_labelCacheByIndex.resize(m_labels.size());
+    for (int i = 0; i < m_labels.size(); ++i) {
+        auto it = m_staticTextCache.find(m_labels[i].toStdString());
+        if (it != m_staticTextCache.end())
+            m_labelCacheByIndex[i] = it->second;
+    }
 }
 
 // =====================================================================
@@ -143,7 +171,7 @@ QRectF NodeLayer::boundingRect() const
         return m_cachedBounding;
     }
 
-    const float* pos = m_state->pos.data();
+    const float* pos = m_state->renderPosData();
     float minX = pos[0], maxX = pos[0];
     float minY = pos[1], maxY = pos[1];
     for (int i = 1; i < N; ++i) {
@@ -191,26 +219,30 @@ void NodeLayer::updateVisibleMask()
     }
     visRect.adjust(-50, -50, 50, 50);
 
-    const float* pos = m_state->pos.data();
+    const float* pos = m_state->renderPosData();
+    const float left = static_cast<float>(visRect.left());
+    const float right = static_cast<float>(visRect.right());
+    const float top = static_cast<float>(visRect.top());
+    const float bottom = static_cast<float>(visRect.bottom());
 
-    // Node culling
-    m_visibleIndices.clear();
-    m_visibleIndices.reserve(N);
-    std::vector<uint8_t> nodeMask(N, 0);
-
+    // Node culling: two-pass to help auto-vectorization (pass 1: contiguous mask write, pass 2: gather indices)
+    m_nodeMask.resize(N);
+    uint8_t* nodeMask = m_nodeMask.data();
+    const float* radii = m_showRadii.isEmpty() ? nullptr : m_showRadii.constData();
     for (int i = 0; i < N; ++i) {
         float x = pos[2 * i];
         float y = pos[2 * i + 1];
-        float r = (i < m_showRadii.size()) ? m_showRadii[i] : 5.0f;
-        if (x + r >= visRect.left() && x - r <= visRect.right() &&
-            y + r >= visRect.top()  && y - r <= visRect.bottom())
-        {
+        float r = (radii && i < m_showRadii.size()) ? radii[i] : 5.0f;
+        nodeMask[i] = (x + r >= left && x - r <= right && y + r >= top && y - r <= bottom) ? 1 : 0;
+    }
+    m_visibleIndices.clear();
+    m_visibleIndices.reserve(N);
+    for (int i = 0; i < N; ++i) {
+        if (nodeMask[i])
             m_visibleIndices.push_back(i);
-            nodeMask[i] = 1;
-        }
     }
 
-    // Edge culling: keep edge if either endpoint is visible
+    // Edge culling: keep edge if either endpoint is visible (sequential over edges)
     const int E = m_state->edgeCount();
     const int* edges = m_state->edges.data();
     m_visibleEdges.clear();
@@ -223,8 +255,6 @@ void NodeLayer::updateVisibleMask()
             m_visibleEdges.push_back(d);
         }
     }
-
-    m_boundingDirty = true;
 }
 
 // =====================================================================
@@ -238,6 +268,124 @@ void NodeLayer::advanceHover()
         m_hoverGlobal = std::min(1.0f, m_hoverGlobal + m_hoverStep);
     else if (target < m_hoverGlobal)
         m_hoverGlobal = std::max(0.0f, m_hoverGlobal - m_hoverStep);
+    updateEdgeLineBuffers();
+}
+
+// =====================================================================
+// Circle-edge line helper (start/end on circle boundaries)
+// =====================================================================
+
+static QLineF lineFromCircleToCircle(float sx, float sy, float rs,
+                                     float dx, float dy, float rd)
+{
+    float vx = dx - sx;
+    float vy = dy - sy;
+    float L = std::sqrt(vx * vx + vy * vy);
+    if (L <= 0.0f) {
+        return QLineF(sx, sy, sx, sy);
+    }
+    float ux = vx / L;
+    float uy = vy / L;
+    float x1 = sx + ux * rs;
+    float y1 = sy + uy * rs;
+    float x2 = dx - ux * rd;
+    float y2 = dy - uy * rd;
+    return QLineF(x1, y1, x2, y2);
+}
+
+// =====================================================================
+// updateEdgeLineBuffers (fills m_linesAll / m_linesDim / m_linesHighlight for drawEdges)
+// =====================================================================
+
+void NodeLayer::updateEdgeLineBuffers()
+{
+    const int VE = static_cast<int>(m_visibleEdges.size()) / 2;
+    const float* pos = m_state ? m_state->renderPosData() : nullptr;
+    if (VE == 0 || !pos) {
+        m_linesAll.clear();
+        m_linesDim.clear();
+        m_linesHighlight.clear();
+        return;
+    }
+
+    const int* vedge = m_visibleEdges.data();
+    const int hover = m_hoverIndex;
+    const float t = m_hoverGlobal;
+
+    auto radiusAt = [this](int i) -> float {
+        return (i >= 0 && i < m_showRadii.size()) ? m_showRadii[i] : 5.0f;
+    };
+
+    if (hover == -1) {
+        if (t <= 0.0f) {
+            m_linesAll.clear();
+            m_linesAll.reserve(VE);
+            for (int e = 0; e < VE; ++e) {
+                int s = vedge[2 * e], d = vedge[2 * e + 1];
+                m_linesAll.append(lineFromCircleToCircle(
+                    pos[2*s], pos[2*s+1], radiusAt(s),
+                    pos[2*d], pos[2*d+1], radiusAt(d)));
+            }
+            m_linesDim.clear();
+            m_linesHighlight.clear();
+        } else {
+            m_linesAll.clear();
+            int nDim = static_cast<int>(m_lastDimEdges.size()) / 2;
+            int nHi = static_cast<int>(m_lastHighlightEdges.size()) / 2;
+            m_linesDim.clear();
+            m_linesDim.reserve(nDim);
+            for (int e = 0; e < nDim; ++e) {
+                int s = m_lastDimEdges[2*e], d = m_lastDimEdges[2*e+1];
+                m_linesDim.append(lineFromCircleToCircle(
+                    pos[2*s], pos[2*s+1], radiusAt(s),
+                    pos[2*d], pos[2*d+1], radiusAt(d)));
+            }
+            m_linesHighlight.clear();
+            m_linesHighlight.reserve(nHi);
+            for (int e = 0; e < nHi; ++e) {
+                int s = m_lastHighlightEdges[2*e], d = m_lastHighlightEdges[2*e+1];
+                m_linesHighlight.append(lineFromCircleToCircle(
+                    pos[2*s], pos[2*s+1], radiusAt(s),
+                    pos[2*d], pos[2*d+1], radiusAt(d)));
+            }
+        }
+        return;
+    }
+
+    // Hover active: split visible edges into dim / highlight and fill buffers
+    m_lastDimEdges.clear();
+    m_lastHighlightEdges.clear();
+    m_lastDimEdges.reserve(VE * 2);
+    m_lastHighlightEdges.reserve(VE * 2);
+    for (int e = 0; e < VE; ++e) {
+        int s = vedge[2 * e], d = vedge[2 * e + 1];
+        if (s == hover || d == hover) {
+            m_lastHighlightEdges.push_back(s);
+            m_lastHighlightEdges.push_back(d);
+        } else {
+            m_lastDimEdges.push_back(s);
+            m_lastDimEdges.push_back(d);
+        }
+    }
+    m_linesAll.clear();
+    int nDim = static_cast<int>(m_lastDimEdges.size()) / 2;
+    int nHi = static_cast<int>(m_lastHighlightEdges.size()) / 2;
+    m_linesDim.clear();
+    m_linesDim.reserve(nDim);
+    for (int e = 0; e < nDim; ++e) {
+        int s = m_lastDimEdges[2*e], d = m_lastDimEdges[2*e+1];
+        m_linesDim.append(lineFromCircleToCircle(
+            pos[2*s], pos[2*s+1], radiusAt(s),
+            pos[2*d], pos[2*d+1], radiusAt(d)));
+    }
+    m_linesHighlight.clear();
+    m_linesHighlight.reserve(nHi);
+    for (int e = 0; e < nHi; ++e) {
+        int s = m_lastHighlightEdges[2*e], d = m_lastHighlightEdges[2*e+1];
+        m_linesHighlight.append(lineFromCircleToCircle(
+            pos[2*s], pos[2*s+1], radiusAt(s),
+            pos[2*d], pos[2*d+1], radiusAt(d)));
+    }
 }
 
 // =====================================================================
@@ -265,8 +413,9 @@ void NodeLayer::paint(QPainter* painter,
 {
     double start = nowSec();
 
-    drawEdges(painter);
+    drawEdgesUnder(painter);
     drawNodesAndText(painter);
+    drawEdgesOver(painter);
 
     float elapsed = static_cast<float>((nowSec() - start) * 1000.0);
     emit paintTimeReady(elapsed);
@@ -274,103 +423,58 @@ void NodeLayer::paint(QPainter* painter,
 }
 
 // =====================================================================
-// drawEdges
+// drawEdgesUnder (dim / all edges below nodes)
 // =====================================================================
 
-void NodeLayer::drawEdges(QPainter* painter)
+void NodeLayer::drawEdgesUnder(QPainter* painter)
 {
     const int VE = static_cast<int>(m_visibleEdges.size()) / 2;
     if (VE == 0) return;
 
-    const float* pos   = m_state->pos.data();
-    const int*   vedge = m_visibleEdges.data();
-    const int    hover = m_hoverIndex;
-    const float  t     = m_hoverGlobal;
+    const bool needAll = (m_hoverIndex == -1 && m_hoverGlobal <= 0.0f);
+    if (needAll && m_linesAll.isEmpty()) {
+        updateEdgeLineBuffers();
+    } else if (!needAll && m_linesDim.isEmpty() && m_linesHighlight.isEmpty()) {
+        updateEdgeLineBuffers();
+    }
 
-    if (hover == -1) {
-        // ---- No hover node ----
-        if (t <= 0.0f) {
-            // Default: all edges same color
+    const float t = m_hoverGlobal;
+    const int hover = m_hoverIndex;
+
+    if (hover == -1 && t <= 0.0f) {
+        if (!m_linesAll.isEmpty()) {
             painter->setPen(QPen(m_edgeColor, m_sideWidth));
-            QVector<QLineF> lines;
-            lines.reserve(VE);
-            for (int e = 0; e < VE; ++e) {
-                int s = vedge[2 * e], d = vedge[2 * e + 1];
-                lines.append(QLineF(pos[2*s], pos[2*s+1], pos[2*d], pos[2*d+1]));
-            }
-            painter->drawLines(lines);
-        } else {
-            // Fading out from previous hover: draw dim + highlight separately
-            // Dim edges
-            if (!m_lastDimEdges.empty()) {
-                QColor color = mixColor(m_edgeColor, m_edgeDimColor, t);
-                painter->setPen(QPen(color, m_sideWidth));
-                int nDim = static_cast<int>(m_lastDimEdges.size()) / 2;
-                QVector<QLineF> lines;
-                lines.reserve(nDim);
-                for (int e = 0; e < nDim; ++e) {
-                    int s = m_lastDimEdges[2*e], d = m_lastDimEdges[2*e+1];
-                    lines.append(QLineF(pos[2*s], pos[2*s+1], pos[2*d], pos[2*d+1]));
-                }
-                painter->drawLines(lines);
-            }
-            // Highlight edges
-            if (!m_lastHighlightEdges.empty()) {
-                QColor color = mixColor(m_edgeColor, m_hoverColor, t);
-                painter->setPen(QPen(color, m_sideWidth));
-                int nHi = static_cast<int>(m_lastHighlightEdges.size()) / 2;
-                QVector<QLineF> lines;
-                lines.reserve(nHi);
-                for (int e = 0; e < nHi; ++e) {
-                    int s = m_lastHighlightEdges[2*e], d = m_lastHighlightEdges[2*e+1];
-                    lines.append(QLineF(pos[2*s], pos[2*s+1], pos[2*d], pos[2*d+1]));
-                }
-                painter->drawLines(lines);
-            }
+            painter->drawLines(m_linesAll);
         }
-    } else {
-        // ---- Hover is active: split into highlight / dim ----
-        m_lastDimEdges.clear();
-        m_lastHighlightEdges.clear();
+        return;
+    }
 
-        for (int e = 0; e < VE; ++e) {
-            int s = vedge[2 * e], d = vedge[2 * e + 1];
-            if (s == hover || d == hover) {
-                m_lastHighlightEdges.push_back(s);
-                m_lastHighlightEdges.push_back(d);
-            } else {
-                m_lastDimEdges.push_back(s);
-                m_lastDimEdges.push_back(d);
-            }
-        }
+    if (!m_linesDim.isEmpty()) {
+        QColor color = mixColor(m_edgeColor, m_edgeDimColor, t);
+        painter->setPen(QPen(color, m_sideWidth));
+        painter->drawLines(m_linesDim);
+    }
+}
 
-        // Draw dim edges
-        if (!m_lastDimEdges.empty()) {
-            QColor color = mixColor(m_edgeColor, m_edgeDimColor, t);
-            painter->setPen(QPen(color, m_sideWidth));
-            int nDim = static_cast<int>(m_lastDimEdges.size()) / 2;
-            QVector<QLineF> lines;
-            lines.reserve(nDim);
-            for (int e = 0; e < nDim; ++e) {
-                int s = m_lastDimEdges[2*e], d = m_lastDimEdges[2*e+1];
-                lines.append(QLineF(pos[2*s], pos[2*s+1], pos[2*d], pos[2*d+1]));
-            }
-            painter->drawLines(lines);
-        }
+// =====================================================================
+// drawEdgesOver (adjacency highlight lines on top of nodes)
+// =====================================================================
 
-        // Draw highlight edges
-        if (!m_lastHighlightEdges.empty()) {
-            QColor color = mixColor(m_edgeColor, m_hoverColor, t);
-            painter->setPen(QPen(color, m_sideWidth));
-            int nHi = static_cast<int>(m_lastHighlightEdges.size()) / 2;
-            QVector<QLineF> lines;
-            lines.reserve(nHi);
-            for (int e = 0; e < nHi; ++e) {
-                int s = m_lastHighlightEdges[2*e], d = m_lastHighlightEdges[2*e+1];
-                lines.append(QLineF(pos[2*s], pos[2*s+1], pos[2*d], pos[2*d+1]));
-            }
-            painter->drawLines(lines);
-        }
+void NodeLayer::drawEdgesOver(QPainter* painter)
+{
+    const int VE = static_cast<int>(m_visibleEdges.size()) / 2;
+    if (VE == 0) return;
+
+    const bool needAll = (m_hoverIndex == -1 && m_hoverGlobal <= 0.0f);
+    if (!needAll && m_linesDim.isEmpty() && m_linesHighlight.isEmpty()) {
+        updateEdgeLineBuffers();
+    }
+
+    if (!m_linesHighlight.isEmpty()) {
+        const float t = m_hoverGlobal;
+        QColor color = mixColor(m_edgeColor, m_hoverColor, t);
+        painter->setPen(QPen(color, m_sideWidth));
+        painter->drawLines(m_linesHighlight);
     }
 }
 
@@ -380,12 +484,17 @@ void NodeLayer::drawEdges(QPainter* painter)
 
 void NodeLayer::drawNodesAndText(QPainter* painter)
 {
-    const float* pos = m_state->pos.data();
+    const float* pos = m_state->renderPosData();
     const float  t   = m_hoverGlobal;
-    const int    N   = m_state->nNodes;
 
-    // Pre-compute groups of indices
-    std::vector<int> groupBase, groupDim, groupHover, groupHighlight;
+    // Reuse member vectors for groups (clear + reserve, no per-frame heap alloc)
+    const int vis = static_cast<int>(m_visibleIndices.size());
+    m_groupBase.clear();
+    m_groupDim.clear();
+    m_groupHover.clear();
+    m_groupBase.reserve(vis);
+    m_groupDim.reserve(vis);
+    m_groupHover.reserve(vis);
 
     // Determine scene scale (zoom level)
     float scale = 1.0f;
@@ -395,78 +504,59 @@ void NodeLayer::drawNodesAndText(QPainter* painter)
         scale = static_cast<float>(views.first()->transform().m11());
 
     // ---- Group classification ----
-    const int vis = static_cast<int>(m_visibleIndices.size());
-
     if (m_hoverIndex != -1) {
         // Active hover
         for (int vi = 0; vi < vis; ++vi) {
             int idx = m_visibleIndices[vi];
             if (idx == m_hoverIndex) {
-                groupHover.push_back(idx);
-            } else if (idx == m_centerNodeIndex && idx != m_hoverIndex) {
-                groupHighlight.push_back(idx);
-            } else if (idx < (int)m_neighborMask.size() && m_neighborMask[idx]
-                        && idx != m_centerNodeIndex) {
-                groupBase.push_back(idx);
+                m_groupHover.push_back(idx);
+            } else if (idx < (int)m_neighborMask.size() && m_neighborMask[idx]) {
+                m_groupBase.push_back(idx);
             } else {
-                groupDim.push_back(idx);
+                m_groupDim.push_back(idx);
             }
         }
     } else if (t <= 0.0f) {
         // No hover, no transition
         for (int vi = 0; vi < vis; ++vi) {
             int idx = m_visibleIndices[vi];
-            if (idx == m_centerNodeIndex)
-                groupHighlight.push_back(idx);
-            else
-                groupBase.push_back(idx);
+            m_groupBase.push_back(idx);
         }
     } else {
         // Fading out from hover
         for (int vi = 0; vi < vis; ++vi) {
             int idx = m_visibleIndices[vi];
             if (idx == m_lastHoverIndex) {
-                groupHover.push_back(idx);
-            } else if (idx == m_centerNodeIndex) {
-                groupHighlight.push_back(idx);
-            } else if (idx < (int)m_lastNeighborMask.size() && m_lastNeighborMask[idx]
-                        && idx != m_centerNodeIndex) {
-                groupBase.push_back(idx);
+                m_groupHover.push_back(idx);
+            } else if (idx < (int)m_lastNeighborMask.size() && m_lastNeighborMask[idx]) {
+                m_groupBase.push_back(idx);
             } else {
-                groupDim.push_back(idx);
+                m_groupDim.push_back(idx);
             }
         }
-    }
-
-    // ---- Pre-compute brushes ----
-    QBrush brushBase(m_baseColor);
-    QBrush brushDim   = brushBase;
-    QBrush brushHover = brushBase;
-    QBrush brushHighlight(m_highlightColor);
-
-    if (m_hoverIndex != -1 || t > 0.0f) {
-        brushHover = QBrush(mixColor(m_baseColor, m_hoverColor, t));
-        brushDim   = QBrush(mixColor(m_baseColor, m_dimColor,   t));
     }
 
     painter->setPen(Qt::NoPen);
 
     // Helper lambda: draw circle for node i
-    auto drawNode = [&](int i, const QBrush& brush, float rScale) {
+    auto nodeColorFor = [&](int i) -> QColor {
+        if (i >= 0 && i < m_nodeColors.size()) return m_nodeColors[i];
+        return m_baseColor;
+    };
+
+    auto drawNode = [&](int i, const QColor& color, float rScale) {
         float x = pos[2 * i], y = pos[2 * i + 1];
         float r = (i < m_showRadii.size()) ? m_showRadii[i] * rScale : 5.0f;
-        painter->setBrush(brush);
+        painter->setBrush(QBrush(color));
         painter->drawEllipse(QPointF(x, y), r, r);
     };
 
     // 1. Base (neighbors or normal)
-    for (int i : groupBase)      drawNode(i, brushBase, 1.0f);
+    for (int i : m_groupBase)      drawNode(i, nodeColorFor(i), 1.0f);
     // 2. Dim
-    for (int i : groupDim)       drawNode(i, brushDim,  1.0f);
-    // 3. Highlight (center node)
-    for (int i : groupHighlight) drawNode(i, brushHighlight, 1.2f);
-    // 4. Hover
-    for (int i : groupHover)     drawNode(i, brushHover, 1.1f);
+    for (int i : m_groupDim)       drawNode(i, mixColor(nodeColorFor(i), m_dimColor, t),  1.0f);
+    // 3. Hover
+    for (int i : m_groupHover)     drawNode(i, mixColor(nodeColorFor(i), m_hoverColor, t), 1.1f);
 
     // ===================== Text (LOD) =====================
     if (scale > m_textThresholdOff) {
@@ -482,35 +572,31 @@ void NodeLayer::drawNodesAndText(QPainter* painter)
         painter->setFont(m_font);
         QColor colorText("#5C5C5C");
 
-        // Lambda: draw label for node i
+        // Lambda: draw label for node i (uses index cache, no toStdString/map in hot path)
         auto drawLabel = [&](int i, int alpha, float rScale) {
-            if (i < 0 || i >= m_labels.size()) return;
-            std::string key = m_labels[i].toStdString();
-            auto it = m_staticTextCache.find(key);
-            if (it == m_staticTextCache.end()) return;
-            const auto& [st, w] = it->second;
+            if (i < 0 || i >= (int)m_labelCacheByIndex.size()) return;
+            const auto& entry = m_labelCacheByIndex[i];
+            float w = entry.second;
+            if (w <= 0.0f) return;  // no cached text for this index
             float x = pos[2 * i], y = pos[2 * i + 1];
             float r = (i < m_showRadii.size()) ? m_showRadii[i] * rScale : 5.0f;
             colorText.setAlpha(alpha);
             painter->setPen(QPen(colorText));
-            painter->drawStaticText(QPointF(x - w / 2.0f, y + r), st);
+            painter->drawStaticText(QPointF(x - w / 2.0f, y + r), entry.first);
         };
 
         // Base group
-        for (int i : groupBase)      drawLabel(i, baseAlpha, 1.0f);
+        for (int i : m_groupBase)      drawLabel(i, baseAlpha, 1.0f);
 
         // Hover group (when hoverIndex == -1, these are fading from last hover)
         if (m_hoverIndex == -1) {
-            for (int i : groupHover) drawLabel(i, baseAlpha, 1.0f);
+            for (int i : m_groupHover) drawLabel(i, baseAlpha, 1.0f);
         }
-
-        // Highlight group
-        for (int i : groupHighlight) drawLabel(i, baseAlpha, 1.2f);
 
         // Dim group (faded alpha)
         float fade = 1.0f - 0.7f * t;
         int alphaDim = static_cast<int>(baseAlpha * fade);
-        for (int i : groupDim) drawLabel(i, alphaDim, 1.0f);
+        for (int i : m_groupDim) drawLabel(i, alphaDim, 1.0f);
 
         painter->setRenderHint(QPainter::TextAntialiasing, prevTextAA);
     }
@@ -523,28 +609,28 @@ void NodeLayer::drawNodesAndText(QPainter* painter)
         QString text = m_labels[i];
         float ht = m_hoverGlobal;
 
-        QFont font(m_font);
-        float baseSize = m_font.pointSizeF();
-        if (baseSize <= 0) baseSize = static_cast<float>(m_font.pointSize());
-
-        float targetSize = baseSize * (1.0f + ht * 2.0f);
-        float sizeFactor;
-        if (scale > 0.0f && scale <= 1.0f)
-            sizeFactor = 1.0f / scale;
-        else
-            sizeFactor = 1.0f / (scale * 2.0f) + 0.5f;
-
-        font.setPointSizeF(targetSize * sizeFactor);
-
-        QFontMetrics fm(font);
-        int w = fm.horizontalAdvance(text);
-        QRect rect = fm.boundingRect(text);
+        // Reuse cached font/metrics when hover index, scale, and t unchanged
+        if (m_cachedHoverLabelIndex != i || m_cachedHoverLabelScale != scale || m_cachedHoverLabelT != ht) {
+            m_cachedHoverLabelIndex = i;
+            m_cachedHoverLabelScale = scale;
+            m_cachedHoverLabelT = ht;
+            QFont font(m_font);
+            float baseSize = m_font.pointSizeF();
+            if (baseSize <= 0) baseSize = static_cast<float>(m_font.pointSize());
+            float targetSize = baseSize * (1.0f + ht * 2.0f);
+            float sizeFactor = (scale > 0.0f && scale <= 1.0f) ? (1.0f / scale) : (1.0f / (scale * 2.0f) + 0.5f);
+            font.setPointSizeF(targetSize * sizeFactor);
+            QFontMetrics fm(font);
+            m_cachedHoverLabelFont = font;
+            m_cachedHoverLabelAdvance = fm.horizontalAdvance(text);
+            m_cachedHoverLabelRectTop = fm.boundingRect(text).top();
+        }
         QColor color("#5C5C5C");
         painter->setPen(QPen(color));
-        painter->setFont(font);
+        painter->setFont(m_cachedHoverLabelFont);
         float offsetY = (m_fontHeight * (0.2f * ht + 1.0f)) / scale;
-        float yBase = y + r - rect.top() + offsetY;
-        painter->drawText(QPointF(x - w / 2.0f, yBase), text);
+        float yBase = y + r - m_cachedHoverLabelRectTop + offsetY;
+        painter->drawText(QPointF(x - m_cachedHoverLabelAdvance / 2.0f, yBase), text);
     }
 }
 
@@ -562,7 +648,7 @@ void NodeLayer::mousePressEvent(QGraphicsSceneMouseEvent* event)
 
     float cx = static_cast<float>(event->pos().x());
     float cy = static_cast<float>(event->pos().y());
-    const float* pos = m_state->pos.data();
+    const float* pos = m_state->renderPosData();
 
     if (m_visibleIndices.empty()) {
         m_selectedIndex = -1;
@@ -590,7 +676,8 @@ void NodeLayer::mousePressEvent(QGraphicsSceneMouseEvent* event)
             m_dragOffsetY = pos[2 * bestLocal + 1] - cy;
             m_hoverIndex = bestLocal;
             update();
-            emit nodePressed(bestLocal);
+            QString nodeId = (bestLocal >= 0 && bestLocal < m_ids.size()) ? m_ids.at(bestLocal) : QString();
+            emit nodePressed(nodeId);
             setFlag(QGraphicsItem::ItemIsSelectable, true);
             event->accept();
 
@@ -609,9 +696,10 @@ void NodeLayer::mouseMoveEvent(QGraphicsSceneMouseEvent* event)
     if (m_selectedIndex >= 0) {
         float nx = static_cast<float>(event->pos().x()) + m_dragOffsetX;
         float ny = static_cast<float>(event->pos().y()) + m_dragOffsetY;
-        m_state->px(m_selectedIndex) = nx;
-        m_state->py(m_selectedIndex) = ny;
-        emit nodeDragged(m_selectedIndex);
+        m_state->setDragPos(m_selectedIndex, nx, ny);
+        m_state->updateRenderPosAt(m_selectedIndex, nx, ny);
+        QString nodeId = (m_selectedIndex < m_ids.size()) ? m_ids.at(m_selectedIndex) : QString();
+        emit nodeDragged(nodeId);
         m_dragging = true;
         setCursor(Qt::ClosedHandCursor);
         update();
@@ -622,18 +710,21 @@ void NodeLayer::mouseReleaseEvent(QGraphicsSceneMouseEvent* event)
 {
     if (!m_dragging) {
         if (m_hoverIndex != -1) {
+            QString nodeId = (m_hoverIndex >= 0 && m_hoverIndex < m_ids.size()) ? m_ids.at(m_hoverIndex) : QString();
             if (event->button() == Qt::LeftButton)
-                emit nodeLeftClicked(m_hoverIndex);
+                emit nodeLeftClicked(nodeId);
             if (event->button() == Qt::RightButton)
-                emit nodeRightClicked(m_hoverIndex);
+                emit nodeRightClicked(nodeId);
         }
     }
 
     m_dragging = false;
     setFlag(QGraphicsItem::ItemIsSelectable, false);
     int idx = m_selectedIndex;
-    if (idx >= 0)
-        emit nodeReleased(idx);
+    if (idx >= 0) {
+        QString nodeId = (idx < m_ids.size()) ? m_ids.at(idx) : QString();
+        emit nodeReleased(nodeId);
+    }
     m_selectedIndex = -1;
     setCursor(Qt::ArrowCursor);
 
@@ -650,7 +741,7 @@ void NodeLayer::hoverMoveEvent(QGraphicsSceneHoverEvent* event)
 
     float px = static_cast<float>(event->pos().x());
     float py = static_cast<float>(event->pos().y());
-    const float* pos = m_state->pos.data();
+    const float* pos = m_state->renderPosData();
 
     if (m_visibleIndices.empty()) {
         QGraphicsObject::hoverMoveEvent(event);
@@ -682,14 +773,15 @@ void NodeLayer::hoverMoveEvent(QGraphicsSceneHoverEvent* event)
                 m_neighborMask[bestIdx] = 0; // self not a neighbor
                 m_lastNeighborMask = m_neighborMask;
 
-                emit nodeHovered(bestIdx);
+                QString nodeId = (bestIdx >= 0 && bestIdx < m_ids.size()) ? m_ids.at(bestIdx) : QString();
+                emit nodeHovered(nodeId);
             }
             update();
         } else {
             if (m_hoverIndex != -1) {
                 m_lastHoverIndex = m_hoverIndex;
                 m_hoverIndex = -1;
-                emit nodeHovered(-1);
+                emit nodeHovered(QString());
                 update();
             }
         }

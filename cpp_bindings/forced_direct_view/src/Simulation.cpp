@@ -34,9 +34,35 @@ Force* Simulation::getForce(const std::string& name) const
 // =====================================================================
 void Simulation::tick()
 {
+    bool anyDragging = false;
+    if (!m_state->dragging.empty()) {
+        for (uint8_t d : m_state->dragging) {
+            if (d) { anyDragging = true; break; }
+        }
+    }
+    if (anyDragging) {
+        m_alpha = 1.0f;
+        m_active = true;
+    }
     if (m_alpha <= m_alphaMin) {
         m_active = false;
         return;
+    }
+
+    if (!m_state->dragPos.empty()) {
+        const int N = m_state->nNodes;
+        float* pos = m_state->pos.data();
+        float* vel = m_state->vel.data();
+        const float* dpos = m_state->dragPos.data();
+        const auto& drag = m_state->dragging;
+        for (int i = 0; i < N; ++i) {
+            if (drag[i]) {
+                pos[2 * i]     = dpos[2 * i];
+                pos[2 * i + 1] = dpos[2 * i + 1];
+                vel[2 * i]     = 0.0f;
+                vel[2 * i + 1] = 0.0f;
+            }
+        }
     }
 
     // Apply each force (modifies vel)
@@ -49,13 +75,13 @@ void Simulation::tick()
 
     // Cooling
     ++m_tickCount;
-    if (m_firstStarted && m_tickCount >= m_cooldownDelay) {
+    if (!anyDragging && m_firstStarted && m_tickCount >= m_cooldownDelay) {
         m_alpha *= (1.0f - m_alphaDecay);
     }
 
     // Early stop when almost settled
     float avgSpeed = totalSpeed / std::max(1, m_state->nNodes);
-    if (avgSpeed < 0.01f && m_alpha < 0.01f) {
+    if (!anyDragging && avgSpeed < 0.01f && m_alpha < 0.01f) {
         m_active = false;
     }
 }
@@ -72,6 +98,7 @@ float Simulation::integrate()
     const float decay   = m_velocityDecay;
     const float dt      = m_dt;
     const float maxDisp = m_maxDisp;
+
 
     // Velocity decay (all nodes)
     for (int i = 0; i < 2 * N; ++i) {

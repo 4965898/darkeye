@@ -10,6 +10,7 @@
 #include <cmath>
 #include <chrono>
 #include <algorithm>
+#include <thread>
 
 static double nowSec()
 {
@@ -41,6 +42,7 @@ ForceView::ForceView(QWidget* parent)
 
 ForceView::~ForceView()
 {
+    stopSimThread();
     m_simTimer->stop();
     m_renderTimer->stop();
     m_idleTimer->stop();
@@ -52,11 +54,11 @@ ForceView::~ForceView()
 
 void ForceView::setupTimers()
 {
-    m_simTimer = new QTimer(this);
+    m_simTimer = new QTimer(this);//每16ms模拟一次
     m_simTimer->setInterval(16);
     connect(m_simTimer, &QTimer::timeout, this, &ForceView::onSimTick);
 
-    m_renderTimer = new QTimer(this);
+    m_renderTimer = new QTimer(this);//每16ms渲染一次
     m_renderTimer->setInterval(16);
     connect(m_renderTimer, &QTimer::timeout, this, &ForceView::onRenderTick);
 
@@ -80,6 +82,102 @@ void ForceView::requestRenderActivity()
     m_idleTimer->start();  // reset idle countdown
 }
 
+void ForceView::startSimThread()
+{
+    if (m_simThreadRunning.load(std::memory_order_acquire))
+        return;
+    m_simThreadRunning.store(true, std::memory_order_release);
+    m_simThread = std::thread([this]() { simLoop(); });
+}
+
+void ForceView::stopSimThread()
+{
+    if (!m_simThreadRunning.load(std::memory_order_acquire))
+        return;
+    m_simThreadRunning.store(false, std::memory_order_release);
+    if (m_simThread.joinable())
+        m_simThread.join();
+}
+
+/*
+* sim循环，前200次预热不限速，后面每16ms tick一次
+*/
+void ForceView::simLoop()
+{
+    bool lastActive = false;
+    bool lastWarmup = false;
+    auto nextTick = std::chrono::steady_clock::now();
+    const auto interval = std::chrono::milliseconds(16);
+    const int warmupTicks = 200;
+    while (m_simThreadRunning.load(std::memory_order_acquire)) {
+        float elapsed = 0.0f;
+        bool active = false;
+        bool didTick = false;
+        bool shouldSleep = false;
+        std::chrono::milliseconds sleepFor(1);
+        {
+            std::lock_guard<std::mutex> lock(m_simMutex);
+            if (m_simulation && m_physicsState && m_simulation->isActive()) {
+                active = true;
+                bool allowWarmup = m_allowWarmup.load(std::memory_order_acquire);
+                bool warmup = allowWarmup && m_simulation->tickCount() < warmupTicks;
+                if (allowWarmup && !warmup) {
+                    m_allowWarmup.store(false, std::memory_order_release);
+                }
+                if (!lastActive || (lastWarmup && !warmup)) {
+                    nextTick = std::chrono::steady_clock::now();
+                }
+                auto now = std::chrono::steady_clock::now();
+                if (warmup || now >= nextTick) {
+                    double t0 = nowSec();
+                    m_simulation->tick();
+                    m_physicsState->publishRenderPos();
+                    elapsed = static_cast<float>((nowSec() - t0) * 1000.0);
+                    active = m_simulation->isActive();
+                    didTick = true;
+                    //qDebug() << "sim_tick_ms" << elapsed;
+                    if (!warmup) {
+                        nextTick = std::chrono::steady_clock::now() + interval;
+                    }
+                } else {
+                    shouldSleep = true;
+                    sleepFor = std::chrono::duration_cast<std::chrono::milliseconds>(nextTick - now);
+                    if (sleepFor > interval) {
+                        sleepFor = interval;
+                    }
+                }
+                lastWarmup = warmup;
+            } else {
+                lastWarmup = false;
+            }
+        }
+
+        if (active) {//后续
+            m_simActive.store(active, std::memory_order_release);
+            if (didTick) {
+                emit tickTimeUpdated(elapsed);
+                if (lastActive && !active)
+                    emit simulationStopped();
+            }
+            lastActive = active;
+            if (!didTick) {
+                if (shouldSleep) {
+                    std::this_thread::sleep_for(sleepFor);
+                } else {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                }
+            }
+        } else {
+            if (lastActive) {
+                lastActive = false;
+                m_simActive.store(false, std::memory_order_release);
+                emit simulationStopped();
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+    }
+}
+
 // =====================================================================
 // setGraph — main entry point from Python
 // =====================================================================
@@ -87,14 +185,18 @@ void ForceView::requestRenderActivity()
 void ForceView::setGraph(int nNodes,
                          const QVector<int>&   edges,
                          const QVector<float>& pos,
+                         const QStringList&    id,
                          const QStringList&    labels,
-                         const QVector<float>& radii)
+                         const QVector<float>& radii,
+                         const QVector<QColor>& nodeColors)
 {
     // Stop existing simulation
-    if (m_simulation) {
-        m_simulation->stop();
-        m_simTimer->stop();
+    {
+        std::lock_guard<std::mutex> lock(m_simMutex);
+        if (m_simulation)
+            m_simulation->stop();
     }
+    m_simTimer->stop();
 
     // ---- Build PhysicsState ----
     m_physicsState = std::make_unique<PhysicsState>();
@@ -104,6 +206,14 @@ void ForceView::setGraph(int nNodes,
     // Copy initial positions
     for (int i = 0; i < std::min((int)pos.size(), 2 * nNodes); ++i)
         m_physicsState->pos[i] = pos[i];
+    m_physicsState->syncRenderPosFromPos();
+    m_physicsState->syncDragPosFromPos();
+
+    // ---- Node ids and id→index map ----
+
+    m_ids = id;
+
+
 
     // ---- Build neighbor adjacency ----
     m_neighbors.assign(nNodes, {});
@@ -119,22 +229,23 @@ void ForceView::setGraph(int nNodes,
 
     // ---- Create / Reset NodeLayer ----
     if (m_nodeLayer == nullptr) {
-        m_nodeLayer = new NodeLayer(m_physicsState.get(), radii, labels, m_neighbors);
+        m_nodeLayer = new NodeLayer(m_physicsState.get(), radii, labels, m_neighbors, m_ids, nodeColors);
         m_scene->addItem(m_nodeLayer);
         connectNodeLayer();
     } else {
-        m_nodeLayer->reset(m_physicsState.get(), radii, labels, m_neighbors);
+        m_nodeLayer->reset(m_physicsState.get(), radii, labels, m_neighbors, m_ids, nodeColors);
         m_nodeLayer->updateVisibleMask();
     }
 
-    if (m_centerNodeIndex >= 0)
-        m_nodeLayer->setCenterNodeIndex(m_centerNodeIndex);
-
     // ---- Create Simulation ----
-    rebuildSimulation();
-    m_simulation->start();
-    m_simActive = true;
-    m_simTimer->start();
+    m_allowWarmup.store(true, std::memory_order_release);
+    {
+        std::lock_guard<std::mutex> lock(m_simMutex);
+        rebuildSimulation();
+        m_simulation->start();
+    }
+    m_simActive.store(true, std::memory_order_release);
+    startSimThread();
     requestRenderActivity();
 
     // Auto-fit after short delay
@@ -159,6 +270,9 @@ void ForceView::rebuildSimulation()
 
     auto center = std::make_unique<CenterForce>(0.0f, 0.0f, m_centerStrength);
     m_simulation->addForce("center", std::move(center));
+
+    auto collision = std::make_unique<CollisionForce>(m_collisionRadius, m_collisionStrength);
+    m_simulation->addForce("collision", std::move(collision));
 }
 
 // =====================================================================
@@ -173,6 +287,7 @@ void ForceView::onSimTick()
     double t0 = nowSec();
     m_simulation->tick();
     float elapsed = static_cast<float>((nowSec() - t0) * 1000.0);
+    //qDebug() << "sim_tick_ms" << elapsed;
 
     bool active = m_simulation->isActive();
     m_simActive = active;
@@ -192,10 +307,14 @@ void ForceView::onSimTick()
 
 void ForceView::onRenderTick()
 {
+    double t0 = nowSec();
     if (m_nodeLayer) {
+        m_nodeLayer->updateVisibleMask();
         m_nodeLayer->advanceHover();
         m_nodeLayer->update();
     }
+    float elapsed = static_cast<float>((nowSec() - t0) * 1000.0);
+    //qDebug() << "paint_tick_ms" << elapsed;
 }
 
 void ForceView::maybeStopRenderTimer()
@@ -216,19 +335,26 @@ void ForceView::maybeStopRenderTimer()
 
 void ForceView::pauseSimulation()
 {
-    if (m_simulation) m_simulation->pause();
-    m_simActive = false;
+    {
+        std::lock_guard<std::mutex> lock(m_simMutex);
+        if (m_simulation) m_simulation->pause();
+    }
+    m_simActive.store(false, std::memory_order_release);
     emit simulationStopped();
 }
 
 void ForceView::resumeSimulation()
 {
-    if (m_simulation) {
-        m_simulation->resume();
-        m_simActive = m_simulation->isActive();
+    bool active = false;
+    {
+        std::lock_guard<std::mutex> lock(m_simMutex);
+        if (m_simulation) {
+            m_simulation->resume();
+            active = m_simulation->isActive();
+        }
     }
-    if (m_simActive) {
-        m_simTimer->start();
+    m_simActive.store(active, std::memory_order_release);
+    if (active) {
         requestRenderActivity();
         emit simulationStarted();
     }
@@ -236,11 +362,14 @@ void ForceView::resumeSimulation()
 
 void ForceView::restartSimulation()
 {
-    if (m_simulation) {
-        m_simulation->restart();
-        m_simActive = true;
+    m_allowWarmup.store(false, std::memory_order_release);
+    {
+        std::lock_guard<std::mutex> lock(m_simMutex);
+        if (m_simulation) {
+            m_simulation->restart();
+        }
     }
-    m_simTimer->start();
+    m_simActive.store(true, std::memory_order_release);
     requestRenderActivity();
     emit simulationStarted();
 }
@@ -252,9 +381,12 @@ void ForceView::restartSimulation()
 void ForceView::setManyBodyStrength(float value)
 {
     m_manyBodyStrength = value;
-    if (m_simulation) {
-        auto* f = dynamic_cast<ManyBodyForce*>(m_simulation->getForce("manybody"));
-        if (f) f->setStrength(value);
+    {
+        std::lock_guard<std::mutex> lock(m_simMutex);
+        if (m_simulation) {
+            auto* f = dynamic_cast<ManyBodyForce*>(m_simulation->getForce("manybody"));
+            if (f) f->setStrength(value);
+        }
     }
     restartSimulation();
 }
@@ -262,9 +394,12 @@ void ForceView::setManyBodyStrength(float value)
 void ForceView::setCenterStrength(float value)
 {
     m_centerStrength = value;
-    if (m_simulation) {
-        auto* f = dynamic_cast<CenterForce*>(m_simulation->getForce("center"));
-        if (f) f->setStrength(value);
+    {
+        std::lock_guard<std::mutex> lock(m_simMutex);
+        if (m_simulation) {
+            auto* f = dynamic_cast<CenterForce*>(m_simulation->getForce("center"));
+            if (f) f->setStrength(value);
+        }
     }
     restartSimulation();
 }
@@ -272,9 +407,12 @@ void ForceView::setCenterStrength(float value)
 void ForceView::setLinkStrength(float value)
 {
     m_linkStrength = value;
-    if (m_simulation) {
-        auto* f = dynamic_cast<LinkForce*>(m_simulation->getForce("link"));
-        if (f) f->setK(value);
+    {
+        std::lock_guard<std::mutex> lock(m_simMutex);
+        if (m_simulation) {
+            auto* f = dynamic_cast<LinkForce*>(m_simulation->getForce("link"));
+            if (f) f->setK(value);
+        }
     }
     restartSimulation();
 }
@@ -282,9 +420,38 @@ void ForceView::setLinkStrength(float value)
 void ForceView::setLinkDistance(float value)
 {
     m_linkDistance = value;
-    if (m_simulation) {
-        auto* f = dynamic_cast<LinkForce*>(m_simulation->getForce("link"));
-        if (f) f->setDistance(value);
+    {
+        std::lock_guard<std::mutex> lock(m_simMutex);
+        if (m_simulation) {
+            auto* f = dynamic_cast<LinkForce*>(m_simulation->getForce("link"));
+            if (f) f->setDistance(value);
+        }
+    }
+    restartSimulation();
+}
+
+void ForceView::setCollisionRadius(float value)
+{
+    m_collisionRadius = value;
+    {
+        std::lock_guard<std::mutex> lock(m_simMutex);
+        if (m_simulation) {
+            auto* f = dynamic_cast<CollisionForce*>(m_simulation->getForce("collision"));
+            if (f) f->setRadius(value);
+        }
+    }
+    restartSimulation();
+}
+
+void ForceView::setCollisionStrength(float value)
+{
+    m_collisionStrength = value;
+    {
+        std::lock_guard<std::mutex> lock(m_simMutex);
+        if (m_simulation) {
+            auto* f = dynamic_cast<CollisionForce*>(m_simulation->getForce("collision"));
+            if (f) f->setStrength(value);
+        }
     }
     restartSimulation();
 }
@@ -321,20 +488,18 @@ void ForceView::setTextThresholdFactor(float f)
 // Misc
 // =====================================================================
 
-void ForceView::setDragging(int index, bool dragging)
+void ForceView::setDragging(int nodeId, bool dragging)
 {
+    int index = nodeId;
     if (m_physicsState && index >= 0 && index < m_physicsState->nNodes) {
         m_physicsState->dragging[index] = dragging ? 1 : 0;
+        if (dragging) {
+            const float* pos = m_physicsState->renderPosData();
+            m_physicsState->setDragPos(index, pos[2 * index], pos[2 * index + 1]);
+        }
         if (dragging)
             restartSimulation();
     }
-}
-
-void ForceView::setCenterNodeIndex(int index)
-{
-    m_centerNodeIndex = index;
-    if (m_nodeLayer)
-        m_nodeLayer->setCenterNodeIndex(index);
 }
 
 QRectF ForceView::getContentRect() const
@@ -342,7 +507,7 @@ QRectF ForceView::getContentRect() const
     if (!m_physicsState || m_physicsState->nNodes == 0)
         return QRectF();
 
-    const float* pos = m_physicsState->pos.data();
+    const float* pos = m_physicsState->renderPosData();
     int N = m_physicsState->nNodes;
 
     float minX = pos[0], maxX = pos[0];
@@ -378,38 +543,38 @@ void ForceView::connectNodeLayer()
     connect(m_nodeLayer, &NodeLayer::fpsReady,          this, &ForceView::fpsUpdated);
 }
 
-void ForceView::onNodePressed(int index)
+void ForceView::onNodePressed(const QString& nodeId)
 {
-    emit nodePressed(index);
+    emit nodePressed(nodeId);
 }
 
-void ForceView::onNodeDragged(int index)
+void ForceView::onNodeDragged(const QString& nodeId)
 {
-    setDragging(index, true);
+    //setDragging(nodeId, true);
     requestRenderActivity();
-    emit nodePressed(index);  // keep consistent with Python
+    emit nodePressed(nodeId);  // keep consistent with Python
 }
 
-void ForceView::onNodeReleased(int index)
+void ForceView::onNodeReleased(const QString& nodeId)
 {
-    setDragging(index, false);
-    emit nodeReleased(index);
+    //setDragging(nodeId, false);
+    emit nodeReleased(nodeId);
 }
 
-void ForceView::onNodeLeftClicked(int index)
+void ForceView::onNodeLeftClicked(const QString& nodeId)
 {
-    emit nodeLeftClicked(index);
+    emit nodeLeftClicked(nodeId);
 }
 
-void ForceView::onNodeRightClicked(int index)
+void ForceView::onNodeRightClicked(const QString& nodeId)
 {
-    emit nodeRightClicked(index);
+    emit nodeRightClicked(nodeId);
 }
 
-void ForceView::onNodeHovered(int index)
+void ForceView::onNodeHovered(const QString& nodeId)
 {
     requestRenderActivity();
-    emit nodeHovered(index);
+    emit nodeHovered(nodeId);
 }
 
 // =====================================================================
@@ -450,6 +615,7 @@ void ForceView::scrollContentsBy(int dx, int dy)
 
 void ForceView::closeEvent(QCloseEvent* event)
 {
+    stopSimThread();
     m_simTimer->stop();
     m_renderTimer->stop();
     m_idleTimer->stop();

@@ -8,6 +8,25 @@ def load_global_style():
     return style
 
 
+def _warm_up_opengl_widget(app):
+    from PySide6.QtWidgets import QWidget
+    from PySide6.QtOpenGLWidgets import QOpenGLWidget
+    from PySide6.QtCore import Qt
+    host = QWidget()
+    host.setAttribute(Qt.WA_DontShowOnScreen, True)
+    host.resize(1, 1)
+    gl_widget = QOpenGLWidget(host)
+    gl_widget.setAttribute(Qt.WA_DontShowOnScreen, True)
+    gl_widget.resize(1, 1)
+    host.show()
+    gl_widget.show()
+    app.processEvents()
+    gl_widget.hide()
+    host.hide()
+    gl_widget.deleteLater()
+    host.deleteLater()
+
+
 def _run_main_app():
     import sys
     # 初始化性能分析器（必须在log_config之前，因为log_config本身也需要时间）
@@ -29,19 +48,28 @@ def _run_main_app():
     profiler.checkpoint("API服务器线程启动")
 
     # 1. 启动 Sim 进程 (耗时操作，尽早启动)
-    profiler.measure_import("core.graph.simulation_process_main")
-    from core.graph.simulation_process_main import get_global_simulation_process
+    #profiler.measure_import("core.graph.simulation_process_main")
+    #from core.graph.simulation_process_main import get_global_simulation_process
 
-    with profiler.measure_execution("启动Sim进程", sync=True):
-        get_global_simulation_process()
-    profiler.checkpoint("Sim进程启动完成")
+    #with profiler.measure_execution("启动Sim进程", sync=True):
+    #    get_global_simulation_process()
+    #profiler.checkpoint("Sim进程启动完成")
 
     # 仅导入必要的 GUI 启动组件（测量导入时间）
     profiler.measure_import("PySide6.QtWidgets")
     profiler.measure_import("PySide6.QtGui")
     from PySide6.QtWidgets import QApplication, QDialog, QSplashScreen
-    from PySide6.QtGui import QPixmap
-
+    from PySide6.QtGui import QPixmap, QSurfaceFormat
+    from PySide6.QtCore import Qt
+    QApplication.setAttribute(Qt.AA_UseDesktopOpenGL)#不知道这个要不要加，但是这个好像没有什么用
+    QApplication.setAttribute(Qt.AA_ShareOpenGLContexts)
+    fmt = QSurfaceFormat()
+    fmt.setVersion(3, 3)
+    fmt.setProfile(QSurfaceFormat.CoreProfile)
+    fmt.setSwapBehavior(QSurfaceFormat.DoubleBuffer)
+    fmt.setDepthBufferSize(24)
+    fmt.setStencilBufferSize(8)
+    QSurfaceFormat.setDefaultFormat(fmt)
     profiler.measure_import("config")
     from config import ICONS_PATH, is_first_lunch, set_first_luch
     profiler.checkpoint("Qt组件导入完成")
@@ -64,6 +92,10 @@ def _run_main_app():
         splash.show()
         app.processEvents()
     profiler.checkpoint("启动画面显示")
+
+    splash.showMessage("预热OpenGL组件")
+    with profiler.measure_execution("OpenGL组件预热", sync=True):
+        _warm_up_opengl_widget(app)
 
     # 首次启动协议对话框（已注释）
     if is_first_lunch():#判断是否是第一次启动
@@ -108,6 +140,7 @@ def _run_main_app():
     profiler.checkpoint("图初始化线程启动完成")
 
     # 样式表加载
+
     splash.showMessage("样式表加载")
     with profiler.measure_execution("加载样式表", sync=True):
         app.setStyleSheet(load_global_style())

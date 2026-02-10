@@ -11,9 +11,13 @@
 
 #include <memory>
 #include <vector>
+#include <thread>
+#include <atomic>
+#include <mutex>
 
 #include "PhysicsState.h"
 #include "Simulation.h"
+#include "Forces.h"
 #include "NodeLayer.h"
 
 #ifdef BINDINGS_BUILD
@@ -46,14 +50,18 @@ public:
      * @param nNodes  Number of nodes.
      * @param edges   Flat [src0, dst0, src1, dst1, …], length 2*E.
      * @param pos     Flat [x0, y0, x1, y1, …], length 2*N.
+     * @param id      Length N (external node id per node); used for display and signals.
      * @param labels  Length N (display name per node).
-     * @param radii   Length N (display radius per node).
+     * @param radii      Length N (display radius per node).
+     * @param nodeColors Optional length N (per-node color); empty = use layer defaults.
      */
     void setGraph(int nNodes,
                   const QVector<int>&   edges,
                   const QVector<float>& pos,
+                  const QStringList&    id,
                   const QStringList&    labels,
-                  const QVector<float>& radii);
+                  const QVector<float>& radii,
+                  const QVector<QColor>& nodeColors = QVector<QColor>());
 
     // ======================== Simulation Control ========================
     void pauseSimulation();
@@ -65,6 +73,8 @@ public:
     void setCenterStrength(float value);
     void setLinkStrength(float value);
     void setLinkDistance(float value);
+    void setCollisionRadius(float value);
+    void setCollisionStrength(float value);
 
     // ======================== Visual Parameters ========================
     void setRadiusFactor(float f);
@@ -72,16 +82,15 @@ public:
     void setTextThresholdFactor(float f);
 
     // ======================== Misc ========================
-    void setDragging(int index, bool dragging);
-    void setCenterNodeIndex(int index);
+    void setDragging(int nodeId, bool dragging);
     QRectF getContentRect() const;
 
 signals:
-    void nodeLeftClicked(int index);
-    void nodeRightClicked(int index);
-    void nodeHovered(int index);
-    void nodePressed(int index);
-    void nodeReleased(int index);
+    void nodeLeftClicked(const QString& nodeId);
+    void nodeRightClicked(const QString& nodeId);
+    void nodeHovered(const QString& nodeId);
+    void nodePressed(const QString& nodeId);
+    void nodeReleased(const QString& nodeId);
     void scaleChanged(float scale);
     void fpsUpdated(float fps);
     void paintTimeUpdated(float ms);
@@ -100,13 +109,13 @@ private slots:
     void onRenderTick();
     void maybeStopRenderTimer();
 
-    // NodeLayer signal forwarders
-    void onNodePressed(int index);
-    void onNodeDragged(int index);
-    void onNodeReleased(int index);
-    void onNodeLeftClicked(int index);
-    void onNodeRightClicked(int index);
-    void onNodeHovered(int index);
+    // NodeLayer signal forwarders (receive nodeId from NodeLayer)
+    void onNodePressed(const QString& nodeId);
+    void onNodeDragged(const QString& nodeId);
+    void onNodeReleased(const QString& nodeId);
+    void onNodeLeftClicked(const QString& nodeId);
+    void onNodeRightClicked(const QString& nodeId);
+    void onNodeHovered(const QString& nodeId);
 
 private:
     void setupTimers();
@@ -114,6 +123,9 @@ private:
     void requestRenderActivity();
     void rebuildSimulation();    // (re-)create Simulation + Forces from current params
     void connectNodeLayer();
+    void startSimThread();
+    void stopSimThread();
+    void simLoop();
 
     // ---- Owned objects ----
     QGraphicsScene* m_scene     = nullptr;
@@ -121,9 +133,13 @@ private:
 
     std::unique_ptr<PhysicsState> m_physicsState;
     std::unique_ptr<Simulation>   m_simulation;
+    std::thread m_simThread;
+    std::atomic<bool> m_simThreadRunning{false};
+    std::mutex m_simMutex;
 
     // ---- Graph metadata (used for neighbor lookup, etc.) ----
     std::vector<std::vector<int>> m_neighbors;
+    QStringList m_ids;               // length N: external id per node (QString)
 
     // ---- Timers ----
     QTimer* m_simTimer    = nullptr;   // 16 ms — drives simulation tick
@@ -133,15 +149,17 @@ private:
 
     // ---- View state ----
     float m_scaleFactor = 1.0f;
-    int   m_centerNodeIndex = -1;
 
     // ---- Force parameters ----
-    float m_manyBodyStrength = 10000.0f;
-    float m_linkStrength     = 0.3f;
+    float m_manyBodyStrength  = 10000.0f;
+    float m_linkStrength      = 0.3f;
     float m_linkDistance      = 30.0f;
-    float m_centerStrength   = 0.01f;
+    float m_centerStrength    = 0.01f;
+    float m_collisionRadius   = 10.0f;
+    float m_collisionStrength = 50.0f;
 
-    bool m_simActive = false;
+    std::atomic<bool> m_simActive{false};
+    std::atomic<bool> m_allowWarmup{false};
 
     // Coordinate axis items (for show_coordinate_sys — retained for compat)
     QList<QGraphicsLineItem*> m_axisItems;

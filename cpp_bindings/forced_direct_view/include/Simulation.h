@@ -37,6 +37,7 @@ public:
 
     // Read-only access
     float alpha() const { return m_alpha; }
+    int tickCount() const { return m_tickCount; }
 
 private:
     /** Integrate velocities into positions, respecting dragging & max displacement.

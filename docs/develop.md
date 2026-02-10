@@ -118,37 +118,14 @@
 首页可配置
 
 
-
-# 力导向图模拟与显示架构分析与修改建议
-
-## 1. 架构概览
-
-```mermaid
-sequenceDiagram
-  participant View as ForceGraphView
-  participant Controller as ForceGraphController
-  participant Client as SimulationClient
-  participant Pipe as Pipe
-  participant Worker as simulation_process_main
-  participant Sim as Simulation
-
-  View->>Controller: load_graph / 交互
-  Controller->>Controller: 创建 SharedMemory(pos)
-  Controller->>Client: send(cmd, view_id, shm_name, edges, params)
-  Client->>Pipe: send(msg)
-  Worker->>Pipe: recv()
-  Worker->>Worker: PhysicsState.from_compact(shared_pos)
-  Worker->>Sim: tick() 循环
-  Sim->>Sim: 力更新 vel，积分更新 pos（写共享内存）
-  Worker->>Pipe: send(tick / graph_ready)
-  Client->>Client: ReceiverThread recv -> _dispatch_message
-  Client->>Controller: callback(msg)
-  Controller->>View: frame_ready / graph_loaded
-  View->>View: NodeLayer 从 state.pos 读坐标并绘制
 ```
 
 
 
-- **主进程**：`simulation_process_main.py` 负责启动子进程并返回 `Pipe` 的一端；`ForceGraphView` + `ForceGraphController` 负责建图、创建共享内存、发命令、收事件并驱动渲染。
-- **子进程**：`simulation_worker.py` 中的 `simulation_process_main(conn)` 循环：收命令（init/load/close/restart/set_*/set_dragging）、维护多 session（每 view_id 一个 `SimContext`）、对活跃 session 调用 `Simulation.tick()`，并通过共享内存更新 `pos`。
-- **共享数据**：仅位置 `pos (N,2) float32` 使用 `shared_memory.SharedMemory`；边与参数通过 Pipe 消息传递，Worker 内用 `PhysicsState`（pos 指向 shm.buf）做力学积分。
+高	抽出 GraphRenderer，解耦渲染逻辑	中	高
+高	增加着色器/OpenGL 错误日志	低	中
+中	将数据准备从 paintGL 移到 prepareFrame	中	中
+中	拆分 updateEdgeLineBuffers	低	中
+中	API 补齐：add_node_runtime 等占位实现	低	高（避免运行时错误）
+低	魔数常量化	低	低
+低	完整职责拆分（多类）	高	高
