@@ -14,9 +14,7 @@ class ForceDirectPage(LazyWidget):
     def _lazy_load(self):
         logging.info("----------力导向图界面----------")
 
-        
         from core.graph.ForceDirectedViewWidget import ForceDirectedViewWidget
-
 
         mainlayout = QVBoxLayout()
         self.setLayout(mainlayout)
@@ -26,12 +24,11 @@ class ForceDirectPage(LazyWidget):
         placeholder.setAlignment(Qt.AlignCenter)# type: ignore[arg-type]
         mainlayout.addWidget(placeholder)
 
-
         view = ForceDirectedViewWidget()
 
         mainlayout.removeWidget(placeholder)
         placeholder.deleteLater()
         mainlayout.addWidget(view)
-        view.session.reload()
+        view.session.new_load()
 
 

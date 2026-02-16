@@ -2,7 +2,7 @@
 
 from PySide6.QtWidgets import QHBoxLayout, QWidget, QLabel,QVBoxLayout
 from PySide6.QtGui import QPixmap, QPainter, QPainterPath, QBrush, QColor, QPen
-from PySide6.QtCore import Qt,Slot
+from PySide6.QtCore import Qt,Slot, QThreadPool, QRunnable, Signal, QObject
 from core.database.query import get_record_count_in_days,get_top_actress_by_masturbation_count
 import logging
 from ui.widgets import ActressCard
@@ -10,6 +10,29 @@ from ui.basic.Effect import ShadowEffectMixin
 from ui.base import LazyWidget
 from ui.statistics import SwitchHeapMap
 from controller.GlobalSignalBus import global_signals
+
+
+class DatabaseQueryWorker(QRunnable):
+    """数据库查询工作线程"""
+    def __init__(self, query_func, *args, **kwargs):
+        super().__init__()
+        self.query_func = query_func
+        self.args = args
+        self.kwargs = kwargs
+        self.signals = WorkerSignals()
+
+    def run(self):
+        try:
+            result = self.query_func(*self.args, **self.kwargs)
+            self.signals.finished.emit(result)
+        except Exception as e:
+            logging.error(f"数据库查询失败: {e}")
+            self.signals.finished.emit(None)
+
+
+class WorkerSignals(QObject):
+    """工作线程信号"""
+    finished = Signal(object)
 
 class PersonalDataPage(LazyWidget):
     def __init__(self):
@@ -98,19 +121,30 @@ class WorkSaleCycle(OctagonCard):
     '''去化周期显示'''
     def __init__(self):
         super().__init__("WorkSaleCycle", margins=(0, 0, 0, 0))
+        self.thread_pool = QThreadPool.globalInstance()
+
         mainlayout = self.mainlayout
         label1=QLabel(f"收藏作品中未观看去化周期")
         label1.setAlignment(Qt.AlignCenter)
 
-        self.label2=QLabel()
-        self.label2.setAlignment(Qt.AlignCenter)   
-        self.update_day()
+        self.label2=QLabel("加载中...")
+        self.label2.setAlignment(Qt.AlignCenter)
+        self.label2.setStyleSheet("font-size: 30pt; color: #999999;")
 
         mainlayout.addWidget(label1)
         mainlayout.addWidget(self.label2)
 
-    def work_not_watch(self):
-        '''#按过去3个月平均的撸管频率去计算去化周期并显示,当去化周期大于14天时就进入选择模式'''
+        # 异步加载初始数据
+        self._load_data_async()
+
+    def _load_data_async(self):
+        """异步加载去化周期数据"""
+        worker = DatabaseQueryWorker(self._calculate_sales_cycle)
+        worker.signals.finished.connect(self._on_data_loaded)
+        self.thread_pool.start(worker)
+
+    def _calculate_sales_cycle(self):
+        """#按过去3个月平均的撸管频率去计算去化周期并显示,当去化周期大于14天时就进入选择模式"""
         from core.database.query import get_unmasturbated_work_count
         un_mas_num=get_unmasturbated_work_count()
         count=get_record_count_in_days(90,0)
@@ -119,16 +153,27 @@ class WorkSaleCycle(OctagonCard):
         else:
             Sales_cycleun=114514
         return Sales_cycleun
-    
-    @Slot()
-    def update_day(self):
-        logging.debug("更新去化周期")
-        day=self.work_not_watch()
+
+    def _on_data_loaded(self, day):
+        """数据加载完成回调"""
         self.label2.setText(str(day)+"天")
         if day>30:
             self.label2.setStyleSheet("font-size: 30pt; color: #FF0000;")  # 纯红
         else:
-            self.label2.setStyleSheet("font-size: 30pt; color: #000000;")  # 纯红
+            self.label2.setStyleSheet("font-size: 30pt; color: #000000;")  # 纯黑
+
+    def work_not_watch(self):
+        '''#按过去3个月平均的撸管频率去计算去化周期并显示,当去化周期大于14天时就进入选择模式'''
+        return self._calculate_sales_cycle()
+
+    @Slot()
+    def update_day(self):
+        logging.debug("更新去化周期")
+        # 先显示加载状态
+        self.label2.setText("加载中...")
+        self.label2.setStyleSheet("font-size: 30pt; color: #999999;")
+        # 异步加载新数据
+        self._load_data_async()
 
 
 class MostLikeActress(OctagonCard):
@@ -136,20 +181,76 @@ class MostLikeActress(OctagonCard):
     def __init__(self,beforeday):
         super().__init__("mostLikeActress", margins=(10,0,10,10))
         self._bday=beforeday
-        
+        self.thread_pool = QThreadPool.globalInstance()
+        self.current_worker = None
+
         label1=QLabel(f"过去{beforeday}天最喜欢的女优")
-        actress=get_top_actress_by_masturbation_count(beforeday)
-        if actress:
-            self.actress_card=ActressCard(actress['actress_name'],actress['image_urlA'],actress['actress_id'])
-        else:
-            self.actress_card=ActressCard()
+
+        # 先显示占位UI
+        self.placeholder_widget = QWidget()
+        placeholder_layout = QVBoxLayout(self.placeholder_widget)
+        self.placeholder_label = QLabel("加载中...")
+        self.placeholder_label.setAlignment(Qt.AlignCenter)
+        self.placeholder_label.setStyleSheet("font-size: 14px; color: #999999;")
+        placeholder_layout.addWidget(self.placeholder_label)
+        self.placeholder_widget.setLayout(placeholder_layout)
+
+        # 存储最终的女优卡片容器
+        self.actress_card_container = QWidget()
+        self.actress_card_container_layout = QVBoxLayout(self.actress_card_container)
+        self.actress_card_container_layout.setContentsMargins(0, 0, 0, 0)
+        self.actress_card_container.setLayout(self.actress_card_container_layout)
+
+        # 初始显示占位符
+        self.actress_card_container_layout.addWidget(self.placeholder_widget)
+        self.actress_card = None
 
         #总装
         mainlayout=self.mainlayout
         mainlayout.addWidget(label1,alignment=Qt.AlignCenter)
-        mainlayout.addWidget(self.actress_card)
+        mainlayout.addWidget(self.actress_card_container)
 
-    
+        # 异步加载数据
+        self._load_actress_async()
+
+    def _load_actress_async(self):
+        """异步加载女优数据"""
+        worker = DatabaseQueryWorker(get_top_actress_by_masturbation_count, self._bday)
+        worker.signals.finished.connect(self._on_actress_loaded)
+        self.current_worker = worker
+        self.thread_pool.start(worker)
+
+    def _on_actress_loaded(self, actress):
+        """女优数据加载完成回调"""
+        if self.placeholder_widget:
+            self.placeholder_widget.setParent(None)
+            self.placeholder_widget = None
+
+        if actress:
+            self.actress_card = ActressCard(actress['actress_name'], actress['image_urlA'], actress['actress_id'])
+        else:
+            self.actress_card = ActressCard()
+
+        self.actress_card_container_layout.addWidget(self.actress_card)
+
+
     @Slot()
     def update_actress(self):
         '''初始化或者更新'''
+        # 清除旧的女优卡片
+        if self.actress_card:
+            self.actress_card.setParent(None)
+            self.actress_card = None
+
+        # 显示加载占位符
+        self.placeholder_widget = QWidget()
+        placeholder_layout = QVBoxLayout(self.placeholder_widget)
+        self.placeholder_label = QLabel("加载中...")
+        self.placeholder_label.setAlignment(Qt.AlignCenter)
+        self.placeholder_label.setStyleSheet("font-size: 14px; color: #999999;")
+        placeholder_layout.addWidget(self.placeholder_label)
+        self.placeholder_widget.setLayout(placeholder_layout)
+        self.actress_card_container_layout.addWidget(self.placeholder_widget)
+
+        # 重新异步加载
+        self._load_actress_async()

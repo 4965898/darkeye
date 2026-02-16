@@ -7,7 +7,7 @@ from PySide6.QtCore import  Qt
 from PySide6.QtGui import QIcon
 from config import ICONS_PATH
 import logging, asyncio, re
-from controller import MessageBoxService
+from controller.MessageService import MessageBoxService
 
 
 class AddQuickWork(QDialog):
@@ -140,9 +140,9 @@ class AddQuickWork(QDialog):
             self.msg.show_warning("提示", "没有选中任何有效的番号")
             return
 
-        # 使用全局 CrawlerManager 启动后台任务
-        from core.crawler.CrawlerManager import crawler_manager2
-        crawler_manager2.start_crawl(serial_list)
+        # 通过惰性单例获取 CrawlerManager 启动后台任务
+        from core.crawler.CrawlerManager import get_manager
+        get_manager().start_crawl(serial_list)
         
         self.msg.show_info("提示", "已转入后台处理，您可以继续其他操作。")
         self.accept()

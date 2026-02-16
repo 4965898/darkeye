@@ -2,6 +2,26 @@
 #include <cmath>
 #include <algorithm>
 
+namespace {
+const float kOverlapDist2 = 1e-10f;
+const float kOverlapDist  = 1e-5f;
+
+/** Deterministic unit direction from j toward i for overlapping pairs (i, j). */
+inline void overlapFallbackDirection(int i, int j, float& ux, float& uy)
+{
+    float ax = static_cast<float>(i - j);
+    float ay = static_cast<float>((i + j) % 5 - 2);
+    float len2 = ax * ax + ay * ay;
+    if (len2 < 1e-20f) {
+        ux = 1.0f;
+        uy = 0.0f;
+        return;
+    }
+    float invLen = 1.0f / std::sqrt(len2);
+    ux = ax * invLen;
+    uy = ay * invLen;
+}
+}
 
 // =====================================================================
 // CenterForce
@@ -110,10 +130,17 @@ void ManyBodyForce::applyBlock(float alpha, int block)
                     if (dist2 >= cutoff2) continue;
 
                     float mj = mass[j];
-                    float s  = strength * mi * mj / dist2;
-                    float invd = 1.0f / std::sqrt(dist2);
-                    float fx = s * dx * invd * alpha;
-                    float fy = s * dy * invd * alpha;
+                    float s  = strength * mi * mj / std::max(dist2, 1.0f) * alpha;
+                    float ux, uy;
+                    if (dist2 < kOverlapDist2) {
+                        overlapFallbackDirection(i, j, ux, uy);
+                    } else {
+                        float invd = 1.0f / std::sqrt(dist2);
+                        ux = dx * invd;
+                        uy = dy * invd;
+                    }
+                    float fx = s * ux;
+                    float fy = s * uy;
 
                     vel[2 * i]     += fx;
                     vel[2 * i + 1] += fy;
@@ -155,11 +182,17 @@ void ManyBodyForce::applyParallel(float alpha)
             float dist2 = dx * dx + dy * dy + 1e-6f;
             if (dist2 >= cutoff2) continue;
 
-            float s = strength * mi * mass[j] / dist2;
-            float invd = 1.0f / std::sqrt(dist2);
-
-            fx_sum += s * dx * invd * alpha;
-            fy_sum += s * dy * invd * alpha;
+            float s = strength * mi * mass[j] / std::max(dist2, 1.0f) * alpha;
+            float ux, uy;
+            if (dist2 < kOverlapDist2) {
+                overlapFallbackDirection(i, j, ux, uy);
+            } else {
+                float invd = 1.0f / std::sqrt(dist2);
+                ux = dx * invd;
+                uy = dy * invd;
+            }
+            fx_sum += s * ux;
+            fy_sum += s * uy;
         }
 
         vel[2 * i]     += fx_sum;
@@ -200,9 +233,16 @@ void CollisionForce::apply(float alpha)
                 if (dist >= R) continue;
 
                 float overlap = R - dist;
-                float f = sa * overlap / dist;
-                fx_sum += f * dx;
-                fy_sum += f * dy;
+                float f = sa * overlap / std::max(dist, kOverlapDist);
+                float ux, uy;
+                if (dist < kOverlapDist) {
+                    overlapFallbackDirection(i, j, ux, uy);
+                } else {
+                    ux = dx / dist;
+                    uy = dy / dist;
+                }
+                fx_sum += f * ux;
+                fy_sum += f * uy;
             }
 
             vel[2 * i]     += fx_sum;
@@ -237,9 +277,16 @@ void CollisionForce::applyParallel(float alpha)
             if (dist >= R) continue;
 
             float overlap = R - dist;
-            float f = sa * overlap / dist;
-            fx_sum += f * dx;
-            fy_sum += f * dy;
+            float f = sa * overlap / std::max(dist, kOverlapDist);
+            float ux, uy;
+            if (dist < kOverlapDist) {
+                overlapFallbackDirection(i, j, ux, uy);
+            } else {
+                ux = dx / dist;
+                uy = dy / dist;
+            }
+            fx_sum += f * ux;
+            fy_sum += f * uy;
         }
 
         vel[2 * i]     += fx_sum;

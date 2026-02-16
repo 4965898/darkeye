@@ -7,7 +7,7 @@ from utils.image import create_colored_icon
 
 class StateToggleButton(QPushButton):
     stateChanged = Signal(bool)
-    def __init__(self,state1_icon:str="arrow-up.png",state1_color="#AAAAAA",state2_icon:str="arrow-up.png",state2_color="#FF0000",iconsize=20,outsize=24,hoverable=True,parent=None):
+    def __init__(self,state1_icon:str="arrow-up.png",state1_color="#AAAAAA",state2_icon:str="arrow-up.png",state2_color="#FF0000",iconsize=24,outsize=24,hoverable=True,parent=None):
         super().__init__(parent)
         self._state = False  # False: 状态1, True: 状态2
         
@@ -15,7 +15,7 @@ class StateToggleButton(QPushButton):
         self.icon_state1 = create_colored_icon(str(ICONS_PATH / state1_icon),state1_color)
         self.icon_state2 = create_colored_icon(str(ICONS_PATH / state2_icon),state2_color)
         
-        
+        self.outsize=outsize
         # 初始图标
         self.setIcon(self.icon_state1)
         self.setIconSize(QSize(iconsize,iconsize))
@@ -66,3 +66,8 @@ class StateToggleButton(QPushButton):
     def get_state(self):
         """获取当前状态"""
         return self._state
+
+    def sizeHint(self):
+        # 强制返回你设定的尺寸，不给系统样式“指手画脚”的机会
+        # 这是一个坑如果不设置这个，会至少返回(38,32)
+        return QSize(self.outsize, self.outsize)

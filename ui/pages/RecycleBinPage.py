@@ -7,7 +7,7 @@ import logging
 from config import BASE_DIR,DATABASE,INI_FILE
 from ui.basic import ModelSearch
 from ui.base import LazyWidget
-from controller import MessageBoxService
+from controller.MessageService import MessageBoxService
 
 
 

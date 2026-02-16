@@ -4,10 +4,27 @@
 import sys
 import os
 from PyInstaller.utils.hooks import collect_submodules
-
+from pathlib import Path
 # 如果需要支持路径兼容
 project_path = os.path.abspath(".")
 sys.path.insert(0, project_path)
+
+binding_binaries = []
+
+def collect_binding_dir(rel_path: str):
+    """收集指定相对目录里的 .pyd 和 .dll"""
+    base = Path(project_path) / rel_path
+    if not base.exists():
+        return
+    for f in base.iterdir():
+        if f.suffix.lower() in {".pyd", ".dll"}:
+            # 第二个参数 '.' = 放到打包后根目录（与 DarkEye.exe 同级）
+            binding_binaries.append((str(f), "."))
+
+# 强制导图视图绑定
+collect_binding_dir(r"cpp_bindings/forced_direct_view")
+# color_wheel 绑定
+collect_binding_dir(r"cpp_bindings/color_wheel")
 
 block_cipher = None
 
@@ -31,6 +48,8 @@ a = Analysis(
         *collect_submodules('ui'),
         *collect_submodules('controller'),
         'matplotlib.backends.backend_agg',#只打包agg后端
+        'PyForceView',
+        'PyColorWheel',
     ],
     hookspath=[],
     runtime_hooks=[],
@@ -40,7 +59,6 @@ a = Analysis(
         'PySide6.QtMultimedia',
         'PySide6.QtQml',
         'PySide6.QtQuick',
-        'PySide6.QtOpenGL',
         'PySide6.QtBluetooth',
         'PySide6.QtNfc',
         'PySide6.QtPositioning',
@@ -156,7 +174,7 @@ exe = EXE(
     strip=False,
     upx=True,
     upx_exclude=['Qt6Core.dll', 'Qt6Gui.dll','Qt6Widgets.dll','Qt6Qml.dll','Qt6Quick.dll','Qt6Pdf.dll'],
-    console=True,  # 改为 True 可显示终端日志窗口
+    console=False,  # 改为 True 可显示终端日志窗口
     icon='resources/icons/logo.ico'
 )
 

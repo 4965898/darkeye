@@ -1,13 +1,41 @@
 from PySide6.QtWidgets import QHBoxLayout, QWidget, QLabel,QVBoxLayout,QPushButton,QStackedWidget,QScrollArea,QButtonGroup
 from PySide6.QtGui import QPixmap
-from PySide6.QtCore import Qt,Signal,Slot
+from PySide6.QtCore import Qt,Signal,Slot, QThreadPool, QRunnable, QObject
 from ui.statistics.CalendarHeatmap import CalendarHeatmap
 from core.database.query import get_record_count_by_year,get_record_by_year
 from ui.basic import IconPushButton
 
+
+class DatabaseQueryWorker(QRunnable):
+    """数据库查询工作线程"""
+    def __init__(self, query_func, *args, **kwargs):
+        super().__init__()
+        self.query_func = query_func
+        self.args = args
+        self.kwargs = kwargs
+        self.signals = WorkerSignals()
+
+    def run(self):
+        try:
+            result = self.query_func(*self.args, **self.kwargs)
+            self.signals.finished.emit(result)
+        except Exception as e:
+            import logging
+            logging.error(f"数据库查询失败: {e}")
+            self.signals.finished.emit(None)
+
+
+class WorkerSignals(QObject):
+    """工作线程信号"""
+    finished = Signal(object)
+
 class SwitchHeapMap(QWidget):
     def __init__(self):
         super().__init__()
+        self.thread_pool = QThreadPool.globalInstance()
+        self.current_year = None
+        self.heatmap_data_cache = {}  # 缓存每年的数据
+
         from core.database.query import get_record_early_year
         from datetime import datetime
         early_year=get_record_early_year()
@@ -24,23 +52,31 @@ class SwitchHeapMap(QWidget):
         self.btn_next =IconPushButton("arrow-down.svg")
 
         today_year = datetime.today().year# 获取当前年份
+        self.current_year = today_year
         # 绑定按钮点击
         self.btn_prev.clicked.connect(lambda: self.switch(-1))
         self.btn_next.clicked.connect(lambda: self.switch(1))
-                # 三个示例 QWidget
-        self.calendar_heatmap_masturbation=CalendarHeatmap(year=today_year,data=get_record_by_year(today_year,0))
-        self.calendar_heatmap_sex=CalendarHeatmap(year=today_year,data=get_record_by_year(today_year,1))
-        self.calendar_heatmap_arousal=CalendarHeatmap(year=today_year,data=get_record_by_year(today_year,2))
-        
-        
+
+        # 先显示占位UI
+        self.placeholder_widget = QLabel("加载中...")
+        self.placeholder_widget.setAlignment(Qt.AlignCenter)
+        self.placeholder_widget.setStyleSheet("font-size: 16px; color: #999999; padding: 50px;")
+        self.placeholder_widget.setFixedSize(750, 155)
+
+        # 三个示例 QWidget - 先创建空的热力图
+        self.calendar_heatmap_masturbation=CalendarHeatmap(year=today_year, data={})
+        self.calendar_heatmap_sex=CalendarHeatmap(year=today_year, data={})
+        self.calendar_heatmap_arousal=CalendarHeatmap(year=today_year, data={})
+
+
         # QStackedWidget 管理多个 QWidget
         self.stack = QStackedWidget()
         self.stack.addWidget(self.calendar_heatmap_masturbation)
         self.stack.addWidget(self.calendar_heatmap_sex)
         self.stack.addWidget(self.calendar_heatmap_arousal)
 
-        self.heatmap_names = [f"撸管{get_record_count_by_year(today_year,0)}次在当年中", f"做爱{get_record_count_by_year(today_year,1)}次在当年中", f"晨勃{get_record_count_by_year(today_year,2)}次在当年中"]
-
+        # 初始显示加载占位符
+        self.heatmap_names = ["加载中...", "加载中...", "加载中..."]
         self.heatmap_name = QLabel(self.heatmap_names[0])
         # 布局
         btn_layout = QHBoxLayout()
@@ -51,7 +87,14 @@ class SwitchHeapMap(QWidget):
         left_layout=QVBoxLayout()
 
         left_layout.addLayout(btn_layout)
-        left_layout.addWidget(self.stack)
+
+        # 使用 QStackedWidget 来切换占位符和热力图
+        self.content_stack = QStackedWidget()
+        self.content_stack.addWidget(self.placeholder_widget)
+        self.content_stack.addWidget(self.stack)
+        self.content_stack.setCurrentWidget(self.placeholder_widget)
+
+        left_layout.addWidget(self.content_stack)
 
         main_layout = QHBoxLayout(self)
         main_layout.setContentsMargins(0,0,0,0)
@@ -61,31 +104,118 @@ class SwitchHeapMap(QWidget):
 
         self.buttonlist.switch_year.connect(self.update)
 
+        # 异步加载初始数据
+        self._load_initial_data(today_year)
+
+    def _load_initial_data(self, year):
+        """异步加载初始年份数据"""
+        self.current_year = year
+
+        # 加载统计数据
+        count_worker = DatabaseQueryWorker(self._load_counts, year)
+        count_worker.signals.finished.connect(self._on_counts_loaded)
+        self.thread_pool.start(count_worker)
+
+        # 加载热力图数据
+        heatmap_worker = DatabaseQueryWorker(self._load_heatmaps, year)
+        heatmap_worker.signals.finished.connect(self._on_heatmaps_loaded)
+        self.thread_pool.start(heatmap_worker)
+
+    def _load_counts(self, year):
+        """加载统计数据"""
+        return [
+            get_record_count_by_year(year, 0),
+            get_record_count_by_year(year, 1),
+            get_record_count_by_year(year, 2)
+        ]
+
+    def _load_heatmaps(self, year):
+        """加载热力图数据"""
+        return [
+            get_record_by_year(year, 0),
+            get_record_by_year(year, 1),
+            get_record_by_year(year, 2)
+        ]
+
+    def _on_counts_loaded(self, counts):
+        """统计数据加载完成"""
+        if counts:
+            self.heatmap_names = [
+                f"撸管{counts[0]}次在当年中",
+                f"做爱{counts[1]}次在当年中",
+                f"晨勃{counts[2]}次在当年中"
+            ]
+            index = self.stack.currentIndex()
+            self.heatmap_name.setText(self.heatmap_names[index])
+
+    def _on_heatmaps_loaded(self, heatmap_data):
+        """热力图数据加载完成"""
+        if heatmap_data:
+            # 更新热力图数据
+            self.calendar_heatmap_masturbation.update_data(self.current_year, heatmap_data[0])
+            self.calendar_heatmap_sex.update_data(self.current_year, heatmap_data[1])
+            self.calendar_heatmap_arousal.update_data(self.current_year, heatmap_data[2])
+
+            # 缓存数据
+            self.heatmap_data_cache[self.current_year] = heatmap_data
+
+            # 切换到真实热力图显示
+            self.content_stack.setCurrentWidget(self.stack)
+
     @Slot()
     def switch(self, step: int):
         """统一切换方法，step=-1 表示上一个，step=1 表示下一个"""
         index = (self.stack.currentIndex() + step) % self.stack.count()
         self.stack.setCurrentIndex(index)
         self.heatmap_name.setText(self.heatmap_names[index])
-    
+
     @Slot(int)
     def update(self,year:int):
         '''根据年份去更新自身'''
-        # 2️⃣ 更新三个热力图的数据
+        self.current_year = year
 
-        self.calendar_heatmap_masturbation.update_data(year,get_record_by_year(year, 0))
-        self.calendar_heatmap_sex.update_data(year,get_record_by_year(year, 1))
-        self.calendar_heatmap_arousal.update_data(year,get_record_by_year(year, 2))
+        # 显示加载状态
+        self.heatmap_names = ["加载中...", "加载中...", "加载中..."]
+        self.heatmap_name.setText(self.heatmap_names[self.stack.currentIndex()])
+        self.content_stack.setCurrentWidget(self.placeholder_widget)
 
-        # 3️⃣ 更新热力图名称
-        self.heatmap_names = [
-            f"撸管{get_record_count_by_year(year,0)}次在当年中",
-            f"做爱{get_record_count_by_year(year,1)}次在当年中",
-            f"晨勃{get_record_count_by_year(year,2)}次在当年中"
-        ]
-        # 保持当前 stack index 不变，刷新名字
-        index = self.stack.currentIndex()
-        self.heatmap_name.setText(self.heatmap_names[index])
+        # 检查缓存
+        if year in self.heatmap_data_cache:
+            # 使用缓存数据
+            cached_data = self.heatmap_data_cache[year]
+            self._update_with_data(year, cached_data)
+        else:
+            # 异步加载新数据
+            self._load_year_data_async(year)
+
+    def _load_year_data_async(self, year):
+        """异步加载指定年份的数据"""
+        self.current_year = year
+
+        # 加载统计数据
+        count_worker = DatabaseQueryWorker(self._load_counts, year)
+        count_worker.signals.finished.connect(self._on_counts_loaded)
+        self.thread_pool.start(count_worker)
+
+        # 加载热力图数据
+        heatmap_worker = DatabaseQueryWorker(self._load_heatmaps, year)
+        heatmap_worker.signals.finished.connect(self._on_heatmaps_loaded)
+        self.thread_pool.start(heatmap_worker)
+
+    def _update_with_data(self, year, heatmap_data):
+        """使用数据更新界面"""
+        # 更新热力图数据
+        self.calendar_heatmap_masturbation.update_data(year, heatmap_data[0])
+        self.calendar_heatmap_sex.update_data(year, heatmap_data[1])
+        self.calendar_heatmap_arousal.update_data(year, heatmap_data[2])
+
+        # 异步加载统计数据
+        count_worker = DatabaseQueryWorker(self._load_counts, year)
+        count_worker.signals.finished.connect(self._on_counts_loaded)
+        self.thread_pool.start(count_worker)
+
+        # 切换到真实热力图显示
+        self.content_stack.setCurrentWidget(self.stack)
 
 
 class ButtonList(QScrollArea):

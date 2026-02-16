@@ -86,11 +86,10 @@ class Router(QObject):
         # 截断历史栈：如果当前指针不在末尾，丢弃后面的记录
         if self.current_index < len(self.history_stack) - 1:
             self.history_stack = self.history_stack[:self.current_index + 1]
-            
-        # 避免重复入栈（可选）：如果新页面和当前栈顶页面相同，则不重复记录
-        # 但考虑到参数可能不同，这里为了简单（仅支持无参回退），如果只是route_name相同，
-        # 我们视情况而定。方案里说"不要带参数那种"，所以如果route_name一样，可以不入栈。
-        if not self.history_stack or self.history_stack[-1] != route_name:
+
+        # 不记录与当前页面相同的导航（点击同一项两次不重复入栈）
+        current_route = self.get_current_route()
+        if current_route != route_name:
             self.history_stack.append(route_name)
             self.current_index += 1
         
@@ -105,6 +104,8 @@ class Router(QObject):
             logging.info(f"Router: Back to '{route_name}'")
             # 回退时不带参数，恢复页面原有状态
             self._switch_to_view(route_name)
+        else:
+            self._sync_sidebar_to_current_route()
 
     def forward(self):
         """前进到下一个页面"""
@@ -113,12 +114,28 @@ class Router(QObject):
             route_name = self.history_stack[self.current_index]
             logging.info(f"Router: Forward to '{route_name}'")
             self._switch_to_view(route_name)
+        else:
+            self._sync_sidebar_to_current_route()
 
     def get_current_route(self) -> Optional[str]:
         """获取当前路由名称"""
         if self.current_index >= 0 and self.current_index < len(self.history_stack):
             return self.history_stack[self.current_index]
         return None
+
+    def _sync_sidebar_to_current_route(self) -> None:
+        """根据当前路由同步侧边栏选中状态（用于 back/forward 在边界时恢复）"""
+        route_name = self.get_current_route()
+        if not route_name or route_name not in self.routes:
+            return
+        route_info = self.routes[route_name]
+        menu_id = route_info["menu_id"]
+        if not self.sidebar:
+            return
+        if route_name == "setting":
+            self.sidebar.clear_selection()
+        elif menu_id:
+            self.sidebar.select(menu_id)
 
     def _switch_to_view(self, route_name: str, **kwargs):
         """

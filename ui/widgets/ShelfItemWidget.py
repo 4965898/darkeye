@@ -1,19 +1,8 @@
 from dataclasses import dataclass
 from pathlib import Path
-
 from PySide6.QtCore import Qt, QPointF, QRect, QTimer, Signal, Slot, QThreadPool, QRunnable, QObject
-from PySide6.QtGui import (
-    QColor,
-    QImage,
-    QPainter,
-    QPainterPath,
-    QPen,
-    QPixmap,
-    QPolygonF,
-    QTransform,
-)
+from PySide6.QtGui import QColor,QImage,QPainter,QPainterPath,QPen,QPixmap,QPolygonF,QTransform,QCursor
 from PySide6.QtWidgets import QWidget
-from PySide6.QtGui import QCursor
 
 from config import WORKCOVER_PATH
 from ui.navigation.router import Router
@@ -21,6 +10,7 @@ from ui.navigation.router import Router
 
 TRAP_WIDTH = 8
 TRAP_INSET_RATIO = 0.12
+SPINE_PLACEHOLDER_W = 40
 # 展开/收拢动画：每帧向目标插值的比例
 EXPAND_LERP_STEP = 0.14
 EXPAND_TOLERANCE = 0.01
@@ -249,7 +239,8 @@ class ShelfItemWidget(QWidget):
         self._right_strip_full_w = TRAP_WIDTH
 
         if not self._image_url:
-            self.setFixedWidth(2 * TRAP_WIDTH + 40)
+            self._spine_w = SPINE_PLACEHOLDER_W
+            self._update_width()
             self.update()
             return
 
@@ -265,7 +256,17 @@ class ShelfItemWidget(QWidget):
     def _on_image_loaded(self, result: ShelfImageResult) -> None:
         """主线程：将 QImage 转为 QPixmap 并上屏。"""
         if result.spine_img is None:
-            self.setFixedWidth(2 * TRAP_WIDTH + 40)
+            self._spine_pix = None
+            self._left_strip_pix = None
+            self._right_strip_pix = None
+            self._left_strip_full_w = TRAP_WIDTH
+            self._right_strip_full_w = TRAP_WIDTH
+            self._spine_w = SPINE_PLACEHOLDER_W
+            self._left_expand = 0.0
+            self._right_expand = 0.0
+            self._left_expand_target = 0.0
+            self._right_expand_target = 0.0
+            self._update_width()
             self.update()
             return
         self._spine_w = result.spine_w

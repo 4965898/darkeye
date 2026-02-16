@@ -1,10 +1,10 @@
 # Python 3.14.x is required
+#要开发的话下面三个版本和QtC++的版本要一致
 pyside6==6.10.1
 shiboken6==6.10.1
 shiboken6-generator==6.10.1
 
 numpy
-numba
 matplotlib
 bs4
 requests
@@ -16,6 +16,8 @@ psutil
 networkx
 uvicorn[standard]
 googletrans
+PySide6-QtAds==4.5.0#这个很重要，这个绑定要求shiboken6==6.10.1
+pytest
 
 # Documentation
 mkdocs

@@ -6,7 +6,7 @@ from PySide6.QtGui import QIcon,QKeySequence
 from PySide6.QtCore import Slot,Qt
 import logging
 from config import ICONS_PATH
-from controller import MessageBoxService
+from controller.MessageService import MessageBoxService
 from pathlib import Path
 from ui.basic import ModernScrollMenu
 from ui.basic import MultiplePathManagement
@@ -15,7 +15,7 @@ from config import APP_VERSION
 
 import logging
 from config import BASE_DIR,DATABASE,INI_FILE,ICONS_PATH,PRIVATE_DATABASE,DATABASE_BACKUP_PATH,PRIVATE_DATABASE_BACKUP_PATH
-from controller import MessageBoxService,ShortcutRegistry
+from controller.ShortcutRegistry import ShortcutRegistry
 from pathlib import Path
 
 class CommonPage(QWidget):

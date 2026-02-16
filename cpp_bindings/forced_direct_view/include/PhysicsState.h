@@ -105,6 +105,7 @@ struct PhysicsState
         std::copy(pos.begin(), pos.end(), dragPos.begin());
     }
 
+    //设置移动点的坐标，传进来的就是鼠标在动的坐标
     void setDragPos(int i, float x, float y)
     {
         if (i < 0 || i >= nNodes) return;
@@ -154,20 +155,21 @@ struct PhysicsState
     {
         if (index < 0 || index >= nNodes) return false;
 
-        // 移动最后一个节点到删除位置，保持数组连续
-        int last = nNodes - 1;
-        if (index != last) {
-            pos[2 * index] = pos[2 * last];
-            pos[2 * index + 1] = pos[2 * last + 1];
-            vel[2 * index] = vel[2 * last];
-            vel[2 * index + 1] = vel[2 * last + 1];
-            mass[index] = mass[last];
-            dragging[index] = dragging[last];
-            renderPosA[2 * index] = renderPosA[2 * last];
+        // swap-last: 将最后一个节点搬到删除位置，保持数组连续
+        const int last = nNodes - 1;
+        const bool moved = (index != last);
+        if (moved) {
+            pos[2 * index]         = pos[2 * last];
+            pos[2 * index + 1]     = pos[2 * last + 1];
+            vel[2 * index]         = vel[2 * last];
+            vel[2 * index + 1]     = vel[2 * last + 1];
+            mass[index]            = mass[last];
+            dragging[index]        = dragging[last];
+            renderPosA[2 * index]     = renderPosA[2 * last];
             renderPosA[2 * index + 1] = renderPosA[2 * last + 1];
-            renderPosB[2 * index] = renderPosB[2 * last];
+            renderPosB[2 * index]     = renderPosB[2 * last];
             renderPosB[2 * index + 1] = renderPosB[2 * last + 1];
-            dragPos[2 * index] = dragPos[2 * last];
+            dragPos[2 * index]     = dragPos[2 * last];
             dragPos[2 * index + 1] = dragPos[2 * last + 1];
         }
 
@@ -180,15 +182,33 @@ struct PhysicsState
         renderPosB.resize(2 * nNodes);
         dragPos.resize(2 * nNodes);
 
-        // 移除所有连接到该节点的边
-        auto it = std::remove_if(edges.begin(), edges.end(),
-            [index](int id) { return id == index; });
-        edges.erase(it, edges.end());
+        // 更新边列表：
+        // - 删除任何连接到被删除节点 index 的边
+        // - 若发生 swap-last（last -> index），将边端点中的 last 重映射为 index
+        // 注意：不能用“>index 全部 --”的 shift-left 逻辑，否则会与 swap-last 语义冲突。
+        std::vector<int> newEdges;
+        newEdges.reserve(edges.size());
+        const int newN = nNodes;
+        for (size_t i = 0; i + 1 < edges.size(); i += 2) {
+            int u = edges[i];
+            int v = edges[i + 1];
 
-        // 更新所有大于删除索引的边端点（因为节点被移动了）
-        for (size_t i = 0; i < edges.size(); ++i) {
-            if (edges[i] > index) edges[i]--;
+            // 丢弃与被删除节点相连的整条边
+            if (u == index || v == index) continue;
+
+            // swap-last: 将 last 端点重映射到 index
+            if (moved) {
+                if (u == last) u = index;
+                if (v == last) v = index;
+            }
+
+            // 防御：确保端点仍在合法范围内，且不是自环
+            if (u < 0 || v < 0 || u >= newN || v >= newN || u == v) continue;
+
+            newEdges.push_back(u);
+            newEdges.push_back(v);
         }
+        edges.swap(newEdges);
 
         return true;
     }

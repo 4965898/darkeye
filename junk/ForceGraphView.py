@@ -1930,7 +1930,7 @@ def main():
     
     # 2. 设置过滤器并加载
     #view_session.set_filter(EgoFilter(center_id="a100", radius=2))
-    view_session.reload()
+    view_session.new_load()
 
     window.show()
     sys.exit(app.exec())

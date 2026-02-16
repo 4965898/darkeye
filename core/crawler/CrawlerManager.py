@@ -1,18 +1,15 @@
 import logging
 import random
 import asyncio
-from time import sleep
-from functools import partial
 from PySide6.QtCore import QObject, Signal, QThreadPool, Slot, Qt,QTimer
-from PySide6.QtWidgets import QApplication
 from core.crawler.Worker import Worker
-from typing import Dict
+from typing import Dict, Optional
 from collections import deque
 from utils.utils import timeit
 from core.database.query import exist_actress, exist_actor, get_tagid_by_keyword
 from core.database.update import update_work_byhand_
 from core.schema.model import CrawledWorkData
-from utils.utils import translate_text,text2tag_id_list
+from utils.utils import translate_text_sync, text2tag_id_list
 from core.database.insert import InsertNewWork, InsertNewActress, InsertNewActor, add_tag2work,insert_tag
 from core.database.query import get_tagid_by_keyword,get_workid_by_serialnumber
 from controller.GlobalSignalBus import global_signals
@@ -74,7 +71,12 @@ class CrawlerManager2(QObject):
             self.schedule_timer.timeout.connect(self._on_schedule_tick)
             self.last_schedule_time = 0 # 记录上次调度时间
             from server.bridge import bridge
-            bridge.captureone_received.connect(lambda serial_number:self.start_crawl([serial_number]))
+            # FastAPI/uvicorn 运行在后台线程：这里必须使用 QueuedConnection
+            # 否则 slot 可能在服务器线程执行，触发跨线程操作 QTimer 等 Qt 对象而崩溃。
+            bridge.captureone_received.connect(
+                lambda serial_number: self.start_crawl([serial_number]),
+                Qt.ConnectionType.QueuedConnection,
+            )
 
     # 对外只暴露这一个信号：任务彻底完成
     # 这个管理器只针对一种任务，那就是爬取目标番号的相关信息，另外爬女优信息的任务就是另一个爬虫
@@ -140,7 +142,8 @@ class CrawlerManager2(QObject):
         # 创建任务状态
         task = CrawlerTask(serial_number, ["javlib","javtxt","avdanyuwiki"],withGUI)
         self.tasks[serial_number]= task
-        
+        #目前这里开3个线程
+
         # 统一分发请求
         self._dispatch_request("javlib", serial_number)
         self._dispatch_request("javdb", serial_number)
@@ -189,10 +192,12 @@ class CrawlerManager2(QObject):
             pass
 
     # 3. 统一接收回调
+    @timeit
     @Slot(str, str, dict)
     def on_result_received(self, source, serial, data):
+        '''这个目前是在主线程接收回调'''
 
-        task = self.tasks.get(serial)
+        task = self.tasks.get(serial)#取这个任务
         if not task: 
             logging.error(f"未找到任务 {serial}")
             return
@@ -205,8 +210,8 @@ class CrawlerManager2(QObject):
         if key in self._relays:
             del self._relays[key]
 
-        # 检查是否全部完成
-        if not task.pending_sources:
+        
+        if not task.pending_sources:#全部完成开启合并
             final_data:CrawledWorkData=self._merge_results(task.results, serial)
             DataUpdate(final_data,self,withGUI=task.withGUI)
 
@@ -266,9 +271,9 @@ class CrawlerManager2(QObject):
         #下面是预处理
         # 空缺的cn_title与cn_story用jp_title与jp_story的翻译
         if  work_merge["cn_title"]=="" and work_merge["jp_title"]!="":
-            work_merge["cn_title"]=asyncio.run(translate_text(work_merge["jp_title"]))
+            work_merge["cn_title"]=translate_text_sync(work_merge["jp_title"], fallback="empty")
         if  work_merge["cn_story"]=="" and work_merge["jp_story"]!="":
-            work_merge["cn_story"]=asyncio.run(translate_text(work_merge["jp_story"]))
+            work_merge["cn_story"]=translate_text_sync(work_merge["jp_story"], fallback="empty")
 
         logging.info(f"基本聚合结果: {work_merge}")
 
@@ -310,12 +315,23 @@ class SequentialDownloader(QObject):
         super().__init__()
         self.manager = manager
         self.current_worker_id = None
+        self._download_in_progress = False
         self.withGUI=withGUI
 
     def __del__(self):
         logging.info("SequentialDownloader 实例已成功销毁，内存已释放")
         
     def start(self, url_list, save_path,image_filename):
+        # 防御性清理：仅当不在下载中时，清掉上一轮遗留 relay
+        # （如果仍在下载中就清理，会导致 relay 失去引用而被回收，进而丢回调）
+        if (
+            not self._download_in_progress
+            and self.current_worker_id
+            and self.current_worker_id in self.manager._relays
+        ):
+            del self.manager._relays[self.current_worker_id]
+            self.current_worker_id = None
+
         logging.info(f"开始下载{url_list}到{save_path}")
         self.urls = deque(url_list) #以此建立队列
         self.save_path = save_path
@@ -337,29 +353,37 @@ class SequentialDownloader(QObject):
         
         self.current_worker_id = id(worker)
         self.manager._relays[self.current_worker_id] = relay
+        self._download_in_progress = True
         
         worker.signals.finished.connect(relay.handle, Qt.QueuedConnection)
         QThreadPool.globalInstance().start(worker)
 
     @Slot(object)
     def _on_download_result(self, result):
-        if result is None:
-            success, e = False, "Unknown Error (None result)"
-        else:
-            success, e = result
+        # 注意：失败会触发 _try_next() 创建新 worker 并覆盖 current_worker_id。
+        # 因此必须先捕获“本次回调对应的 worker_id”，并在 finally 中按该 id 清理 relay。
+        worker_id = self.current_worker_id
+        try:
+            if result is None:
+                success, e = False, "Unknown Error (None result)"
+            else:
+                success, e = result
 
-        #logging.info(f"下载结果:{success},{e}")
-        if success:
-            logging.info(f"成功下载图片到临时地址{self.save_path}")
-            # 必须转为str，否则Signal(bool, str)可能无法正确传递Path对象
-            self.finished.emit(True, str(self.save_path))
-        else:
-            self._try_next() # 失败则尝试下一个
-            return
-
-        # 最后再清理 relay，确保信号发射期间对象存活
-        if self.current_worker_id and self.current_worker_id in self.manager._relays:
-            del self.manager._relays[self.current_worker_id]
+            #logging.info(f"下载结果:{success},{e}")
+            if success:
+                logging.info(f"成功下载图片到临时地址{self.save_path}")
+                # 必须转为str，否则Signal(bool, str)可能无法正确传递Path对象
+                self.finished.emit(True, str(self.save_path))
+            else:
+                self._try_next() # 失败则尝试下一个
+                return
+        finally:
+            # 最后再清理 relay，确保信号发射期间对象存活
+            if worker_id and worker_id in self.manager._relays:
+                del self.manager._relays[worker_id]
+            if self.current_worker_id == worker_id:
+                self.current_worker_id = None
+                self._download_in_progress = False
 
 
 
@@ -510,10 +534,20 @@ class DataUpdate:
         if self.work_id is not None:
             update_work_byhand_(self.work_id, image_url=image_filename)
 
-# 全局实例
-crawler_manager2 = CrawlerManager2()
+_crawler_manager2: Optional["CrawlerManager2"] = None
 
-def get_manager()->CrawlerManager2:
-    """返回全局单例。导入并调用此函数可避免被 linter 判为未使用而删除导入。
+def get_manager() -> "CrawlerManager2":
+    """获取 CrawlerManager2 单例（惰性初始化）。
+
+    注意：首次创建必须发生在 Qt 主线程（GUI 线程），避免 QObject 线程归属错误。
     """
-    return crawler_manager2
+    global _crawler_manager2
+    if _crawler_manager2 is None:
+        from PySide6.QtCore import QCoreApplication, QThread
+
+        app = QCoreApplication.instance()
+        if app is not None and QThread.currentThread() != app.thread():
+            raise RuntimeError("CrawlerManager2 必须在主线程首次初始化（请在 MainWindow show 后调用 get_manager()）")
+
+        _crawler_manager2 = CrawlerManager2()
+    return _crawler_manager2

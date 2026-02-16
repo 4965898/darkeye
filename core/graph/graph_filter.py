@@ -12,6 +12,16 @@ class GraphFilter(ABC):
         """Return True if the edge should be included in the view."""
         pass
 
+
+class EmptyFilter(GraphFilter):
+    """过滤器，什么都不返回（过滤掉所有节点和边）。"""
+    def filter_node(self, graph: nx.Graph, node_id) -> bool:
+        return False
+
+    def filter_edge(self, graph: nx.Graph, u, v) -> bool:
+        return False
+
+
 class PassThroughFilter(GraphFilter):
     """Default filter that includes everything."""
     def filter_node(self, graph: nx.Graph, node_id) -> bool:
@@ -20,8 +30,9 @@ class PassThroughFilter(GraphFilter):
     def filter_edge(self, graph: nx.Graph, u, v) -> bool:
         return True
 
+
 class EgoFilter(GraphFilter):
-    """Filter that includes nodes within a certain radius of a center node."""
+    """自我中心过滤器，过滤以指定节点为中心，半径为指定值的子图"""
     def __init__(self, center_id: str, radius: int = 1):
         self.center_id = center_id
         self.radius = radius

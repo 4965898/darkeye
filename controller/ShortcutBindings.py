@@ -7,8 +7,7 @@ def setup_mainwindow_actions(window, registry):
         openAddMasturbationDialog,
         openAddQuickWorkDialog,
         openAddMakeLoveDialog,
-        openAddSexualArousalDialog,
-        on_help,
+        openAddSexualArousalDialog
     )
     from utils.utils import capture_full
 
@@ -44,14 +43,14 @@ def setup_mainwindow_actions(window, registry):
     open_help_action.setShortcut(
         QKeySequence(registry.get_shortcut("open_help"))
     )
-    open_help_action.triggered.connect(on_help)
+    #open_help_action.triggered.connect()
     registry.actions_map["open_help"] = open_help_action
 
     focus_search = QAction("搜索", window)
     focus_search.setShortcut(
         QKeySequence(registry.get_shortcut("search"))
     )
-    focus_search.triggered.connect(lambda: window.topbar.QLE.setFocus())
+    #focus_search.triggered.connect(lambda: window.topbar.QLE.setFocus())
     registry.actions_map["search"] = focus_search
 
     all_capture = QAction("全软件截图", window)

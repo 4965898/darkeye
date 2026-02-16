@@ -1,69 +1,24 @@
-from PySide6.QtWidgets import QWidget,QStackedWidget,QHBoxLayout, QVBoxLayout,QLabel,QStatusBar,QMainWindow
-from PySide6.QtCore import QTimer,Slot,QThreadPool
+from PySide6.QtWidgets import QWidget,QStackedWidget,QHBoxLayout,QMainWindow
+from PySide6.QtCore import QTimer,Slot
 from PySide6.QtGui import QIcon
-import os,psutil,logging
+import logging
 
 from config import ICONS_PATH,APP_VERSION,set_max_window
-from ui.basic import IconPushButton,ToggleSwitch,StateToggleButton
-from controller.GlobalSignalBus import global_signals
-from core.database.query import get_serial_number
-from ui.widgets.text.CompleterLineEdit import CompleterLineEdit
-from controller import ShortcutRegistry
-from controller.ShortcutBindings import setup_mainwindow_actions
+from controller.ShortcutRegistry import ShortcutRegistry
+from controller.ShortcutBindings import setup_mainwindow_actions#这个准备数据的操作是可以放在后台的但是QAction一定要放主线程
 from ui.widgets.Sidebar2 import Sidebar2
 from ui.navigation.router import Router
-from ui.widgets.StatusBarNotification import TaskListWindow, StatusBarNotification
-from controller.StatusManager import StatusManager
-from controller.TaskService import TaskManager
-from server.bridge import bridge
-from core.crawler.CrawlerManager import get_manager
-get_manager()
-
-class TopBar(QWidget):
-    '''顶栏'''
-    def __init__(self, parent=None):
-        super().__init__(parent)
-
-        self.main_layout=QHBoxLayout(self)
-
-        self.btn_back=IconPushButton("chevron-left.svg",iconsize=24,outsize=24,color="#000000")
-        self.main_layout.addWidget(self.btn_back)
-        self.btn_back.clicked.connect(lambda: Router.instance().back())
-        self.btn_back.setToolTip("返回上一页")
-        self.btn_forward=IconPushButton("chevron-right.svg",iconsize=24,outsize=24,color="#000000")
-        self.main_layout.addWidget(self.btn_forward)
-        self.btn_forward.clicked.connect(lambda: Router.instance().forward())
-        self.btn_forward.setToolTip("前进到下一页")
+from controller.GlobalSignalBus import global_signals
 
 
-        self.QLE=CompleterLineEdit(get_serial_number)
-        #self.QLE.setClearButtonEnabled(True)
-        self.QLE.setMaximumWidth(200)
-        self.QLE.setFixedHeight(32)
-        self.QLE.setStyleSheet("""
-            QLineEdit {
-                color: black;  
-                background-color: transparent;  /* 可选：背景透明或其他颜色 */
-                border: 2px solid black;        /* 白色边框 */ 
-            }
-        """)
-        self.btn_help=IconPushButton("circle-question-mark.svg",iconsize=24,outsize=24,color="#000000")
-
-        self.btn_settings=IconPushButton("settings.svg",iconsize=24,outsize=24,color="#000000")
-
-        self.main_layout.addWidget(self.QLE)
-        self.main_layout.addStretch()
-        self.main_layout.addWidget(self.btn_settings)
-        self.main_layout.addWidget(self.btn_help)
-        self.btn_settings.clicked.connect(lambda: Router.instance().push("setting"))
 
 class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
         self.setWindowTitle("暗之眼 "+"V"+APP_VERSION)
         self.setWindowIcon(QIcon(str(ICONS_PATH / "logo.svg"))) 
-        self.resize(1000, 700)
-        
+        self.resize(1200, 800)
+        self.open=False
 
         #======================整体布局设置==========================
         self.init_ui()
@@ -73,19 +28,35 @@ class MainWindow(QMainWindow):
         self.registry = ShortcutRegistry()
         setup_mainwindow_actions(self, self.registry)
 
+        self.timer = QTimer()
+        self.timer.timeout.connect(self.update_memory)
+        self.timer.start(500)
+
         self.signal_connect()
+
+        # 延后到窗口 show / event loop 启动后再初始化爬虫管理器，避免 import/构造阻塞主窗口首帧
+        QTimer.singleShot(0, self._ensure_crawler_manager_initialized)
+
+    @Slot()
+    def _ensure_crawler_manager_initialized(self) -> None:
+        # 必须在主线程首次创建（CrawlerManager.get_manager 内部会校验）
+        from core.crawler.CrawlerManager import get_manager
+        self._crawler_manager = get_manager()
 
 
     def init_ui(self) -> None:
         '''初始化UI'''
         central = QWidget()
         self.setCentralWidget(central)
+        
 
         main_layout = QHBoxLayout(central)
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0) 
         
         menu_defs = [
+            ("forward", "前进到下一页", "chevron-up.svg"),
+            ("back", "返回上一页", "chevron-down.svg"),
              ("home", "首页", "house.svg"), 
              ("database", "管理", "database.svg"), 
              ("work", "作品", "film.svg"), 
@@ -93,26 +64,21 @@ class MainWindow(QMainWindow):
              ("actress", "女优", "venus.svg"), 
              ("actor", "男优", "mars.svg"), 
              ("graph","关系图","share-2.svg"),
-             ("shelf", "书架", "scroll-text.svg"),
+             ("shelf", "书架", "library-big.svg"),
              ("av", "暗黑界", "scroll-text.svg"), 
+             ("setting", "设置", "settings.svg"),
+             ("help", "帮助", "circle-question-mark.svg"),
+             ("bell", "通知", "bell.svg"),
+             ("green_mode","绿色模式", "sprout.svg"),
          ]
         self.sidebar = Sidebar2(menu_defs=menu_defs)#侧边栏的按钮在这里改
-        self.right_widget=QWidget()
-        self.right_layout=QVBoxLayout(self.right_widget)
-        self.right_layout.setContentsMargins(0, 0, 0, 0)
-        self.right_layout.setSpacing(0)
-
-        self.topbar=TopBar()
-        self.myStatusBar = self.init_status_bar()
 
         self.stack = QStackedWidget()
-        self.right_layout.addWidget(self.topbar)
-        self.right_layout.addWidget(self.stack)
-        self.right_layout.addWidget(self.myStatusBar)
+
 
         #左右两栏布局
         main_layout.addWidget(self.sidebar)
-        main_layout.addWidget(self.right_widget)
+        main_layout.addWidget(self.stack)
 
     def init_router(self) -> None:
         '''配置路由'''
@@ -163,6 +129,10 @@ class MainWindow(QMainWindow):
         def create_shelf_demo():
             from ui.pages.ShelfDemoPage import ShelfDemoPage
             return ShelfDemoPage()
+
+        def create_workspace_demo():
+            from ui.pages.WorkspaceDemoPage import WorkspaceDemoPage
+            return WorkspaceDemoPage()
             
         def create_single_work():
             from ui.pages.SingleWorkPage import SingleWorkPage
@@ -199,12 +169,13 @@ class MainWindow(QMainWindow):
         
         # 详情页/编辑页/其他页面
         self.router.register("shelf_demo", create_shelf_demo, None)
+        self.router.register("workspace_demo", create_workspace_demo, None)
         self.router.register("work", create_single_work, "work") # 作品详情
         self.router.register("single_actress", create_single_actress, "actress") # 女优详情
         self.router.register("actress_edit", create_modify_actress, "actress")
         self.router.register("actor_edit", create_modify_actor, "actor")
         self.router.register("work_edit", create_management, "database") # 注意：这里如果想跳到管理页的特定tab，router需要特殊处理
-        self.router.register("setting", create_setting, "")
+        self.router.register("setting", create_setting, "setting")
         
         # 3. 建立菜单到路由的映射 (供 Sidebar 点击使用)
         self._menu_to_route = {
@@ -216,9 +187,11 @@ class MainWindow(QMainWindow):
             "actor": "actor",
             "graph": "graph",
             "shelf": "shelf_demo",
-            "av": "av"
+            "av": "av",
+            "setting": "setting"
         }
         self.sidebar.itemClicked.connect(self._on_sidebar_clicked)
+        
         '''
         ### 什么时候有必要手动加单例？
         判断标准非常简单，只有满足以下 任意一点 时才需要：
@@ -229,43 +202,13 @@ class MainWindow(QMainWindow):
         # 延后到 show 之后再加载首页，主窗口先显示框架，缩短“主窗口显示完成”耗时
         QTimer.singleShot(0, lambda: self.router.push("dashboard"))
 
-    def _on_sidebar_clicked(self, menu_id: str):
-        if menu_id in self._menu_to_route:
-            self.router.push(self._menu_to_route[menu_id])
-
-    def init_status_bar(self) -> QStatusBar:
-        status_bar = QStatusBar()
-        self.statusmanager = StatusManager(status_bar)
-
-        self.memlabel = QLabel("内存占用:0 MB")
-        status_bar.addPermanentWidget(self.memlabel)
-
-        self.thread_count_label = QLabel("后台线程: 0")
-        status_bar.addPermanentWidget(self.thread_count_label)
-
-        self.greenbutton = StateToggleButton("sprout.svg", "#5E5E5E", "sprout.svg", "#00FF40", 16, 16)
-        self.greenbutton.stateChanged.connect(global_signals.green_mode_changed.emit)
-        status_bar.addPermanentWidget(self.greenbutton)
-
-        self.taskwindow = TaskListWindow(self)
-        self.notifier = StatusBarNotification(self.taskwindow)
-        self.taskmanager = TaskManager.instance(self.taskwindow, self.notifier)
-        status_bar.addPermanentWidget(self.notifier)
-
-        self.timer = QTimer()
-        self.timer.timeout.connect(self.update_memory)
-        self.timer.timeout.connect(self.update_thread_count)
-        self.timer.start(500)
-
-        return status_bar
 
     def signal_connect(self) -> None:
         '''信号连接'''
-        self.topbar.btn_help.clicked.connect(self.registry.actions_map["open_help"].trigger)
-        self.topbar.QLE.returnPressed.connect(lambda:Router.instance().push("mutiwork", serial_number=self.topbar.QLE.text().strip()))#路由跳转
+        from server.bridge import bridge
         bridge.capture_received.connect(self.handle_capture_data)
         
-    # stackPageConnectMenu has been removed and integrated into init_router
+
 
     def closeEvent(self, event) -> None:
         logging.info("--------------------程序关闭--------------------")
@@ -307,17 +250,17 @@ class MainWindow(QMainWindow):
     @Slot()
     def update_memory(self) -> None:
         '''更新内存'''
+        import psutil,os
         process = psutil.Process(os.getpid())
         mem_main: int = process.memory_info().rss
-        mem_children: int = sum((p.memory_info().rss for p in process.children(recursive=True)), 0)
-        total_mb: float = (mem_main + mem_children) / 1024 ** 2
         main_mb: float = mem_main / 1024 ** 2
-        children_mb: float = mem_children / 1024 ** 2
-        self.memlabel.setText(f"内存使用: {total_mb:.2f} MB (主:{main_mb:.2f}, 子:{children_mb:.2f})")
+        #self.memlabel.setText(f"内存使用: {main_mb:.2f} MB")
+        self.setWindowTitle("暗之眼 "+"V"+APP_VERSION+f" 内存使用: {main_mb:.2f} MB")
 
     @Slot()
     def update_thread_count(self) -> None:
         """更新状态栏显示后台线程数量"""
+        from PySide6.QtCore import QThreadPool
         active = QThreadPool.globalInstance().activeThreadCount()
 
         self.thread_count_label.setText(f"后台线程: {active}")
@@ -325,6 +268,20 @@ class MainWindow(QMainWindow):
     @Slot(str)
     def _on_sidebar_clicked(self, menu_id: str) -> None:
         """处理侧边栏点击事件：通过路由跳转"""
+
+        # 1. 前两个：历史后退 / 前进（不通过路由表跳转）
+        if menu_id == "back":
+            Router.instance().back()
+            return
+
+        if menu_id == "forward":
+            Router.instance().forward()
+            return
+        if menu_id == "green_mode":
+            self.open=not self.open
+            #global_signals.green_mode_changed.emit(self.open)
+            Router.instance().push("workspace_demo")
+            return
         route_name = self._menu_to_route.get(menu_id)
         if route_name:
             self.router.push(route_name)
@@ -350,5 +307,5 @@ class MainWindow(QMainWindow):
             dialog.load_serials(serial_numbers)
             dialog.exec()
 
-        
+
  

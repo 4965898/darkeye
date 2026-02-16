@@ -270,3 +270,30 @@ QTabWidget::pane {
     border: none;               /* 去掉下方内容区域的顶部边线 */
     top: -1px;                  /* 视觉微调，让底线看起来贴合内容 */
 }
+
+
+/* 整个停靠区域背景 */
+ads--CDockAreaWidget {
+    background: #2b2b2b;
+    border: 1px solid #3f3f3f;
+}
+
+/* 标签栏美化 */
+ads--CDockTabBar {
+    background: #323232;
+    qproperty-drawBase: 0; /* 移除底部基线 */
+}
+
+/* 单个 Tab 的样式 */
+ads--CDockWidgetTab {
+    background: #3c3f41;
+    color: #afb1b3;
+    padding: 5px 15px;
+    border-top-left-radius: 4px;
+    border-top-right-radius: 4px;
+    margin-right: 2px;
+    /* --- 字体设置 --- */
+    font-size: 14px;         /* 这里设置你想要的像素大小，比如 14px 或 16px */
+    font-weight: bold;       /* 可选：加粗字体让辨识度更高 */
+    font-family: "Microsoft YaHei", sans-serif; /* 建议指定中文字体 */
+}

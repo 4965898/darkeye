@@ -1,16 +1,14 @@
 
 
 import logging
-import networkx as nx
-from typing import Optional, Dict
-from threading import Lock
-from PySide6.QtCore import QObject, Signal, QTimer
 
-from config import DATABASE
-from core.database.connection import get_connection
+from typing import Optional
+from threading import Lock
+from PySide6.QtCore import QObject, Signal
+
 from core.graph.text_parser import parse_wikilinks
-from core.database.query import get_workid_by_serialnumber, findActressFromWorkID
-from core.graph.graph import generate_graph
+from core.database.query import get_workid_by_serialnumber, findActressFromWorkID, get_serial_number_map, get_work_story_rows, get_recent_work_story_rows
+
 
 '''
 ### 方案一：基于元数据的“硬关联” (Metadata Linking)
@@ -64,34 +62,33 @@ class GraphManager(QObject):
     '''单例模式，图管理器管理总图，当有数据变动时，通过信号通知视图更新，长周期实例'''
     _instance: Optional['GraphManager'] = None
     _lock = Lock()
-    
+
     # 信号定义：发送增量更新操作列表
     # Payload structure: List[Dict]
     # [{'op': 'add_node', 'id': 'w1', 'attr': {...}}, {'op': 'add_edge', 'u': 'w1', 'v': 'w2', 'attr': {...}}, ...]
     graph_diff_signal = Signal(list)
     initialization_finished = Signal()
+    # 内部信号：用于在主线程中执行信号连接
+    _connect_signals_requested = Signal()
 
     '''
     这里维护总图G，所有节点和边都在G中，
     然后可以输出子图，node的结构为
-    G.add_node(
-        f"w{wid}",
-        label=title,
-        group="work",
-        color="#99ccff",
-    )
+    G.add_node(f"w{wid}", label=title, group="work")
     边的结构
     G.add_edge(f"a{aid}", f"w{wid}")
-    
     '''
 
     def __init__(self):
         super().__init__()
         if GraphManager._instance is not None:
             raise RuntimeError("GraphManager is a singleton class, use instance() method instead.")
-        self.G: nx.Graph = nx.Graph()
+        self.G=None
         self._initialized = False
         self._initializing = False
+
+        # 连接内部信号到处理函数（在主线程中执行）
+        self._connect_signals_requested.connect(self._connect_signals_handler)
 
     @classmethod
     def instance(cls) -> 'GraphManager':
@@ -120,6 +117,7 @@ class GraphManager(QObject):
         """
         后台初始化逻辑
         """
+        import networkx as nx
         try:
             logging.info("开始初始化图")
             
@@ -133,6 +131,7 @@ class GraphManager(QObject):
             # 5.图形处理发现作品封面的相似点，发现连接
 
             try:
+                from core.graph.graph import generate_graph
                 self.G = generate_graph()
             except Exception as e:
                 logging.error(f"Error generating base graph: {e}")
@@ -144,11 +143,8 @@ class GraphManager(QObject):
             self._initialized = True
             
             # 连接信号必须在主线程执行，否则会触发 "Cannot create children for a parent
-            # that is in a different thread"。使用 QTimer.singleShot 将 connect 推迟到主线程。
-            def _connect_signals_on_main_thread():
-                from controller.GlobalSignalBus import global_signals
-                global_signals.work_data_changed.connect(self.update_recent_changes)
-            QTimer.singleShot(0, _connect_signals_on_main_thread)
+            # that is in a different thread"。使用信号槽机制将 connect 投递到主线程。
+            self._connect_signals_requested.emit()
             
             logging.info(f"Graph initialized. Nodes: {self.G.number_of_nodes()}, Edges: {self.G.number_of_edges()}")
             self.initialization_finished.emit()
@@ -165,22 +161,12 @@ class GraphManager(QObject):
         """
         从数据库加载数据，解析story中的 [[]] 引用，并在基图上添加引用关系边
         """
-        query = """
-        SELECT work_id, serial_number, story
-        FROM work
-        WHERE story IS NOT NULL AND story != ''
-        """
-        
         try:
-            with get_connection(DATABASE, True) as conn:
-                cursor = conn.cursor()
-                cursor.execute(query)
-                rows = cursor.fetchall()
-                
+            rows = get_work_story_rows()
             logging.info(f"Loaded {len(rows)} works with stories from database for augmentation.")
 
             # 缓存 serial_number -> work_id 的映射，避免重复查询数据库
-            serial_map = self._get_all_serial_number_map()
+            serial_map = get_serial_number_map()
             
             for row in rows:
                 source_work_id = row[0]
@@ -224,22 +210,7 @@ class GraphManager(QObject):
         except Exception as e:
             logging.error(f"Error augmenting graph with story relations: {e}")
 
-    def _get_all_serial_number_map(self) -> Dict[str, int]:
-        """
-        获取所有 serial_number 到 work_id 的映射
-        """
-        query = "SELECT serial_number, work_id FROM work"
-        try:
-            with get_connection(DATABASE, True) as conn:
-                cursor = conn.cursor()
-                cursor.execute(query)
-                rows = cursor.fetchall()
-            return {row[0]: row[1] for row in rows}
-        except Exception as e:
-            logging.error(f"Error fetching serial number map: {e}")
-            return {}
-
-    def get_graph(self) -> nx.Graph:
+    def get_graph(self):
         """
         获取图对象，对外使用的只读接口
         """
@@ -254,6 +225,17 @@ class GraphManager(QObject):
         self._initialized = False
         self.initialize()
 
+    def _connect_signals_handler(self):
+        """
+        在主线程中处理信号连接，由 _connect_signals_requested 信号触发
+        """
+        try:
+            from controller.GlobalSignalBus import global_signals
+            global_signals.work_data_changed.connect(self.update_recent_changes)
+            logging.info("绑定 work_data_changed -> update_recent_changes")
+        except Exception as e:
+            logging.error(f"绑定信号失败: {e}")
+
     def update_recent_changes(self, limit: int = 3):
         """
         增量更新：获取最近更新的 limit 条作品，重建引用关系与女优-作品关系
@@ -262,26 +244,17 @@ class GraphManager(QObject):
         if not self._initialized:
             self.initialize()
             return
-
-        query = """
-        SELECT work_id, serial_number, story
-        FROM work
-        ORDER BY update_time DESC
-        LIMIT ?
-        """
+        logging.info(f"更新图关系")
         rows = []
         try:
-            with get_connection(DATABASE, True) as conn:
-                cursor = conn.cursor()
-                cursor.execute(query, (limit,))
-                rows = cursor.fetchall()
+            rows = get_recent_work_story_rows(limit)
             if not rows:
                 return
         except Exception as e:
             logging.error(f"Error updating recent changes: {e}")
             return
 
-        serial_map = self._get_all_serial_number_map()
+        serial_map = get_serial_number_map()
         changes = []
 
         logging.info(f"更新图根据最近 {len(rows)} 条作品的关系")
@@ -362,12 +335,11 @@ class GraphManager(QObject):
                             actress_node_id,
                             label=name,
                             group='actress',
-                            color='#ff99cc'
                         )
                         changes.append({
                             'op': 'add_node',
                             'id': actress_node_id,
-                            'attr': {'label': name, 'group': 'actress', 'color': '#ff99cc'}
+                            'attr': {'label': name, 'group': 'actress'}
                         })
                         logging.debug(f"添加新女优节点: {actress_node_id}")
                     if not self.G.has_edge(actress_node_id, source_node_id):
@@ -423,4 +395,3 @@ if __name__ == "__main__":
             print(f"{G.nodes[u].get('label')} -> {G.nodes[v].get('label')}: {data}")
             
     print("\n测试完成。")
-

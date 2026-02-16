@@ -227,3 +227,8 @@
 | 交互 | 主进程写 pos、发 set_dragging | 主进程写 pos（或调 C++ set_dragging），同一块 pos 给 C++ tick |
 
 这样可以在保留现有渲染与交互的前提下，把力导向核心迁到 C++，并去掉多进程与共享内存，图数据用“NumPy 数组（或简单二进制）”从 Python 传到 C++ 即可。
+
+
+
+高性能绘文本方案多通道距离场 (MSDF - Multi-channel SDF)
+矢量路径 (Path)

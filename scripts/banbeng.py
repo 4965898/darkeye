@@ -1,3 +1,5 @@
+
+#检测当时的版本
 import PySide6
 import shiboken6
 import shiboken6_generator

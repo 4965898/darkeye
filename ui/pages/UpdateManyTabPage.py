@@ -4,7 +4,7 @@ import logging
 from core.crawler.download import update_title_story_db
 from core.crawler.javtxt import top_actresses
 from ui.base import LazyWidget
-from controller import TaskManager
+
 
 
 class UpdateManyTabPage(LazyWidget):
@@ -38,12 +38,10 @@ class UpdateManyTabPage(LazyWidget):
 
     @Slot()
     def task_search_actress(self):
-        taskmanager=TaskManager.instance()
-        task=taskmanager.add_task("更新热门女优前50")
         if top_actresses():
-            taskmanager.complete_task(task,"更新完成")
+            logging.info("更新完成")
         else:
-            taskmanager.error_task(task,"失败")
+            logging.error("更新失败")
 
 
     @Slot()

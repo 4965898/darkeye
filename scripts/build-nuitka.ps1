@@ -39,7 +39,6 @@ nuitka `
     --nofollow-import-to="PySide6.QtMultimedia" `
     --nofollow-import-to="PySide6.QtQml" `
     --nofollow-import-to="PySide6.QtQuick" `
-    --nofollow-import-to="PySide6.QtOpenGL" `
     --nofollow-import-to="PySide6.QtBluetooth" `
     --nofollow-import-to="PySide6.QtNfc" `
     --nofollow-import-to="PySide6.QtPositioning" `

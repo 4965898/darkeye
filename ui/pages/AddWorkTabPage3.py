@@ -1,6 +1,7 @@
-from PySide6.QtWidgets import QPushButton, QHBoxLayout, QLabel,QVBoxLayout,QLineEdit,QTextEdit,QSizePolicy,QPlainTextEdit,QScrollArea, QWidget,QSplitter
+from PySide6.QtWidgets import QPushButton, QHBoxLayout, QLabel,QVBoxLayout,QLineEdit,QTextEdit,QSizePolicy,QPlainTextEdit,QWidget,QSplitter
 from PySide6.QtCore import Qt,QObject,Signal,Property,SignalInstance,Slot,QThreadPool,QTimer
 from PySide6.QtGui import QIntValidator
+import PySide6QtAds as ads
 
 from ui.widgets.CrawlerToolBox import CrawlerToolBox
 import logging,json,asyncio
@@ -14,7 +15,7 @@ from ui.widgets.selectors.TagSelector5 import TagSelector5
 from core.database.query import getUniqueDirector,get_work_tags,get_workinfo_by_workid,get_actressid_by_workid,get_actorid_by_workid,get_unique_short_story,exist_actor,get_workid_by_serialnumber,exist_actress
 from core.database.insert import InsertNewWorkByHand,InsertNewActor,InsertNewActress
 from core.database.update import update_work_byhand
-from utils.utils import mse,load_ini_ids,covert_fanza,translate_text
+from utils.utils import mse,load_ini_ids,covert_fanza,translate_text_sync
 from ui.basic import IconPushButton
 from ui.base import LazyWidget
 from controller.MessageService import MessageBoxService,IMessageService
@@ -29,6 +30,7 @@ class ButtonState(Enum):
     NORMAL = 1
     WARNING = 2
     DISABLED = 3
+
 
 class Model():
     '''纯放数据的model'''
@@ -562,24 +564,30 @@ class ViewModel(QObject):
     @Slot()
     def _trans_title(self):
         '''调用google第三方翻译，不稳定，将日文翻译成中文写到框内'''
-        worker=Worker(lambda:asyncio.run(translate_text(self.get_jp_title())))
+        worker=Worker(lambda:translate_text_sync(self.get_jp_title(), fallback="empty"))
         worker.signals.finished.connect(self._on_trans_title)
         QThreadPool.globalInstance().start(worker)
 
     @Slot()
     def _trans_story(self):
         '''调用google第三方翻译，不稳定，将日文翻译成中文写到框内'''
-        worker=Worker(lambda:asyncio.run(translate_text(self.get_jp_story())))#传一个函数名进去
+        worker=Worker(lambda:translate_text_sync(self.get_jp_story(), fallback="empty"))#传一个函数名进去
         worker.signals.finished.connect(self._on_trans_story)
         QThreadPool.globalInstance().start(worker)
 
     @Slot(str)
     def _on_trans_title(self,result:str):
-        self.set_cn_title(result)
+        if result:
+            self.set_cn_title(result)
+        else:
+            self.msg.show_warning("翻译失败", "网络/代理不稳定或触发限流，请稍后重试。")
 
     @Slot(str)
     def _on_trans_story(self,result:str):
-        self.set_cn_story(result)
+        if result:
+            self.set_cn_story(result)
+        else:
+            self.msg.show_warning("翻译失败", "网络/代理不稳定或触发限流，请稍后重试。")
 
 
 class AddWorkTabPage3(LazyWidget):
@@ -611,157 +619,220 @@ class AddWorkTabPage3(LazyWidget):
 
 
     def init_ui(self) -> None:
-        #第一列控件
-        self.crawler_toolbox=CrawlerToolBox()
-        self.coverdroplabel=CoverDropWidget()#加载拖动图片控件
-        self.coverdroplabel.setMaximumWidth(200)
-        self.coverdroplabel.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        from core.database.query import get_serial_number
 
-        #第一列布局
-        leftleftlayout=QVBoxLayout()
-        leftleftlayout.setContentsMargins(0,0,0,0)
-        leftleftlayout.addWidget(self.crawler_toolbox)
-        leftleftlayout.addWidget(self.coverdroplabel,alignment=Qt.AlignHCenter)
-
-        # 第二列控件
+        # ---------- 控件创建（与原先一致） ----------
+        self.crawler_toolbox = CrawlerToolBox()
+        self.coverdroplabel = CoverDropWidget(aspect_ratio=0.7)
 
         self.label_serial_umber = QLabel("番       号：")
-        from core.database.query import get_serial_number
-        self.input_serial_number=CompleterLineEdit(get_serial_number)
-
-        self.btn_load_form_db=QPushButton("加载")
-        self.btn_jump_detail=IconPushButton("eye.svg")
-
-
-        self.label_time=QLabel("发布日期：")
-        self.input_time=QLineEdit()
+        self.input_serial_number = CompleterLineEdit(get_serial_number)
+        self.btn_load_form_db = QPushButton("加载")
+        self.btn_jump_detail = IconPushButton("eye.svg")
+        self.label_time = QLabel("发布日期：")
+        self.input_time = QLineEdit()
         self.input_time.setPlaceholderText("YYYY-MM-DD")
-
-        self.label_director=QLabel("导       演：")
-        self.input_director=CompleterLineEdit(getUniqueDirector)
-        
-        self.label_vlength=QLabel("影片长度：")
-        self.input_vlength=QLineEdit()
+        self.label_director = QLabel("导       演：")
+        self.input_director = CompleterLineEdit(getUniqueDirector)
+        self.label_vlength = QLabel("影片长度：")
+        self.input_vlength = QLineEdit()
         self.input_vlength.setValidator(QIntValidator())
-        
         self.btn_add_work = QPushButton()
-
-        self.label_cn_title=QLabel("中文标题")
-        self.cn_title=QPlainTextEdit()
-        self.label_jp_title=QLabel("日文标题")
-        self.jp_title=QPlainTextEdit()
-        self.label_cn_story=QLabel("中文剧情")
-        self.cn_story=QPlainTextEdit()
-        self.label_jp_story=QLabel("日文剧情")
-        self.jp_story=QPlainTextEdit()
-
-        self.btn_trans_title=IconPushButton(iconpath="languages.svg",iconsize=16,outsize=16)
+        self.label_cn_title = QLabel("中文标题")
+        self.cn_title = QPlainTextEdit()
+        self.label_jp_title = QLabel("日文标题")
+        self.jp_title = QPlainTextEdit()
+        self.label_cn_story = QLabel("中文剧情")
+        self.cn_story = QPlainTextEdit()
+        self.label_jp_story = QLabel("日文剧情")
+        self.jp_story = QPlainTextEdit()
+        self.btn_trans_title = IconPushButton(iconpath="languages.svg", iconsize=16, outsize=16)
         self.btn_trans_title.setToolTip("翻译日文标题成中文并写在上方 中文标题框 内")
-        self.btn_trans_story=IconPushButton(iconpath="languages.svg",iconsize=16,outsize=16)
+        self.btn_trans_story = IconPushButton(iconpath="languages.svg", iconsize=16, outsize=16)
         self.btn_trans_story.setToolTip("翻译日文剧情成中文并写在上方 中文剧情框 内")
-        
-    
-        jp_title_label_layout=QHBoxLayout()
-        jp_story_label_layout=QHBoxLayout()
+        jp_title_label_layout = QHBoxLayout()
+        jp_story_label_layout = QHBoxLayout()
         jp_title_label_layout.addWidget(self.label_jp_title)
         jp_title_label_layout.addWidget(self.btn_trans_title)
         jp_story_label_layout.addWidget(self.label_jp_story)
-        jp_story_label_layout.addWidget(self.btn_trans_story)     
+        jp_story_label_layout.addWidget(self.btn_trans_story)
+
+        self.actressselector = ActressSelector()
+        self.actorselector = ActorSelector()
+        self.tag_selector = TagSelector5()
+        self.tag_selector.left_widget.setFixedWidth(140)
+        self.tag_selector.left_view.setFixedWidth(116)
+        self.tag_selector.btn_expand.click()
+
+        self.forceview = None
+        self.forceview_placeholder = QLabel("正在生成力导向图...")
+        self.forceview_placeholder.setAlignment(Qt.AlignCenter)  # type: ignore[arg-type]
+        self.viewmodel.workload.connect(self.on_set_directview)
+
+        self.input_story = WikiTextEdit()
+        self.input_story.set_completer_func(get_serial_number)
+
+        # ---------- Dock 配置（与 test_dock 一致） ----------
+        ads.CDockManager.setConfigFlag(ads.CDockManager.OpaqueSplitterResize, True)
+        ads.CDockManager.setConfigFlag(ads.CDockManager.FocusHighlighting, True)
+        ads.CDockManager.setConfigFlag(ads.CDockManager.DockAreaHasTabsMenuButton, False)
+        ads.CDockManager.setConfigFlag(ads.CDockManager.DockAreaHasCloseButton, False)
+        ads.CDockManager.setConfigFlag(ads.CDockManager.DockAreaHasUndockButton, False)
 
 
-        #第二列布局
-        left_layout=QVBoxLayout()#左侧总体垂直布局
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        self.dock_manager = ads.CDockManager(self)
 
+        main_layout.addWidget(self.dock_manager)
+
+        dock_features = ads.CDockWidget.DockWidgetMovable | ads.CDockWidget.DockWidgetFocusable
+
+        # ---------- 1. 爬虫区 ----------
+        page1 = self.crawler_toolbox.widget(0)
+        page2 = self.crawler_toolbox.widget(1)
+        crawler_container = QWidget()
+        crawler_layout = QVBoxLayout(crawler_container)
+        crawler_layout.setContentsMargins(0, 0, 0, 0)
+        crawler_layout.addWidget(page1)
+        crawler_container.setMinimumHeight(200)
+        dock_crawler = ads.CDockWidget("CrawlerDock")
+        dock_crawler.setWidget(crawler_container)
+        dock_crawler.setWindowTitle("爬虫区")
+        dock_crawler.setFeatures(dock_features)
+        self.dock_manager.addDockWidget(ads.LeftDockWidgetArea, dock_crawler)
+
+        # ---------- 1b. 外部导航 ----------
+        nav_container = QWidget()
+        nav_layout = QVBoxLayout(nav_container)
+        nav_layout.setContentsMargins(0, 0, 0, 0)
+        nav_layout.addWidget(page2)
+        nav_container.setMinimumHeight(200)
+        dock_nav = ads.CDockWidget("NavDock")
+        dock_nav.setWidget(nav_container)
+        dock_nav.setWindowTitle("外部导航")
+        dock_nav.setFeatures(dock_features)
+        self.dock_manager.addDockWidget(ads.CenterDockWidgetArea, dock_nav, dock_crawler.dockAreaWidget())
+
+        # ---------- 2. 封面栏 ----------
+        cover_container = QWidget()
+        cover_layout = QVBoxLayout(cover_container)
+        cover_layout.setContentsMargins(0, 0, 0, 0)
+        cover_layout.addWidget(self.coverdroplabel)
+        dock_cover = ads.CDockWidget("CoverDock")
+        dock_cover.setWidget(cover_container)
+        dock_cover.setWindowTitle("封面栏")
+        dock_cover.setFeatures(dock_features)
+        self.dock_manager.addDockWidget(ads.CenterDockWidgetArea, dock_cover, dock_crawler.dockAreaWidget())
+
+        # ---------- 3. 基础信息 ----------
+        basic_info_container = QWidget()
+        basic_layout = QVBoxLayout(basic_info_container)
         left_small_layout1 = QHBoxLayout()
         left_small_layout1.addWidget(self.label_serial_umber)
         left_small_layout1.addWidget(self.input_serial_number)
         left_small_layout1.addWidget(self.btn_load_form_db)
         left_small_layout1.addWidget(self.btn_jump_detail)
-
         left_small_layout2 = QHBoxLayout()
         left_small_layout2.addWidget(self.label_time)
         left_small_layout2.addWidget(self.input_time)
-
         left_small_layout3 = QHBoxLayout()
         left_small_layout3.addWidget(self.label_director)
         left_small_layout3.addWidget(self.input_director)
-
         left_small_layout4 = QHBoxLayout()
         left_small_layout4.addWidget(self.label_vlength)
         left_small_layout4.addWidget(self.input_vlength)
+        basic_layout.addLayout(left_small_layout1)
+        basic_layout.addLayout(left_small_layout2)
+        basic_layout.addLayout(left_small_layout3)
+        basic_layout.addLayout(left_small_layout4)
+        basic_layout.addWidget(self.label_cn_title)
+        basic_layout.addWidget(self.cn_title)
+        basic_layout.addWidget(self.label_cn_story)
+        basic_layout.addWidget(self.cn_story)
+        basic_layout.addLayout(jp_title_label_layout)
+        basic_layout.addWidget(self.jp_title)
+        basic_layout.addLayout(jp_story_label_layout)
+        basic_layout.addWidget(self.jp_story)
+        basic_layout.addWidget(self.btn_add_work)
+        dock_basic = ads.CDockWidget("BasicInfoDock")
+        dock_basic.setWidget(basic_info_container)
+        dock_basic.setWindowTitle("基础信息")
+        dock_basic.setFeatures(dock_features)
+        self.dock_manager.addDockWidget(ads.RightDockWidgetArea, dock_basic, dock_crawler.dockAreaWidget())
 
 
-        left_layout.addLayout(left_small_layout1)
-        left_layout.addLayout(left_small_layout2)
-        left_layout.addLayout(left_small_layout3)
-        left_layout.addLayout(left_small_layout4)
 
-        left_layout.addWidget(self.label_cn_title)
-        left_layout.addWidget(self.cn_title)
-        left_layout.addWidget(self.label_cn_story)
-        left_layout.addWidget(self.cn_story)
-        left_layout.addLayout(jp_title_label_layout)
-        left_layout.addWidget(self.jp_title)
-        left_layout.addLayout(jp_story_label_layout)
-        left_layout.addWidget(self.jp_story)
-        left_layout.addWidget(self.btn_add_work)
+        # ---------- 4 & 5. 女优/男优选择器（同一 dock 内以 tab 形式） ----------
+        actress_container = QWidget()
+        actress_layout = QVBoxLayout(actress_container)
+        actress_layout.setContentsMargins(0, 0, 0, 0)
+        actress_layout.addWidget(self.actressselector)
+        dock_actress = ads.CDockWidget("ActressSelectorDock")
+        dock_actress.setWidget(actress_container)
+        dock_actress.setWindowTitle("女优选择器")
+        dock_actress.setFeatures(dock_features)
+        self.dock_manager.addDockWidget(ads.BottomDockWidgetArea, dock_actress, dock_cover.dockAreaWidget())
+
+        actor_container = QWidget()
+        actor_layout = QVBoxLayout(actor_container)
+        actor_layout.setContentsMargins(0, 0, 0, 0)
+        actor_layout.addWidget(self.actorselector)
+        dock_actor = ads.CDockWidget("ActorSelectorDock")
+        dock_actor.setWidget(actor_container)
+        dock_actor.setWindowTitle("男优选择器")
+        dock_actor.setFeatures(dock_features)
+        # 与 dock_actress 同一区域，ADS 会以 tab 形式叠在一起
+        self.dock_manager.addDockWidget(ads.CenterDockWidgetArea, dock_actor, dock_actress.dockAreaWidget())
+        dock_actress.raise_()
+        # 封面区与女优/男优区上下 5:5
+        def _set_cover_actress_split_ratio():
+            parent_splitter = dock_actress.dockAreaWidget().parentWidget()
+            if isinstance(parent_splitter, ads.CDockSplitter):
+                # 设置两个区域的大小。例如 500:500 即为 55 开
+                parent_splitter.setSizes([500, 500])
+
+        # ---------- 6. 标签选择器 ----------
+        tag_container = QWidget()
+        tag_layout = QVBoxLayout(tag_container)
+        tag_layout.setContentsMargins(0, 0, 0, 0)
+        tag_layout.addWidget(self.tag_selector)
+        dock_tag = ads.CDockWidget("TagSelectorDock")
+        dock_tag.setWidget(tag_container)
+        dock_tag.setWindowTitle("标签选择器")
+        dock_tag.setFeatures(dock_features)
+        self.dock_manager.addDockWidget(ads.RightDockWidgetArea, dock_tag, dock_basic.dockAreaWidget())
+
+        # ---------- 7. 力导向图区（容器，占位符由 _init_forceview 替换为 forceview） ----------
+        self.forceview_container = QWidget()
+        forceview_container_layout = QVBoxLayout(self.forceview_container)
+        forceview_container_layout.setContentsMargins(0, 0, 0, 0)
+        forceview_container_layout.addWidget(self.forceview_placeholder)
+        dock_forceview = ads.CDockWidget("ForceViewDock")
+        dock_forceview.setWidget(self.forceview_container)
+        dock_forceview.setWindowTitle("力导向图区")
+        dock_forceview.setFeatures(dock_features)
+        self.dock_manager.addDockWidget(ads.RightDockWidgetArea, dock_forceview, dock_tag.dockAreaWidget())
+
+        # ---------- 8. 编辑区 ----------
+        editor_container = QWidget()
+        editor_layout = QVBoxLayout(editor_container)
+        editor_layout.setContentsMargins(0, 0, 0, 0)
+        editor_layout.addWidget(self.input_story)
+        dock_editor = ads.CDockWidget("EditorDock")
+        dock_editor.setWidget(editor_container)
+        dock_editor.setWindowTitle("编辑区")
+        dock_editor.setFeatures(dock_features)
+        self.dock_manager.addDockWidget(ads.BottomDockWidgetArea, dock_editor, dock_forceview.dockAreaWidget())
+        def _set_force_basic_split_ratio():
+            parent_splitter = dock_editor.dockAreaWidget().parentWidget()
+            if isinstance(parent_splitter, ads.CDockSplitter):
+                # 设置两个区域的大小。例如 500:500 即为 55 开
+                parent_splitter.setSizes([600, 400])
+        QTimer.singleShot(0, _set_cover_actress_split_ratio)
+        QTimer.singleShot(0, _set_force_basic_split_ratio)
         
-        #第三列控件
-        self.actressselector=ActressSelector()#女优选择器
-        self.actorselector=ActorSelector()#男优选择器
-        #第三列布局
-        selector_layout=QVBoxLayout()
-        selector_layout.addWidget(self.actressselector)
-        selector_layout.addWidget(self.actorselector)
-
-        #第四列控件
-        self.tag_selector=TagSelector5()#tag选择器
-        self.tag_selector.left_widget.setFixedWidth(140)
-        self.tag_selector.left_view.setFixedWidth(116)
-        self.tag_selector.btn_expand.click()
-
-        scroll_area=QScrollArea()
-        container=QWidget()#这个是实际里面装东西的
-        container.setObjectName("container")
-        container.setStyleSheet("#container { background-color: white; }")
-        scroll_area.setWidget(container)
-        scroll_area.setWidgetResizable(True)
-        layout=QVBoxLayout(container)
-
-        #总体布局，四列组装
-        toparea=QWidget()
-        toparea.setMinimumHeight(600)
-        hlayout = QHBoxLayout()
-        toparea.setLayout(hlayout)
-        hlayout.addLayout(leftleftlayout)
-        hlayout.addLayout(left_layout)
-        hlayout.addLayout(selector_layout)
-        hlayout.addWidget(self.tag_selector)
-
-        bottomarea=QSplitter(Qt.Horizontal)
-        self.bottomarea = bottomarea
-        self.forceview = None
-        self.forceview_placeholder = QLabel("正在生成力导向图...")
-        self.forceview_placeholder.setAlignment(Qt.AlignCenter)# type: ignore[arg-type]
-
-        self.viewmodel.workload.connect(self.on_set_directview)
-
-        self.input_story=WikiTextEdit()
-        self.input_story.setFixedHeight(600)
-        self.input_story.setMinimumWidth(400)
-        from core.database.query import get_serial_number
-        self.input_story.set_completer_func(get_serial_number)
-        
-        bottomarea.addWidget(self.forceview_placeholder)
-        bottomarea.addWidget(self.input_story)
-        bottomarea.setStretchFactor(0, 0) # 索引1（右侧）拉伸
-        bottomarea.setStretchFactor(1, 0) # 索引1（右侧）拉伸
-        layout.addWidget(toparea)
-        layout.addWidget(bottomarea)
-
-        main_layout=QHBoxLayout(self)
-        main_layout.addWidget(scroll_area)
-        QTimer.singleShot(0, self._init_forceview)#延迟初始化
+        QTimer.singleShot(0, self._init_forceview)
 
 
     def bind_model(self) -> None:
@@ -827,26 +898,23 @@ class AddWorkTabPage3(LazyWidget):
         except Exception as e:
             logging.error("初始化力导向图失败: %s", e)
             return
-        self.forceview.setFixedHeight(600)
-        self.forceview.setMinimumWidth(400)
+
+        layout = self.forceview_container.layout()
         if self.forceview_placeholder is not None:
-            idx = self.bottomarea.indexOf(self.forceview_placeholder)
-            if idx == -1:
-                self.bottomarea.addWidget(self.forceview)
-            else:
-                self.bottomarea.insertWidget(idx, self.forceview)
-                self.forceview_placeholder.setParent(None)
-                self.forceview_placeholder.deleteLater()
+            layout.removeWidget(self.forceview_placeholder)
+            self.forceview_placeholder.setParent(None)
+            self.forceview_placeholder.deleteLater()
             self.forceview_placeholder = None
-        else:
-            self.bottomarea.addWidget(self.forceview)
+        layout.addWidget(self.forceview)
         from core.graph.graph_manager import GraphManager
+        from core.graph.graph_filter import EmptyFilter
         manager = GraphManager.instance()
         if manager._initialized:
-            self.forceview.session.reload()
+            self.forceview.session.set_filter(EmptyFilter())
+            self.forceview.session.new_load()
         else:
             manager.initialize()
-            manager.initialization_finished.connect(self.forceview.session.reload)
+            manager.initialization_finished.connect(self.forceview.session.new_load)
 
     #处理绑定循环的问题
     def textedit_ui_to_model(self,widget:QPlainTextEdit,prop_name:str):
@@ -925,8 +993,8 @@ class AddWorkTabPage3(LazyWidget):
 #----------------------------------------------------------
     def crawler2(self):
         '''用浏览器插件手动跳转javlibrary'''
-        from core.crawler.CrawlerManager import crawler_manager2
-        crawler_manager2.start_crawl(self.viewmodel.serial_number,True)
+        from core.crawler.CrawlerManager import get_manager
+        get_manager().start_crawl(self.viewmodel.serial_number, True)
 
     def update_gui(self,data):
         '''更新gui'''
@@ -963,8 +1031,8 @@ class AddWorkTabPage3(LazyWidget):
         if self.forceview is None:
             return
         from core.graph.graph_filter import EgoFilter
-        self.forceview.session.set_filter(EgoFilter(center_id=id, radius=2))#这里设置过滤
-        self.forceview.session.reload()
+        self.forceview.session.set_filter(EgoFilter(center_id=id, radius=3))#这里设置过滤
+        self.forceview.session.new_load()
 
 
 #----------------------------------------------------------

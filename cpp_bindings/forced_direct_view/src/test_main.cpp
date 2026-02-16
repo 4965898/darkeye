@@ -66,7 +66,7 @@ int main(int argc, char* argv[])
     QStringList    ids;
     QStringList    labels;
     QVector<float> radii;
-    int nodenum = 1990;
+    int nodenum = 1900;
     generateRandomGraph(nodenum, 1, edges, pos, ids, labels, radii);
 
     QVector<QColor> nodeColors(nodenum);

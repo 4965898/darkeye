@@ -4,7 +4,7 @@ from PySide6.QtCore import Qt,QItemSelection,Signal,Slot
 import sqlite3,logging
 
 from config import DATABASE
-from controller import MessageBoxService
+from controller.MessageService import MessageBoxService
 from ui.basic import IconPushButton
 
 class ActressSelector(QWidget):
@@ -13,7 +13,7 @@ class ActressSelector(QWidget):
     
     def __init__(self):
         super().__init__()
-        self.setFixedWidth(170)
+
         # 主要逻辑是实例化后的Item移来移去
         # 数据初始化
         self.choose_actress_all_items = self.load_actress_from_db()

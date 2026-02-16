@@ -6,7 +6,7 @@ from datetime import datetime
 from pathlib import Path
 
 from config import ACTRESSIMAGES_PATH,TEMP_PATH,ACTORIMAGES_PATH
-from controller import MessageBoxService
+from controller.MessageService import MessageBoxService
 
 def is_temp_path(path: str | Path) -> bool:
     """判断路径是否是临时路径（检查路径中包含'temp'）"""

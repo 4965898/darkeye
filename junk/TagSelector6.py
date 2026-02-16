@@ -8,7 +8,7 @@ from config import ICONS_PATH
 from core.database.query import getTags
 from ui.basic import WaterfallLayout,VLabel,IconPushButton,RotateButton,ShakeButton
 from ui.widgets.text.VerticalTagLabel2 import VerticalTagLabel2
-from controller import MessageBoxService
+from controller.MessageService import MessageBoxService
 from ui.widgets.VerticalTabBar import VerticalTabBar
 from ui.base import SearchLineBase
 from controller.GlobalSignalBus import global_signals

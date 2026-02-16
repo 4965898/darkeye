@@ -18,6 +18,7 @@ class IconPushButton(QPushButton):
         self.setCursor(Qt.PointingHandCursor)
         self.setFlat(True)
         self.setIconSize(QSize(iconsize,iconsize))
+        self.outsize = outsize # 保存这个值
         self.setFixedSize(outsize,outsize)
 
         if hoverable:
@@ -42,3 +43,8 @@ class IconPushButton(QPushButton):
                         
     def set_icon(self,iconpath:str="arrow-up.png"):
         self.setIcon(QIcon(str(ICONS_PATH / iconpath)))
+
+    def sizeHint(self):
+        # 强制返回你设定的尺寸，不给系统样式“指手画脚”的机会
+        # 这是一个坑如果不设置这个，会至少返回(38,32)
+        return QSize(self.outsize, self.outsize)

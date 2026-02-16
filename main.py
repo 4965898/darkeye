@@ -7,28 +7,12 @@ def load_global_style():
     style = Path(QSS_PATH/"main.qss").read_text(encoding="utf-8")
     return style
 
-
-def _warm_up_opengl_widget(app):
-    from PySide6.QtWidgets import QWidget
-    from PySide6.QtOpenGLWidgets import QOpenGLWidget
-    from PySide6.QtCore import Qt
-    host = QWidget()
-    host.setAttribute(Qt.WA_DontShowOnScreen, True)
-    host.resize(1, 1)
-    gl_widget = QOpenGLWidget(host)
-    gl_widget.setAttribute(Qt.WA_DontShowOnScreen, True)
-    gl_widget.resize(1, 1)
-    host.show()
-    gl_widget.show()
-    app.processEvents()
-    gl_widget.hide()
-    host.hide()
-    gl_widget.deleteLater()
-    host.deleteLater()
-
-
 def _run_main_app():
-    import sys
+    
+    # 是否显示启动 splash，可通过命令行参数关闭
+
+    show_splash = False
+
     # 初始化性能分析器（必须在log_config之前，因为log_config本身也需要时间）
     from core.utils.profiler import get_profiler
     profiler = get_profiler()
@@ -47,20 +31,14 @@ def _run_main_app():
     start_server()
     profiler.checkpoint("API服务器线程启动")
 
-    # 1. 启动 Sim 进程 (耗时操作，尽早启动)
-    #profiler.measure_import("core.graph.simulation_process_main")
-    #from core.graph.simulation_process_main import get_global_simulation_process
-
-    #with profiler.measure_execution("启动Sim进程", sync=True):
-    #    get_global_simulation_process()
-    #profiler.checkpoint("Sim进程启动完成")
-
     # 仅导入必要的 GUI 启动组件（测量导入时间）
     profiler.measure_import("PySide6.QtWidgets")
     profiler.measure_import("PySide6.QtGui")
     from PySide6.QtWidgets import QApplication, QDialog, QSplashScreen
     from PySide6.QtGui import QPixmap, QSurfaceFormat
     from PySide6.QtCore import Qt
+
+    #OpenGL设置
     QApplication.setAttribute(Qt.AA_UseDesktopOpenGL)#不知道这个要不要加，但是这个好像没有什么用
     QApplication.setAttribute(Qt.AA_ShareOpenGLContexts)
     fmt = QSurfaceFormat()
@@ -70,32 +48,33 @@ def _run_main_app():
     fmt.setDepthBufferSize(24)
     fmt.setStencilBufferSize(8)
     QSurfaceFormat.setDefaultFormat(fmt)
+
     profiler.measure_import("config")
     from config import ICONS_PATH, is_first_lunch, set_first_luch
     profiler.checkpoint("Qt组件导入完成")
 
     # 创建应用和启动画面
     with profiler.measure_execution("创建QApplication", sync=True):
+        import sys
         app = QApplication(sys.argv)
     profiler.checkpoint("创建应用")
 
-    # 启动画面用 PNG 避免 SVG 解析耗时
-    splash_icon = ICONS_PATH / "logo.png"
-    if not splash_icon.exists():
-        splash_icon = ICONS_PATH / "logo.svg"
-    pixmap = QPixmap(str(splash_icon))
-    profiler.checkpoint("加载图片")
+    splash = None
+    if show_splash:
+        # 启动画面用 PNG 避免 SVG 解析耗时
+        splash_icon = ICONS_PATH / "logo.png"
+        if not splash_icon.exists():
+            splash_icon = ICONS_PATH / "logo.svg"
+        pixmap = QPixmap(str(splash_icon))
+        profiler.checkpoint("加载图片")
 
-    with profiler.measure_execution("加载启动画面", sync=True):
-        splash = QSplashScreen(pixmap)
-        splash.setEnabled(False)
-        splash.show()
-        app.processEvents()
-    profiler.checkpoint("启动画面显示")
+        with profiler.measure_execution("加载启动画面", sync=True):
+            splash = QSplashScreen(pixmap)
+            splash.setEnabled(False)
+            splash.show()
+            app.processEvents()
+        profiler.checkpoint("启动画面显示")
 
-    splash.showMessage("预热OpenGL组件")
-    with profiler.measure_execution("OpenGL组件预热", sync=True):
-        _warm_up_opengl_widget(app)
 
     # 首次启动协议对话框（已注释）
     if is_first_lunch():#判断是否是第一次启动
@@ -106,11 +85,13 @@ def _run_main_app():
             set_first_luch(False)
         else:
             set_first_luch(True)
-            splash.close()
+            if show_splash and splash is not None:
+                splash.close()
             sys.exit(0)  # 拒绝则退出
 
     # 数据库初始化（同步，阻塞主线程）
-    splash.showMessage("数据库初始化")
+    if show_splash and splash is not None:
+        splash.showMessage("数据库初始化")
     profiler.measure_import("core.database.init")
     profiler.measure_import("core.database.migrations")
     profiler.measure_import("config")
@@ -130,7 +111,8 @@ def _run_main_app():
     profiler.checkpoint("数据库初始化完成")
 
     # 异步启动图初始化（后台进行）
-    splash.showMessage("初始化图...")
+    if show_splash and splash is not None:
+        splash.showMessage("初始化图...")
     profiler.measure_import("core.graph.graph_manager")
     from core.graph.graph_manager import GraphManager
 
@@ -141,13 +123,15 @@ def _run_main_app():
 
     # 样式表加载
 
-    splash.showMessage("样式表加载")
+    if show_splash and splash is not None:
+        splash.showMessage("样式表加载")
     with profiler.measure_execution("加载样式表", sync=True):
         app.setStyleSheet(load_global_style())
     profiler.checkpoint("样式表加载完成")
 
     # 主窗口加载（可能是最重的操作）
-    splash.showMessage("主窗口加载")
+    if show_splash and splash is not None:
+        splash.showMessage("主窗口加载")
     profiler.measure_import("ui.main_window")
     from ui.main_window import MainWindow
 
@@ -156,7 +140,8 @@ def _run_main_app():
 
     with profiler.measure_execution("MainWindow显示", sync=True):
         window.show()
-        splash.finish(window)
+        if show_splash and splash is not None:
+            splash.finish(window)
     profiler.checkpoint("主窗口显示完成")
 
     # 打印性能分析摘要

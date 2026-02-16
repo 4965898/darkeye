@@ -4,7 +4,7 @@ from PySide6.QtWidgets import QScrollBar
 import logging
 
 from ui.basic import WaterfallLayout
-from controller import MessageBoxService
+from controller.MessageService import MessageBoxService
 
 class LazyScrollArea(QScrollArea):
     def __init__(self, column_width=200,widget=None,hint=True, parent=None):

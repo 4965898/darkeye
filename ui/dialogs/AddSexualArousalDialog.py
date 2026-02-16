@@ -5,7 +5,7 @@ from PySide6.QtGui import QIcon
 
 from config import ICONS_PATH
 from core.database.insert import insert_sexual_arousal_record
-from controller import MessageBoxService
+from controller.MessageService import MessageBoxService
 
 class AddSexualArousalDialog(QDialog):
     def __init__(self):

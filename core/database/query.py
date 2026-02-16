@@ -881,6 +881,49 @@ def getActressBodyData()->list[dict]:
         results = [dict(zip(column_names, row)) for row in rows]#转成列表字典
     return results
 
+def get_work_story_rows()->list[tuple]:
+    query = """
+    SELECT work_id, serial_number, story
+    FROM work
+    WHERE story IS NOT NULL AND story != ''
+    """
+    try:
+        with get_connection(DATABASE,True) as conn:
+            cursor = conn.cursor()
+            cursor.execute(query)
+            return cursor.fetchall()
+    except Exception as e:
+        logging.error(f"get_work_story_rows查询时数据库错误: {e}")
+        return []
+
+def get_recent_work_story_rows(limit:int)->list[tuple]:
+    query = """
+    SELECT work_id, serial_number, story
+    FROM work
+    ORDER BY update_time DESC
+    LIMIT ?
+    """
+    try:
+        with get_connection(DATABASE,True) as conn:
+            cursor = conn.cursor()
+            cursor.execute(query, (limit,))
+            return cursor.fetchall()
+    except Exception as e:
+        logging.error(f"get_recent_work_story_rows查询时数据库错误: {e}")
+        return []
+
+def get_serial_number_map()->dict:
+    query = "SELECT serial_number, work_id FROM work"
+    try:
+        with get_connection(DATABASE,True) as conn:
+            cursor = conn.cursor()
+            cursor.execute(query)
+            rows = cursor.fetchall()
+        return {row[0]: row[1] for row in rows}
+    except Exception as e:
+        logging.error(f"get_serial_number_map查询时数据库错误: {e}")
+        return {}
+
 def get_workid_by_serialnumber(serial_number)->int|None:
     '''通过番号返回work_id'''
     query = f'''

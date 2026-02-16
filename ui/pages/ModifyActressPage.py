@@ -10,7 +10,7 @@ from enum import Enum
 from config import settings,WORKCOVER_PATH
 from ui.base import LazyWidget
 from controller.MessageService import MessageBoxService,IMessageService
-from controller import TaskManager
+
 from ui.basic import ToggleSwitch,MovableTableView,IconPushButton
 from core.database.query import get_actress_allname
 from ui.widgets import ActressAvatarDropWidget
@@ -225,12 +225,12 @@ class ViewModel(QObject):
         from core.crawler.minnanoav import SearchSingleActressInfo
         from core.crawler.Worker import Worker
 
-        taskmanager=TaskManager.instance()
-        task=taskmanager.add_task("爬虫更新单个女优数据")
+        #taskmanager=TaskManager.instance()
+        #task=taskmanager.add_task("爬虫更新单个女优数据")
         logging.info(self.actress_id)
         logging.info(self.actress_name[0]["jp"])
         worker=Worker(lambda:SearchSingleActressInfo(self.actress_id,self.actress_name[0]["jp"]))#传一个函数名进去，注意这里
-        worker.signals.finished.connect(lambda result:self.on_result(result,self.actress_name[0]["jp"],task))
+        worker.signals.finished.connect(lambda result:self.on_result(result,self.actress_name[0]["jp"]))
         QThreadPool.globalInstance().start(worker)
 
 
@@ -267,13 +267,14 @@ class ViewModel(QObject):
 
 
     @Slot(bool)
-    def on_result(self,result:bool,actressName:str,task):#Qsignal回传信息
-        from controller.GlobalSignalBus import global_signals
-        taskmanager=TaskManager.instance()
-        if result:
-            taskmanager.complete_task(task,"查询完成")
-        else:
-            taskmanager.error_task(task,"查询失败")
+    def on_result(self,result:bool,actressName:str):#Qsignal回传信息
+        pass
+        #from controller.GlobalSignalBus import global_signals
+        #taskmanager=TaskManager.instance()
+        #if result:
+        #    taskmanager.complete_task(task,"查询完成")
+        #else:
+        #    taskmanager.error_task(task,"查询失败")
 
     @Slot()
     def print(self):

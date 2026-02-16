@@ -47,6 +47,7 @@ class Cover(QLabel):
     def __init__(self,parent=None):
         super().__init__(parent)
         self._path=None
+        self.setAlignment(Qt.AlignRight | Qt.AlignTop)
 
     def load_cover(self):
         '''加载'''
@@ -87,11 +88,6 @@ class Cover(QLabel):
         )
 
         self.setPixmap(scaled_pixmap)#这里才是真正的设置了图片，并显示
-        
-        target_x = window_width - scaled_pixmap.width()
-        target_y = 0
-        #logging.debug(f"{target_x}, {target_y}")
-        self.move(target_x, target_y)
 
     def resizeEvent(self, event):
         super().resizeEvent(event)

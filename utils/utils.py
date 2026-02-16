@@ -6,6 +6,10 @@ import re
 import logging
 import shutil
 from pathlib import Path
+import asyncio
+import random
+import threading
+from collections import OrderedDict
 
 #番号相关
 def is_valid_serialnumber(code: str) -> bool:
@@ -203,10 +207,103 @@ def png_to_jpg_pillow(input_path, output_path=None, quality=95):
 
 
 from googletrans import Translator
-async def translate_text(text:str, dest="zh-CN"):
-    translator = Translator()
-    result = await translator.translate(text, dest=dest)  # 使用 await
-    return result.text
+
+_TRANSLATION_CACHE_MAXSIZE = 512
+_translation_cache: "OrderedDict[tuple[str, str], str]" = OrderedDict()
+_translation_cache_lock = threading.Lock()
+
+def _translation_cache_get(key: tuple[str, str]) -> str | None:
+    with _translation_cache_lock:
+        value = _translation_cache.get(key)
+        if value is None:
+            return None
+        # LRU
+        _translation_cache.move_to_end(key)
+        return value
+
+def _translation_cache_set(key: tuple[str, str], value: str) -> None:
+    with _translation_cache_lock:
+        _translation_cache[key] = value
+        _translation_cache.move_to_end(key)
+        while len(_translation_cache) > _TRANSLATION_CACHE_MAXSIZE:
+            _translation_cache.popitem(last=False)
+
+async def translate_text(
+    text: str,
+    dest: str = "zh-CN",
+    *,
+    timeout_s: float = 12.0,
+    retries: int = 2,
+    backoff_base_s: float = 0.6,
+    fallback: str = "empty",   # "empty" or "source"
+    use_cache: bool = True,
+) -> str:
+    """
+    调用 googletrans 异步翻译（不稳定，做超时/重试/缓存/降级）。
+
+    - **fallback="empty"**: 失败返回空字符串（避免把日文写进中文字段）
+    - **fallback="source"**: 失败返回原文（适合手动按钮场景）
+    """
+    src = (text or "").strip()
+    if not src:
+        return ""
+
+    cache_key = (dest, src)
+    if use_cache:
+        cached = _translation_cache_get(cache_key)
+        if cached is not None:
+            return cached
+
+    last_exc: Exception | None = None
+    for attempt in range(max(0, retries) + 1):
+        try:
+            translator = Translator()
+            coro = translator.translate(src, dest=dest)
+            result = await asyncio.wait_for(coro, timeout=timeout_s)
+            out = (getattr(result, "text", "") or "").strip()
+            if out:
+                if use_cache:
+                    _translation_cache_set(cache_key, out)
+                return out
+            last_exc = RuntimeError("Empty translate result")
+        except Exception as e:
+            last_exc = e
+            logging.warning(
+                "translate_text失败 attempt=%s/%s dest=%s err=%s",
+                attempt + 1,
+                max(0, retries) + 1,
+                dest,
+                repr(e),
+            )
+
+        if attempt < max(0, retries):
+            # 指数退避 + 抖动
+            await asyncio.sleep(backoff_base_s * (2 ** attempt) + random.uniform(0.0, 0.2))
+
+    if fallback == "source":
+        return src
+    # fallback == "empty"
+    if last_exc is not None:
+        logging.warning("translate_text最终失败，已降级返回空字符串: %s", repr(last_exc))
+    return ""
+
+def translate_text_sync(
+    text: str,
+    dest: str = "zh-CN",
+    **kwargs,
+) -> str:
+    """
+    同步包装，避免调用处直接 asyncio.run(...)。
+    若当前线程已存在运行中的 event loop，则直接降级返回空字符串。
+    """
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        # 没有运行中的 loop，安全使用 asyncio.run
+        return asyncio.run(translate_text(text, dest=dest, **kwargs))
+    else:
+        logging.warning("translate_text_sync在运行中的event loop里被调用，已降级返回空字符串")
+        return ""
 
 
 def get_text_color_from_background(new_color: QColor)->str:

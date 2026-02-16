@@ -13,7 +13,7 @@ class ServerLauncher:
         self.port = port
         self.server_thread = None
 
-    def _run(self):
+    def _run_fastapi(self):
         try:
             # 在后台线程内导入，避免主线程加载 FastAPI/uvicorn（约省 3s）
             from .app import app#注意这个不能放到下载到后台线程导入
@@ -27,11 +27,11 @@ class ServerLauncher:
 
     def start(self):
         """
-        在后台线程启动服务器
+        在后台线程启动服务器,这个是必要的
         """
         import threading
         if self.server_thread is None or not self.server_thread.is_alive():
-            self.server_thread = threading.Thread(target=self._run, daemon=True)
+            self.server_thread = threading.Thread(target=self._run_fastapi, daemon=True)
             self.server_thread.start()
             logger.info("API Server thread started")
 

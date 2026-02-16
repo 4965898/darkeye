@@ -14,7 +14,7 @@ import logging
 from config import ICONS_PATH
 from core.database.query import getTags, get_tagid_by_keyword
 from ui.basic import IconPushButton, RotateButton, ShakeButton
-from controller import MessageBoxService
+from controller.MessageService import MessageBoxService
 from ui.widgets.VerticalTabBar import VerticalTabBar
 from ui.base import SearchLineBase
 from controller.GlobalSignalBus import global_signals
@@ -262,7 +262,9 @@ class TagGraphicsItem(QGraphicsObject):
 
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
+            event.accept()
             self.clicked.emit(self.tag_id)
+            return
         super().mousePressEvent(event)
 
 # ==============================================================================
@@ -715,7 +717,8 @@ class TagSelector5(QWidget):
             data['id'], data['name'], data['type'], 
             data['color'], data['detail'], data['mutex']
         )
-        item.clicked.connect(lambda: self.restore_to_right(tag_id))
+        # 延迟执行，避免在本次 mousePress 中同步移除自身导致 Qt 在 release 时对已移除 item 调用 ungrabMouse
+        item.clicked.connect(lambda tid=tag_id: QTimer.singleShot(0, lambda: self.restore_to_right(tid)))
         
         self.left_scene.add_tag_item(item)
         self.left_view.custom_items.append(item)

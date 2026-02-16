@@ -1,5 +1,5 @@
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QPainter, QPainterPath, QPen, QBrush, QColor, QPainterPathStroker, QImage, QPixmap
+from PySide6.QtGui import QPainter, QPainterPath, QPen, QBrush, QColor, QImage, QPixmap
 from PySide6.QtSvg import QSvgRenderer
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QAbstractButton
 
@@ -56,10 +56,10 @@ class OctagonButton(QAbstractButton):
         self.update()
         super().leaveEvent(event)
 
-    def mousePressEvent(self, event) -> None:  # type: ignore[override]
-        if event.button() == Qt.MouseButton.LeftButton:
-            self.clicked.emit()
-        super().mousePressEvent(event)
+    #def mousePressEvent(self, event) -> None:  # type: ignore[override]
+    #    if event.button() == Qt.MouseButton.LeftButton:
+    #        self.clicked.emit()
+    #   super().mousePressEvent(event)
 
     # --------- 绘制八边形 ---------
     def paintEvent(self, event) -> None:  # type: ignore[override]

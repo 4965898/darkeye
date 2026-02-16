@@ -1,11 +1,11 @@
 
-from PySide6.QtWidgets import QPushButton, QHBoxLayout,QLabel,QVBoxLayout,QDialog,QFormLayout
+from PySide6.QtWidgets import QPushButton, QHBoxLayout,QLabel,QVBoxLayout,QDialog,QFormLayout, QWidget
 from PySide6.QtCore import Signal,Qt
 from config import ICONS_PATH
 from PySide6.QtGui import QIcon
-from controller import ShortcutRegistry
+from controller.ShortcutRegistry import ShortcutRegistry
 
-class HelpDialog(QDialog):
+class HelpPage(QWidget):
     #帮助窗口
     success=Signal(bool)#定义信号
     def __init__(self,parent=None):

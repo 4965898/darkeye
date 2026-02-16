@@ -94,14 +94,7 @@ target_link_libraries(${wiggly_library} PRIVATE Qt6::Widgets)
 # ===============================
 qt_add_executable(colorwheel WIN32 test_main.cpp)
 target_link_libraries(colorwheel PRIVATE ${wiggly_library} Qt6::Widgets)
-install(TARGETS colorwheel ${wiggly_library}
-    EXPORT colorwheel_export
-    RUNTIME DESTINATION .
-    LIBRARY DESTINATION .
-)
-install(RUNTIME_DEPENDENCY_SET colorwheel_deps
-    DESTINATION .
-)
+
 if(WIN32)
     # 找到 windeployqt 工具的路径
     get_target_property(_qmake_executable Qt6::qmake IMPORTED_LOCATION)

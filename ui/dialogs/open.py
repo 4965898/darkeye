@@ -38,9 +38,4 @@ def openAddActressDialog(addworktab:AddWorkTabPage3):
 
 
 
-def on_help():
-    from ui.dialogs.HelpDialog import HelpDialog
-    dialog=HelpDialog()
-    dialog.exec()
-
 

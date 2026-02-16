@@ -8,6 +8,8 @@
 #include <QOpenGLPaintDevice>
 #include <QSurfaceFormat>
 #include <QTransform>
+#include <QVariantMap>
+#include <QHash>
 
 #include <cmath>
 #include <chrono>
@@ -91,12 +93,12 @@ ForceViewOpenGL::~ForceViewOpenGL()
 void ForceViewOpenGL::setupTimers()
 {
     m_renderTimer = new QTimer(this);
-    m_renderTimer->setInterval(8.3);
+    m_renderTimer->setInterval(kRenderTimerIntervalMs);
     connect(m_renderTimer, &QTimer::timeout, this, &ForceViewOpenGL::onRenderTick);
 
-    m_idleTimer = new QTimer(this);//当计算停止时500ms后停止渲染
+    m_idleTimer = new QTimer(this);//当计算停止时一段时间后停止渲染
     m_idleTimer->setSingleShot(true);
-    m_idleTimer->setInterval(500);
+    m_idleTimer->setInterval(kIdleStopDelayMs);
     connect(m_idleTimer, &QTimer::timeout, this, &ForceViewOpenGL::maybeStopRenderTimer);
 }
 
@@ -141,8 +143,7 @@ void ForceViewOpenGL::simLoop()
     bool lastActive = false;
     bool lastWarmup = false;
     auto nextTick = std::chrono::steady_clock::now();
-    const auto interval = std::chrono::milliseconds(16);
-    const int warmupTicks = 200;
+    const auto interval = std::chrono::milliseconds(kSimTickIntervalMs);
     while (m_simThreadRunning.load(std::memory_order_acquire)) {
         float elapsed = 0.0f;
         float alphaVal = 0.0f;
@@ -154,6 +155,10 @@ void ForceViewOpenGL::simLoop()
             std::lock_guard<std::mutex> lock(m_simMutex);
             if (m_simulation && m_physicsState && m_simulation->isActive()) {
                 active = true;
+                // 无间隔热身次数：节点数 * 0.15 + 10
+                const int warmupTicks = m_physicsState->nNodes > 0
+                    ? static_cast<int>(m_physicsState->nNodes * 0.15f + 10.0f)
+                    : 5;
                 bool allowWarmup = m_allowWarmup.load(std::memory_order_acquire);
                 bool warmup = allowWarmup && m_simulation->tickCount() < warmupTicks;
                 if (allowWarmup && !warmup)
@@ -227,7 +232,7 @@ void ForceViewOpenGL::setGraph(int nNodes,
     m_physicsState->init(nNodes, edgeVec);
 
 
-    const float L = std::sqrt(static_cast<float>(nNodes)) * 25.0f + 50.0f;
+    const float L = std::sqrt(static_cast<float>(nNodes)) * kInitialLayoutScaleFactor + kInitialLayoutBaseOffset;
     std::mt19937 rng(static_cast<unsigned>(std::chrono::steady_clock::now().time_since_epoch().count()));
     std::uniform_real_distribution<float> dist(-L, L);
     for (int i = 0; i < nNodes; ++i) {
@@ -275,7 +280,7 @@ void ForceViewOpenGL::setGraph(int nNodes,
     startSimThread();
     requestRenderActivity();
 
-    QTimer::singleShot(100, this, [this]() {//100毫秒后缩放，但是还是有点突兀
+    QTimer::singleShot(kFitViewDelayMs, this, [this]() {//一定延迟后缩放，但是还是有点突兀
         fitViewToContent();
     });
 }
@@ -284,7 +289,7 @@ void ForceViewOpenGL::setGraph(int nNodes,
 void ForceViewOpenGL::rebuildSimulation()
 {
     m_simulation = std::make_unique<Simulation>(m_physicsState.get());
-    auto many = std::make_unique<ManyBodyForce>(m_manyBodyStrength, 40000.0f);
+    auto many = std::make_unique<ManyBodyForce>(m_manyBodyStrength, kManyBodyDistanceLimitSq);
     m_simulation->addForce("manybody", std::move(many));
     auto link = std::make_unique<LinkForce>(m_linkStrength, m_linkDistance);
     m_simulation->addForce("link", std::move(link));
@@ -293,6 +298,23 @@ void ForceViewOpenGL::rebuildSimulation()
 
     auto collision = std::make_unique<CollisionForce>(m_collisionRadius, m_collisionStrength);
     m_simulation->addForce("collision", std::move(collision));
+}
+
+void ForceViewOpenGL::rebuildNeighborsFromEdges()
+{
+    const int N = m_physicsState ? m_physicsState->nNodes : 0;
+    m_neighbors.assign(std::max(0, N), {});
+    if (!m_physicsState || N <= 0) return;
+    const int E = m_physicsState->edgeCount();
+    const int* edges = m_physicsState->edges.data();
+    for (int e = 0; e < E; ++e) {
+        int s = edges[2 * e];
+        int d = edges[2 * e + 1];
+        if (s >= 0 && s < N && d >= 0 && d < N && s != d) {
+            m_neighbors[static_cast<size_t>(s)].push_back(d);
+            m_neighbors[static_cast<size_t>(d)].push_back(s);
+        }
+    }
 }
 
 // =====================================================================
@@ -382,6 +404,28 @@ void ForceViewOpenGL::setSideWidthFactor(float f)   { m_sideWidthFactor = f; upd
 // 功能：设置文本显示阈值缩放因子
 void ForceViewOpenGL::setTextThresholdFactor(float f) { m_textThresholdFactor = f; updateFactor(); update(); }
 
+// 功能：统一缩放箭头大小（长度和宽度）
+void ForceViewOpenGL::setArrowScale(float f)
+{
+    // 限制范围，避免 0 或过大
+    float clamped = std::max(0.2f, std::min(f, 5.0f));
+    if (std::abs(clamped - m_arrowScale) < 1e-3f)
+        return;
+    m_arrowScale = clamped;
+    requestRenderActivity();
+    update();
+}
+
+// 功能：设置是否绘制箭头
+void ForceViewOpenGL::setArrowEnabled(bool enabled)
+{
+    if (m_arrowEnabled == enabled)
+        return;
+    m_arrowEnabled = enabled;
+    requestRenderActivity();
+    update();
+}
+
 // 功能：根据当前 hover 节点与 m_neighborDepth 用 BFS 更新邻居掩码（供 setNeighborDepth / mouseMove 共用）
 void ForceViewOpenGL::updateNeighborMaskForHover(int hoverIndex)
 {
@@ -447,7 +491,10 @@ QRectF ForceViewOpenGL::getContentRect() const
         if (x < minX) minX = x; if (x > maxX) maxX = x;
         if (y < minY) minY = y; if (y > maxY) maxY = y;
     }
-    float w = maxX - minX, h = maxY - minY, mx = w * 0.1f, my = h * 0.1f;
+    float w = maxX - minX;
+    float h = maxY - minY;
+    float mx = w * kContentPaddingRatio;
+    float my = h * kContentPaddingRatio;
     return QRectF(minX - mx, minY - my, w + 2*mx, h + 2*my);
 }
 
@@ -459,13 +506,35 @@ void ForceViewOpenGL::fitViewToContent()
     float w = static_cast<float>(r.width());
     float h = static_cast<float>(r.height());
     if (w <= 0.0f || h <= 0.0f) return;
-    float z = std::min(static_cast<float>(m_viewportW) / w, static_cast<float>(m_viewportH) / h) * 0.9f;
-    z = std::max(0.01f, std::min(1000.0f, z));
+    float z = std::min(static_cast<float>(m_viewportW) / w, static_cast<float>(m_viewportH) / h) * kFitViewScaleMargin;
+    z = std::max(kFitViewZoomMin, std::min(kFitViewZoomMax, z));
     m_zoom = z;
     m_panX = static_cast<float>(r.center().x());
     m_panY = static_cast<float>(r.center().y());
     emit scaleChanged(m_zoom);
     update();
+}
+
+// 功能：通过节点ID获取节点的当前位置
+QPointF ForceViewOpenGL::getNodePosition(const QString& nodeId) const
+{
+    if (!m_physicsState || m_physicsState->nNodes == 0 || nodeId.isEmpty()) {
+        return QPointF();
+    }
+
+    // 查找节点索引
+    for (int i = 0; i < m_ids.size(); ++i) {
+        if (m_ids[i] == nodeId) {
+            // 获取当前位置
+            const float* pos = m_physicsState->renderPosData();
+            if (pos) {
+                return QPointF(pos[2 * i], pos[2 * i + 1]);
+            }
+            break;
+        }
+    }
+
+    return QPointF();
 }
 
 // 功能：渲染定时器回调，更新可见与悬停动画后请求刷新
@@ -496,7 +565,7 @@ void ForceViewOpenGL::updateFactor()
     for (int i = 0; i < N; ++i)
         m_showRadii[i] = m_showRadiiBase[i] * m_radiusFactor;
     m_textThresholdOff  = m_textThresholdBase * m_textThresholdFactor;
-    m_textThresholdShow = m_textThresholdOff * 1.5f;
+    m_textThresholdShow = m_textThresholdOff * kTextThresholdShowMul;
 }
 
 // 功能：根据当前视口与缩放计算可见节点与边集合（做裁剪）
@@ -512,10 +581,10 @@ void ForceViewOpenGL::updateVisibleMask()
     float halfW = (m_viewportW / 2.0f) / m_zoom;
     float halfH = (m_viewportH / 2.0f) / m_zoom;
     // 可见区域裁剪使用带 padding 的边界，便于边缘附近的节点/边也被绘制
-    float left   = m_panX - halfW - 50.0f;
-    float right  = m_panX + halfW + 50.0f;
-    float top    = m_panY - halfH - 50.0f;
-    float bottom = m_panY + halfH + 50.0f;
+    float left   = m_panX - halfW - kViewPadding;
+    float right  = m_panX + halfW + kViewPadding;
+    float top    = m_panY - halfH - kViewPadding;
+    float bottom = m_panY + halfH + kViewPadding;
     // m_scenePerPixel 与 m_lineHalfWidthScene 必须使用与 paintGL 中 MVP 一致的视口范围（无 padding），
     // 否则点精灵尺寸会偏小，与线端产生间隙。
     float viewW = 2.0f * halfW;
@@ -538,7 +607,7 @@ void ForceViewOpenGL::updateVisibleMask()
     const float* radii = m_showRadii.isEmpty() ? nullptr : m_showRadii.constData();
     for (int i = 0; i < N; ++i) {
         float x = pos[2*i], y = pos[2*i+1];
-        float r = (radii && i < m_showRadii.size()) ? radii[i] : 5.0f;
+        float r = (radii && i < m_showRadii.size()) ? radii[i] : kDefaultNodeRadius;
         m_nodeMask[i] = (x + r >= left && x - r <= right && y + r >= top && y - r <= bottom) ? 1 : 0;
     }
     m_visibleIndices.clear();
@@ -583,6 +652,9 @@ void ForceViewOpenGL::updateEdgeLineBuffers()
         m_lineVertsAll.clear();
         m_lineVertsDim.clear();
         m_lineVertsHighlight.clear();
+        m_arrowVertsAll.clear();
+        m_arrowVertsDim.clear();
+        m_arrowVertsHighlight.clear();
         return;
     }
 
@@ -591,9 +663,9 @@ void ForceViewOpenGL::updateEdgeLineBuffers()
     const float t = m_hoverGlobal;
     const float* radii = m_showRadii.isEmpty() ? nullptr : m_showRadii.constData();
     const float halfWidth = std::max(0.5f, m_lineHalfWidthScene);
-    const float minLen = 1e-3f;
+    const float minLen = kLineMinLength;
 
-    //计算四边形的四个顶点，变成两个三角形的顶点输出
+    // 计算四边形的四个顶点，变成两个三角形的顶点输出
     auto pushQuad = [&](std::vector<float>& out, int s, int d) {//s起点节点索引，d终点节点索引
         float x0 = pos[2*s], y0 = pos[2*s+1];
         float x1 = pos[2*d], y1 = pos[2*d+1];
@@ -601,8 +673,8 @@ void ForceViewOpenGL::updateEdgeLineBuffers()
         float dy = y1 - y0;
         float len = std::sqrt(dx * dx + dy * dy);
         if (len <= minLen) return;
-        float r0 = (radii && s < m_showRadii.size()) ? radii[s] : 5.0f;
-        float r1 = (radii && d < m_showRadii.size()) ? radii[d] : 5.0f;
+        float r0 = (radii && s < m_showRadii.size()) ? radii[s] : kDefaultNodeRadius;
+        float r1 = (radii && d < m_showRadii.size()) ? radii[d] : kDefaultNodeRadius;
         if (len <= r0 + r1 + minLen) return;
         float dirx = dx / len;
         float diry = dy / len;
@@ -630,32 +702,113 @@ void ForceViewOpenGL::updateEdgeLineBuffers()
         out.push_back(bx + ox); out.push_back(by + oy); out.push_back(1.0f);
     };
 
+    // 计算箭头三角形，箭头从 s 指向 d，位于终点节点外侧
+    auto pushArrow = [&](std::vector<float>& out, int s, int d) {
+        if (!m_arrowEnabled)
+            return;
+        float x0 = pos[2*s], y0 = pos[2*s+1];
+        float x1 = pos[2*d], y1 = pos[2*d+1];
+        float dx = x1 - x0;
+        float dy = y1 - y0;
+        float len = std::sqrt(dx * dx + dy * dy);
+        if (len <= minLen) return;
+
+        float r0 = (radii && s < m_showRadii.size()) ? radii[s] : kDefaultNodeRadius;
+        float r1 = (radii && d < m_showRadii.size()) ? radii[d] : kDefaultNodeRadius;
+        if (len <= r0 + r1 + minLen) return;
+
+        float dirx = dx / len;
+        float diry = dy / len;
+
+        // 线段端点（与 pushQuad 保持一致）
+        float ax = x0 + dirx * r0;
+        float ay = y0 + diry * r0;
+        float bx = x1 - dirx * r1;
+        float by = y1 - diry * r1;
+        float sdx = bx - ax;
+        float sdy = by - ay;
+        float slen = std::sqrt(sdx * sdx + sdy * sdy);
+        if (slen <= minLen) return;
+
+        // 箭头长度与宽度（只受 m_arrowScale 控制，与线段长度无关）
+        const float kArrowLenBase = 4.0f;   // 基准长度（世界坐标）
+        const float kArrowWidthBase = 3.0f; // 基准总宽度
+        float arrowLen = kArrowLenBase * m_arrowScale;
+        float arrowHalfWidth = 0.5f * kArrowWidthBase * m_arrowScale;
+        // 极短边上做一下裁剪，防止箭头比有效线段还长太多
+        if (arrowLen > slen * 0.8f) {
+            arrowLen = std::max(slen * 0.5f, minLen);
+        }
+
+        // 箭头尖端在 bx,by 处，再往后退 arrowLen 得到底边中心
+        float baseCx = bx - dirx * arrowLen;
+        float baseCy = by - diry * arrowLen;
+
+        // 法线方向
+        float nx = -sdy / slen;
+        float ny = sdx / slen;
+
+        float baseLx = baseCx + nx * arrowHalfWidth;
+        float baseLy = baseCy + ny * arrowHalfWidth;
+        float baseRx = baseCx - nx * arrowHalfWidth;
+        float baseRy = baseCy - ny * arrowHalfWidth;
+
+        // 使用较小的 across 值，让箭头主体不受线条中心渐变影响，只有边缘有少量抗锯齿
+        const float across = 0.2f;
+
+        // 三角形：tip(bx,by) -> baseL -> baseR
+        out.push_back(bx);    out.push_back(by);    out.push_back(across);
+        out.push_back(baseLx); out.push_back(baseLy); out.push_back(across);
+        out.push_back(baseRx); out.push_back(baseRy); out.push_back(across);
+    };
+
     if (hover == -1) {
         if (t <= 0.0f) {//无悬停，过渡结束
             m_lineVertsAll.clear();
             m_lineVertsAll.reserve(VE * 18);//每条边6顶点*3float
+            m_arrowVertsAll.clear();
+            if (m_arrowEnabled) {
+                m_arrowVertsAll.reserve(VE * 9);//每条边3顶点*3float
+            }
             for (int e = 0; e < VE; ++e) {
                 int s = vedge[2*e], d = vedge[2*e+1];
                 pushQuad(m_lineVertsAll, s, d);
+                if (m_arrowEnabled)
+                    pushArrow(m_arrowVertsAll, s, d);
             }
             m_lineVertsDim.clear();
             m_lineVertsHighlight.clear();
+            m_arrowVertsDim.clear();
+            m_arrowVertsHighlight.clear();
         } else {//无悬停，过渡进行中
             int nDim = static_cast<int>(m_lastDimEdges.size()) / 2;
             int nHi  = static_cast<int>(m_lastHighlightEdges.size()) / 2;
             m_lineVertsDim.clear();
             m_lineVertsDim.reserve(nDim * 18);
+            m_arrowVertsDim.clear();
+            if (m_arrowEnabled) {
+                m_arrowVertsDim.reserve(nDim * 9);
+            }
             for (int e = 0; e < nDim; ++e) {
                 int s = m_lastDimEdges[2*e], d = m_lastDimEdges[2*e+1];
                 pushQuad(m_lineVertsDim, s, d);
+                if (m_arrowEnabled)
+                    pushArrow(m_arrowVertsDim, s, d);
             }
             m_lineVertsHighlight.clear();
             m_lineVertsHighlight.reserve(nHi * 18);
+            m_arrowVertsHighlight.clear();
+            if (m_arrowEnabled) {
+                m_arrowVertsHighlight.reserve(nHi * 9);
+            }
             for (int e = 0; e < nHi; ++e) {
                 int s = m_lastHighlightEdges[2*e], d = m_lastHighlightEdges[2*e+1];
                 pushQuad(m_lineVertsHighlight, s, d);
+                if (m_arrowEnabled)
+                    pushArrow(m_arrowVertsHighlight, s, d);
             }
             m_lineVertsAll.clear();
+            m_arrowVertsAll.clear();
         }
         return;
     }
@@ -683,17 +836,30 @@ void ForceViewOpenGL::updateEdgeLineBuffers()
     int nHi  = static_cast<int>(m_lastHighlightEdges.size()) / 2;
     m_lineVertsDim.clear();
     m_lineVertsDim.reserve(nDim * 18);
+    m_arrowVertsDim.clear();
+    if (m_arrowEnabled) {
+        m_arrowVertsDim.reserve(nDim * 9);
+    }
     for (int e = 0; e < nDim; ++e) {
         int s = m_lastDimEdges[2*e], d = m_lastDimEdges[2*e+1];
         pushQuad(m_lineVertsDim, s, d);
+        if (m_arrowEnabled)
+            pushArrow(m_arrowVertsDim, s, d);
     }
     m_lineVertsHighlight.clear();
     m_lineVertsHighlight.reserve(nHi * 18);
+    m_arrowVertsHighlight.clear();
+    if (m_arrowEnabled) {
+        m_arrowVertsHighlight.reserve(nHi * 9);
+    }
     for (int e = 0; e < nHi; ++e) {
         int s = m_lastHighlightEdges[2*e], d = m_lastHighlightEdges[2*e+1];
         pushQuad(m_lineVertsHighlight, s, d);
+        if (m_arrowEnabled)
+            pushArrow(m_arrowVertsHighlight, s, d);
     }
     m_lineVertsAll.clear();
+    m_arrowVertsAll.clear();
 }
 
 // 功能：按分组生成节点实例数据（中心/悬停/基础/变暗），用于实例化渲染
@@ -749,7 +915,7 @@ void ForceViewOpenGL::buildNodeInstanceData()
     //每个节点输出 7 个 float：(x, y, radius, r, g, b, a)
     auto emitNode = [&](std::vector<float>& out, int i, const QColor& color, float rScale) {
         float x = pos[2*i], y = pos[2*i+1];
-        float r = (i < m_showRadii.size()) ? m_showRadii[i] * rScale : 5.0f;
+        float r = (i < m_showRadii.size()) ? m_showRadii[i] * rScale : kDefaultNodeRadius;
         out.push_back(x);
         out.push_back(y);
         out.push_back(r);
@@ -773,8 +939,44 @@ void ForceViewOpenGL::buildNodeInstanceData()
     }
     for (int i : m_groupHover) {
         QColor base = nodeColorFor(i);
-        emitNode(m_nodeInstanceDataRest, i, mixColor(base, m_hoverColor, t), 1.1f);
+        emitNode(m_nodeInstanceDataRest, i, mixColor(base, m_hoverColor, t), kHoverRadiusScale);
     }
+}
+
+// 功能：准备帧数据（将数据准备从 paintGL 分离出来）
+void ForceViewOpenGL::prepareFrame()
+{
+    if (!m_glReady || !m_physicsState) {
+        return;
+    }
+
+    updateVisibleMask();
+    advanceHover();
+    buildNodeInstanceData();
+
+    // 计算最大显示半径和是否使用点精灵
+    float maxShowRadius = 0.0f;
+    for (int vi : m_visibleIndices) {
+        if (vi >= 0 && vi < m_showRadii.size()) {
+            float r = m_showRadii[vi];
+            if (r > maxShowRadius) maxShowRadius = r;
+        }
+    }
+    float maxRadiusPixels = (m_scenePerPixel > 0.0f) ? (maxShowRadius / m_scenePerPixel) : 0.0f;
+    m_cachedUsePointSprite = (m_scenePerPixel > 0.0f && maxRadiusPixels < kPointSpriteMaxRadiusPixels);
+
+    // 计算投影矩阵
+    float left   = m_panX - (m_viewportW / 2.0f) / m_zoom;
+    float right  = m_panX + (m_viewportW / 2.0f) / m_zoom;
+    float bottom = m_panY + (m_viewportH / 2.0f) / m_zoom;
+    float top    = m_panY - (m_viewportH / 2.0f) / m_zoom;
+    ortho2D(left, right, bottom, top, m_cachedMvp);
+
+    // 缓存投影边界供文本绘制使用
+    m_cachedLeft = left;
+    m_cachedRight = right;
+    m_cachedTop = top;
+    m_cachedBottom = bottom;
 }
 
 // 功能：线性混合两种颜色（t∈[0,1]）
@@ -848,7 +1050,7 @@ void ForceViewOpenGL::resizeGL(int w, int h)
     glViewport(0, 0, vpW, vpH);
 }
 
-// 功能：核心绘制流程（更新数据→画边→实例化画节点→绘制文本→统计 FPS）
+// 功能：核心绘制流程（调用 prepareFrame 函数准备数据，然后渲染）
 //类似与Qpainter
 void ForceViewOpenGL::paintGL()
 {
@@ -859,31 +1061,13 @@ void ForceViewOpenGL::paintGL()
 
     double paintStart = nowSec();//记录开始时间
 
-    updateVisibleMask();
-    advanceHover();
-    buildNodeInstanceData();
+    // 准备帧数据（分离出来的数据准备逻辑）
+    prepareFrame();
 
-    float maxShowRadius = 0.0f;
-    for (int vi : m_visibleIndices) {
-        if (vi >= 0 && vi < m_showRadii.size()) {
-            float r = m_showRadii[vi];
-            if (r > maxShowRadius) maxShowRadius = r;
-        }
-    }
-    float maxRadiusPixels = (m_scenePerPixel > 0.0f) ? (maxShowRadius / m_scenePerPixel) : 0.0f;
-    bool usePointSprite = (m_scenePerPixel > 0.0f && maxRadiusPixels < kPointSpriteMaxRadiusPixels);
-
-    float left   = m_panX - (m_viewportW / 2.0f) / m_zoom;
-    float right  = m_panX + (m_viewportW / 2.0f) / m_zoom;
-    float bottom = m_panY + (m_viewportH / 2.0f) / m_zoom;
-    float top    = m_panY - (m_viewportH / 2.0f) / m_zoom;
-    float mvp[16];
-    ortho2D(left, right, bottom, top, mvp);
-    //计算 2D 正交投影矩阵,这个矩阵让你世界坐标和 OpenGL 裁剪空间匹配
-
+    // 使用缓存的数据进行渲染
     auto drawNodeBatch = [&](const std::vector<float>& data) {
         if (!m_renderer) return;
-        m_renderer->drawNodes(data, usePointSprite, m_scenePerPixel, mvp);
+        m_renderer->drawNodes(data, m_cachedUsePointSprite, m_scenePerPixel, m_cachedMvp);
     };
 
     glClear(GL_COLOR_BUFFER_BIT);//每帧都清屏
@@ -891,7 +1075,10 @@ void ForceViewOpenGL::paintGL()
     if (m_hoverIndex == -1 && m_hoverGlobal <= 0.0f && !m_lineVertsAll.empty()) {
         float color[4] = { m_edgeColor.redF(), m_edgeColor.greenF(), m_edgeColor.blueF(), m_edgeColor.alphaF() };
         if (m_renderer) {
-            m_renderer->drawLines(m_lineVertsAll, color, mvp);
+            m_renderer->drawLines(m_lineVertsAll, color, m_cachedMvp);
+            if (!m_arrowVertsAll.empty()) {
+                m_renderer->drawLines(m_arrowVertsAll, color, m_cachedMvp);
+            }
         }
 
         drawNodeBatch(m_nodeInstanceDataRest);
@@ -900,7 +1087,10 @@ void ForceViewOpenGL::paintGL()
             QColor c = mixColor(m_edgeColor, m_edgeDimColor, m_hoverGlobal);
             float color[4] = { c.redF(), c.greenF(), c.blueF(), c.alphaF() };
             if (m_renderer) {
-                m_renderer->drawLines(m_lineVertsDim, color, mvp);
+                m_renderer->drawLines(m_lineVertsDim, color, m_cachedMvp);
+                if (!m_arrowVertsDim.empty()) {
+                    m_renderer->drawLines(m_arrowVertsDim, color, m_cachedMvp);
+                }
             }
         }
 
@@ -910,7 +1100,10 @@ void ForceViewOpenGL::paintGL()
             QColor c = mixColor(m_edgeColor, m_hoverColor, m_hoverGlobal);
             float color[4] = { c.redF(), c.greenF(), c.blueF(), c.alphaF() };
             if (m_renderer) {
-                m_renderer->drawLines(m_lineVertsHighlight, color, mvp);
+                m_renderer->drawLines(m_lineVertsHighlight, color, m_cachedMvp);
+                if (!m_arrowVertsHighlight.empty()) {
+                    m_renderer->drawLines(m_arrowVertsHighlight, color, m_cachedMvp);
+                }
             }
         }
 
@@ -952,9 +1145,9 @@ void ForceViewOpenGL::paintGL()
             float w = entry.second;
             if (w <= 0.0f) return;
             float x = pos[2*i], y = pos[2*i+1];
-            float r = (i < m_showRadii.size()) ? m_showRadii[i] * rScale : 5.0f;
-            float sx = (x - left) / (right - left) * m_viewportW;
-            float sy = (y - top) / (bottom - top) * m_viewportH;
+            float r = (i < m_showRadii.size()) ? m_showRadii[i] * rScale : kDefaultNodeRadius;
+            float sx = (x - m_cachedLeft) / (m_cachedRight - m_cachedLeft) * m_viewportW;
+            float sy = (y - m_cachedTop) / (m_cachedBottom - m_cachedTop) * m_viewportH;
             colorText.setAlpha(alpha);
             painter.setPen(colorText);
             float drawX = sx / scale - w / 2.0f;
@@ -974,9 +1167,9 @@ void ForceViewOpenGL::paintGL()
         if (m_hoverIndex != -1 && m_hoverIndex < m_labels.size()) {
             int i = m_hoverIndex;
             float x = pos[2*i], y = pos[2*i+1];
-            float r = (i < m_showRadii.size()) ? m_showRadii[i] : 5.0f;
-            float sx = (x - left) / (right - left) * m_viewportW;
-            float sy = (y - top) / (bottom - top) * m_viewportH;
+            float r = (i < m_showRadii.size()) ? m_showRadii[i] : kDefaultNodeRadius;
+            float sx = (x - m_cachedLeft) / (m_cachedRight - m_cachedLeft) * m_viewportW;
+            float sy = (y - m_cachedTop) / (m_cachedBottom - m_cachedTop) * m_viewportH;
             QString text = m_labels[i];
             if (m_cachedHoverLabelIndex != i || m_cachedHoverLabelScale != scale || m_cachedHoverLabelT != m_hoverGlobal) {
                 m_cachedHoverLabelIndex = i;
@@ -1028,9 +1221,9 @@ void ForceViewOpenGL::paintGL()
 void ForceViewOpenGL::wheelEvent(QWheelEvent* event)
 {
     bool zoomIn = event->angleDelta().y() > 0;
-    float factor = zoomIn ? 1.15f : 1.0f / 1.15f;
+    float factor = zoomIn ? kZoomWheelFactor : 1.0f / kZoomWheelFactor;
     float newZoom = m_zoom * factor;
-    if (newZoom < 0.1f || newZoom > 10.0f) { event->accept(); return; }
+    if (newZoom < kZoomMin || newZoom > kZoomMax) { event->accept(); return; }
 
     QPointF pos = event->position();
     float sx = static_cast<float>(pos.x()), sy = static_cast<float>(pos.y());
@@ -1049,7 +1242,8 @@ void ForceViewOpenGL::wheelEvent(QWheelEvent* event)
 void ForceViewOpenGL::mousePressEvent(QMouseEvent* event)
 {
     if (!m_physicsState || m_physicsState->nNodes == 0) { QOpenGLWidget::mousePressEvent(event); return; }
-    updateVisibleMask();
+    // 准备帧数据（包括更新可见掩码）
+    prepareFrame();
     float sx = static_cast<float>(event->pos().x()), sy = static_cast<float>(event->pos().y());
     float cx, cy;
     screenToScene(sx, sy, cx, cy);
@@ -1074,7 +1268,7 @@ void ForceViewOpenGL::mousePressEvent(QMouseEvent* event)
         if (d2 < bestDist2) { bestDist2 = d2; bestLocal = idx; }
     }
     if (bestLocal >= 0) {
-        float r = (bestLocal < m_showRadii.size()) ? m_showRadii[bestLocal] : 5.0f;
+        float r = (bestLocal < m_showRadii.size()) ? m_showRadii[bestLocal] : kDefaultNodeRadius;
         if (bestDist2 < r * r) {
             m_selectedIndex = bestLocal;
             m_dragOffsetX = pos[2*bestLocal] - cx;
@@ -1144,14 +1338,20 @@ void ForceViewOpenGL::mouseMoveEvent(QMouseEvent* event)
         if (d2 < bestDist2) { bestDist2 = d2; bestIdx = idx; }
     }
     if (bestIdx >= 0) {
-        float r = (bestIdx < m_showRadii.size()) ? m_showRadii[bestIdx] : 5.0f;
+        float r = (bestIdx < m_showRadii.size()) ? m_showRadii[bestIdx] : kDefaultNodeRadius;
         if (bestDist2 < r * r) {
             if (bestIdx != m_hoverIndex) {
                 m_hoverIndex = bestIdx;
                 m_lastHoverIndex = bestIdx;
                 updateNeighborMaskForHover(bestIdx);
-                if (bestIdx >= 0 && bestIdx < m_ids.size())
+                if (bestIdx >= 0 && bestIdx < m_ids.size()) {
                     emit nodeHovered(m_ids[bestIdx]);
+                    // Emit enhanced hover signal with position and scale info
+                    float x = pos[2*bestIdx];
+                    float y = pos[2*bestIdx+1];
+                    float radius = (bestIdx < m_showRadii.size()) ? m_showRadii[bestIdx] : kDefaultNodeRadius;
+                    emit nodeHoveredWithInfo(m_ids[bestIdx], x, y, radius, m_zoom, m_dragging);
+                }
                 requestRenderActivity();
             }
             update();
@@ -1160,6 +1360,7 @@ void ForceViewOpenGL::mouseMoveEvent(QMouseEvent* event)
                 m_lastHoverIndex = m_hoverIndex;
                 m_hoverIndex = -1;
                 emit nodeHovered(QString());
+                emit nodeHoveredWithInfo(QString(), 0.0f, 0.0f, 0.0f, 0.0f, false);
                 update();
             }
         }
@@ -1269,52 +1470,46 @@ void ForceViewOpenGL::remove_node_runtime(const QString& nodeId)
 
     if (indexToRemove == -1) return; // 未找到
 
-    // 获取被删除节点的最后一个索引（因为PhysicsState会移动最后一个节点）
-    int lastNodeIndex = m_physicsState->nNodes - 1;
+    // swap-last 语义：PhysicsState 会把 last 节点搬到 indexToRemove
+    const int lastNodeIndex = m_physicsState->nNodes - 1;
 
     // 在PhysicsState中删除节点
     bool removed = m_physicsState->removeNode(indexToRemove);
     if (!removed) return;
 
-    // 从m_ids, m_labels, m_showRadiiBase, m_nodeColors中删除
-    // 并处理节点移动后的索引映射
-    m_ids.removeAt(indexToRemove);
-    m_labels.removeAt(indexToRemove);
-    m_showRadiiBase.removeAt(indexToRemove);
-    m_nodeColors.removeAt(indexToRemove);
-
-    // 更新m_neighbors
-    // 1. 移除被删除节点的邻居信息
-    m_neighbors.erase(m_neighbors.begin() + indexToRemove);
-    // 2. 更新其他节点的邻居索引
-    if (indexToRemove != lastNodeIndex) {
-        // 最后一个节点被移动到了删除位置
-        for (auto& neighbors : m_neighbors) {
-            for (int& nb : neighbors) {
-                if (nb == lastNodeIndex) nb = indexToRemove;
-                else if (nb > indexToRemove) nb--;
-            }
-        }
-    } else {
-        // 删除的是最后一个节点，只需更新大于删除索引的邻居索引
-        for (auto& neighbors : m_neighbors) {
-            for (int& nb : neighbors) {
-                if (nb > indexToRemove) nb--;
-            }
-        }
+    // 同步 swap-last 更新并行容器（保持与 PhysicsState 索引一致）
+    if (indexToRemove != lastNodeIndex && lastNodeIndex >= 0 && lastNodeIndex < m_ids.size()) {
+        m_ids[indexToRemove] = m_ids[lastNodeIndex];
+        if (lastNodeIndex < m_labels.size()) m_labels[indexToRemove] = m_labels[lastNodeIndex];
+        if (lastNodeIndex < m_showRadiiBase.size()) m_showRadiiBase[indexToRemove] = m_showRadiiBase[lastNodeIndex];
+        if (lastNodeIndex < m_nodeColors.size()) m_nodeColors[indexToRemove] = m_nodeColors[lastNodeIndex];
+    }
+    if (lastNodeIndex >= 0 && lastNodeIndex < m_ids.size()) {
+        m_ids.removeAt(lastNodeIndex);
+        if (lastNodeIndex < m_labels.size()) m_labels.removeAt(lastNodeIndex);
+        if (lastNodeIndex < m_showRadiiBase.size()) m_showRadiiBase.removeAt(lastNodeIndex);
+        if (lastNodeIndex < m_nodeColors.size()) m_nodeColors.removeAt(lastNodeIndex);
     }
 
-    // 更新m_neighborMask和m_lastNeighborMask
-    m_neighborMask.erase(m_neighborMask.begin() + indexToRemove);
-    m_lastNeighborMask.erase(m_lastNeighborMask.begin() + indexToRemove);
+    // swap-last 修正交互索引（hover/selected/lastHover）
+    auto fixIdx = [&](int& idx) {
+        if (idx == indexToRemove) idx = -1;
+        else if (idx == lastNodeIndex) idx = indexToRemove;
+    };
+    fixIdx(m_hoverIndex);
+    fixIdx(m_lastHoverIndex);
+    fixIdx(m_selectedIndex);
 
-    // 更新hover/selected索引
-    if (m_hoverIndex == indexToRemove) m_hoverIndex = -1;
-    else if (m_hoverIndex > indexToRemove) m_hoverIndex--;
-    if (m_lastHoverIndex == indexToRemove) m_lastHoverIndex = -1;
-    else if (m_lastHoverIndex > indexToRemove) m_lastHoverIndex--;
-    if (m_selectedIndex == indexToRemove) m_selectedIndex = -1;
-    else if (m_selectedIndex > indexToRemove) m_selectedIndex--;
+    const int newN = m_physicsState->nNodes;
+    if (m_hoverIndex < 0 || m_hoverIndex >= newN) m_hoverIndex = -1;
+    if (m_lastHoverIndex < 0 || m_lastHoverIndex >= newN) m_lastHoverIndex = -1;
+    if (m_selectedIndex < 0 || m_selectedIndex >= newN) m_selectedIndex = -1;
+
+    // 结构变更后稳妥重建邻接表与掩码（避免增量修正出错）
+    rebuildNeighborsFromEdges();
+    m_neighborMask.assign(std::max(0, newN), 0);
+    m_lastNeighborMask.assign(std::max(0, newN), 0);
+    if (m_hoverIndex >= 0) updateNeighborMaskForHover(m_hoverIndex);
 
     // 更新显示半径
     updateFactor();
@@ -1396,6 +1591,189 @@ void ForceViewOpenGL::remove_edge_runtime(const QString& uNodeId, const QString&
     removeFromNeighbors(v, u);
 
     // 重启仿真以应用变化
+    if (m_simulation) {
+        m_simulation->stop();
+        rebuildSimulation();
+        m_simulation->start();
+    }
+    m_simActive.store(true, std::memory_order_release);
+    requestRenderActivity();
+}
+
+void ForceViewOpenGL::apply_diff_runtime(const QVariantList& diffList)
+{
+    if (!m_physicsState) return;
+    if (diffList.isEmpty()) return;
+
+    std::lock_guard<std::mutex> lock(m_simMutex);
+
+    // 分阶段应用，避免引用不存在节点
+    QVector<QVariantMap> delEdges;
+    QVector<QVariantMap> delNodes;
+    QVector<QVariantMap> addNodes;
+    QVector<QVariantMap> addEdges;
+    delEdges.reserve(diffList.size());
+    delNodes.reserve(diffList.size());
+    addNodes.reserve(diffList.size());
+    addEdges.reserve(diffList.size());
+
+    for (const QVariant& v : diffList) {
+        const QVariantMap m = v.toMap();
+        const QString op = m.value(QStringLiteral("op")).toString();
+        if (op == QStringLiteral("del_edge")) delEdges.push_back(m);
+        else if (op == QStringLiteral("del_node")) delNodes.push_back(m);
+        else if (op == QStringLiteral("add_node")) addNodes.push_back(m);
+        else if (op == QStringLiteral("add_edge")) addEdges.push_back(m);
+    }
+
+    auto buildIdToIndex = [&]() {
+        QHash<QString, int> map;
+        map.reserve(m_ids.size());
+        for (int i = 0; i < m_ids.size(); ++i) map.insert(m_ids[i], i);
+        return map;
+    };
+
+    auto parseColor = [&](const QVariant& var) -> QColor {
+        QColor c;
+        if (var.canConvert<QColor>()) {
+            c = qvariant_cast<QColor>(var);
+        } else {
+            const QString s = var.toString();
+            if (!s.isEmpty()) c = QColor(s);
+        }
+        if (!c.isValid()) c = m_baseColor;
+        return c;
+    };
+
+    auto getAttr = [&](const QVariantMap& m, const QString& key) -> QVariant {
+        if (m.contains(key)) return m.value(key);
+        const QVariantMap attr = m.value(QStringLiteral("attr")).toMap();
+        return attr.value(key);
+    };
+
+    // 1) 删除边
+    {
+        const auto idToIndex = buildIdToIndex();
+        for (const QVariantMap& m : delEdges) {
+            const QString uId = m.value(QStringLiteral("u")).toString();
+            const QString vId = m.value(QStringLiteral("v")).toString();
+            if (uId.isEmpty() || vId.isEmpty()) continue;
+            const int u = idToIndex.value(uId, -1);
+            const int v = idToIndex.value(vId, -1);
+            if (u < 0 || v < 0) continue;
+            m_physicsState->removeEdge(u, v);
+        }
+    }
+
+    // 2) 删除节点（逐个按当前 id->index 解析，避免索引变化问题）
+    for (const QVariantMap& m : delNodes) {
+        const QString nodeId = m.value(QStringLiteral("id")).toString();
+        if (nodeId.isEmpty()) continue;
+
+        int indexToRemove = -1;
+        for (int i = 0; i < m_ids.size(); ++i) {
+            if (m_ids[i] == nodeId) { indexToRemove = i; break; }
+        }
+        if (indexToRemove < 0) continue;
+
+        const int lastNodeIndex = m_physicsState->nNodes - 1;
+        if (!m_physicsState->removeNode(indexToRemove)) continue;
+
+        if (indexToRemove != lastNodeIndex && lastNodeIndex >= 0 && lastNodeIndex < m_ids.size()) {
+            m_ids[indexToRemove] = m_ids[lastNodeIndex];
+            if (lastNodeIndex < m_labels.size()) m_labels[indexToRemove] = m_labels[lastNodeIndex];
+            if (lastNodeIndex < m_showRadiiBase.size()) m_showRadiiBase[indexToRemove] = m_showRadiiBase[lastNodeIndex];
+            if (lastNodeIndex < m_nodeColors.size()) m_nodeColors[indexToRemove] = m_nodeColors[lastNodeIndex];
+        }
+        if (lastNodeIndex >= 0 && lastNodeIndex < m_ids.size()) {
+            m_ids.removeAt(lastNodeIndex);
+            if (lastNodeIndex < m_labels.size()) m_labels.removeAt(lastNodeIndex);
+            if (lastNodeIndex < m_showRadiiBase.size()) m_showRadiiBase.removeAt(lastNodeIndex);
+            if (lastNodeIndex < m_nodeColors.size()) m_nodeColors.removeAt(lastNodeIndex);
+        }
+
+        // swap-last 修正交互索引
+        auto fixIdx = [&](int& idx) {
+            if (idx == indexToRemove) idx = -1;
+            else if (idx == lastNodeIndex) idx = indexToRemove;
+        };
+        fixIdx(m_hoverIndex);
+        fixIdx(m_lastHoverIndex);
+        fixIdx(m_selectedIndex);
+    }
+
+    // 3) 添加节点（无 x/y 时用随机位置，避免重合无法散开）
+    const int nodesAfterAdd = m_physicsState->nNodes + addNodes.size();
+    const float addLayoutL = std::sqrt(static_cast<float>(nodesAfterAdd)) * kInitialLayoutScaleFactor + kInitialLayoutBaseOffset;
+    std::mt19937 addRng(static_cast<unsigned>(std::chrono::steady_clock::now().time_since_epoch().count()));
+    std::uniform_real_distribution<float> addDist(-addLayoutL, addLayoutL);
+
+    for (const QVariantMap& m : addNodes) {
+        QString nodeId = m.value(QStringLiteral("id")).toString();
+        if (nodeId.isEmpty()) nodeId = m.value(QStringLiteral("nodeId")).toString();
+        if (nodeId.isEmpty()) continue;
+
+        bool exists = false;
+        for (const QString& id : m_ids) {
+            if (id == nodeId) { exists = true; break; }
+        }
+        if (exists) continue;
+
+        double x, y;
+        if (m.contains(QStringLiteral("x")) && m.contains(QStringLiteral("y"))) {
+            x = m.value(QStringLiteral("x")).toDouble();
+            y = m.value(QStringLiteral("y")).toDouble();
+        } else {
+            x = static_cast<double>(addDist(addRng));
+            y = static_cast<double>(addDist(addRng));
+        }
+
+        const QVariant labelVar = getAttr(m, QStringLiteral("label"));
+        const QString label = (labelVar.isValid() && !labelVar.toString().isEmpty()) ? labelVar.toString() : nodeId;
+
+        const QVariant radiusVar = getAttr(m, QStringLiteral("radius"));
+        double radiusD = radiusVar.isValid() ? radiusVar.toDouble() : 7.0;
+        if (!(radiusD > 0.0)) radiusD = 7.0;//这里没有就是默认的半径，要在python侧把半径给计算好
+
+        const QVariant colorVar = getAttr(m, QStringLiteral("color"));
+        const QColor color = parseColor(colorVar);
+
+        m_physicsState->addNode(static_cast<float>(x), static_cast<float>(y));
+        m_ids.append(nodeId);
+        m_labels.append(label);
+        m_showRadiiBase.append(static_cast<float>(radiusD));
+        m_nodeColors.append(color);
+    }
+
+    // 4) 添加边
+    {
+        const auto idToIndex = buildIdToIndex();
+        for (const QVariantMap& m : addEdges) {
+            const QString uId = m.value(QStringLiteral("u")).toString();
+            const QString vId = m.value(QStringLiteral("v")).toString();
+            if (uId.isEmpty() || vId.isEmpty() || uId == vId) continue;
+            const int u = idToIndex.value(uId, -1);
+            const int v = idToIndex.value(vId, -1);
+            if (u < 0 || v < 0) continue;
+            m_physicsState->addEdge(u, v);
+        }
+    }
+
+    // 结构变更后统一刷新一次
+    rebuildNeighborsFromEdges();
+    const int newN = m_physicsState->nNodes;
+    if (m_hoverIndex < 0 || m_hoverIndex >= newN) m_hoverIndex = -1;
+    if (m_lastHoverIndex < 0 || m_lastHoverIndex >= newN) m_lastHoverIndex = -1;
+    if (m_selectedIndex < 0 || m_selectedIndex >= newN) m_selectedIndex = -1;
+
+    m_neighborMask.assign(std::max(0, newN), 0);
+    m_lastNeighborMask.assign(std::max(0, newN), 0);
+    if (m_hoverIndex >= 0) updateNeighborMaskForHover(m_hoverIndex);
+
+    updateFactor();
+    initStaticTextCache();
+    m_physicsState->syncDragPosFromPos();
+
     if (m_simulation) {
         m_simulation->stop();
         rebuildSimulation();

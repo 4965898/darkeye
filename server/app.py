@@ -137,6 +137,7 @@ async def receive_capture(data: Dict[str, Any]):
 async def captureone(data: Dict[str, Any]):
     """
     接收来自插件的要抓取的单个番号，直接录入，不经过确认，信号传出去后直接爬
+    现在的目前是连续两次后就崩溃
     """
     try:
         logger.info(f"Received capture data from: {data.get('url', 'unknown')}")

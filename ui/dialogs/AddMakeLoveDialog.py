@@ -5,7 +5,7 @@ from PySide6.QtGui import QIcon
 from config import ICONS_PATH
 from core.database.insert import insert_lovemaking_record
 from ui.basic import HeartRatingWidget
-from controller import MessageBoxService
+from controller.MessageService import MessageBoxService
 
 class AddMakeLoveDialog(QDialog):
     def __init__(self):

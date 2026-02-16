@@ -75,7 +75,7 @@ log
 out/
 CMakePresets.json
 CMakeUserPresets.json
-
+*.dll
 # --- 编译输出 ---
 out/
 build/

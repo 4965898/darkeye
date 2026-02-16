@@ -20,9 +20,9 @@ class WorkPage(LazyWidget):
     def _lazy_load(self):
         logging.info("----------加载作品界面----------")
 
-        pool = QThreadPool.globalInstance()
-        cpu_count = pool.maxThreadCount()
-        pool.setMaxThreadCount(cpu_count*3)  # 例如 I/O 密集型任务，3倍 CPU 核心
+        #pool = QThreadPool.globalInstance()
+        #cpu_count = pool.maxThreadCount()
+        #pool.setMaxThreadCount(cpu_count*3)  # 例如 I/O 密集型任务，3倍 CPU 核心
 
         self.last_scroll_value = 0  # 上一次滚动位置
         self.keyword=None

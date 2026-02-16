@@ -23,6 +23,7 @@
 #include <atomic>
 #include <mutex>
 #include <unordered_map>
+#include <QVariant>
 
 #include "PhysicsState.h"
 #include "Simulation.h"
@@ -78,12 +79,22 @@ public:
     void setRadiusFactor(float f);
     void setSideWidthFactor(float f);
     void setTextThresholdFactor(float f);
-    void setNeighborDepth(int depth);  // 1-5
+    void setArrowScale(float f);
+    void setArrowEnabled(bool enabled);
+    void setNeighborDepth(int depth);  // 1-5*** End Patch】} ***!
 
     // ======================== Misc ========================
     void setDragging(int nodeId, bool dragging);
     QRectF getContentRect() const;
     void fitViewToContent();
+
+    // 获取视图变换信息（用于坐标转换）
+    float getPanX() const { return m_panX; }
+    float getPanY() const { return m_panY; }
+    float getZoom() const { return m_zoom; }
+
+    // 获取指定节点的当前位置（通过节点ID）
+    QPointF getNodePosition(const QString& nodeId) const;
 
     // ======================== Runtime Graph Modification ========================
     // 运行时添加节点（nodeId 为字符串 id，如 "a100"、"w123"、"c200"）
@@ -97,10 +108,14 @@ public:
     // 运行时删除边（nodeId 为字符串 id）
     void remove_edge_runtime(const QString& uNodeId, const QString& vNodeId);
 
+    // 批量应用运行时图变更（Python 可传 list[dict]）
+    void apply_diff_runtime(const QVariantList& diffList);
+
 signals:
     void nodeLeftClicked(const QString& nodeId);
     void nodeRightClicked(const QString& nodeId);
     void nodeHovered(const QString& nodeId);   // empty string = no hover
+    void nodeHoveredWithInfo(const QString& nodeId, float x, float y, float radius, float scale, bool dragging);
     void nodePressed(const QString& nodeId);
     void nodeDragged(const QString& nodeId);
     void nodeReleased(const QString& nodeId);
@@ -129,10 +144,38 @@ private slots:
     void maybeStopRenderTimer();
 
 private:
+    // ---- Constants (timing, layout, view, interaction, geometry) ----
+    static constexpr float kRenderTimerIntervalMs      = 8.3f;
+    static constexpr int   kIdleStopDelayMs            = 500;
+    static constexpr int   kSimTickIntervalMs          = 16;
+    static constexpr int   kFitViewDelayMs             = 100;
+
+    static constexpr float kInitialLayoutScaleFactor   = 25.0f;
+    static constexpr float kInitialLayoutBaseOffset    = 50.0f;
+    static constexpr float kContentPaddingRatio        = 0.1f;
+    static constexpr float kViewPadding                = 50.0f;
+
+    static constexpr float kFitViewScaleMargin         = 0.9f;
+    static constexpr float kFitViewZoomMin             = 0.01f;
+    static constexpr float kFitViewZoomMax             = 1000.0f;
+
+    static constexpr float kZoomMin                    = 0.1f;
+    static constexpr float kZoomMax                    = 10.0f;
+    static constexpr float kZoomWheelFactor            = 1.15f;
+
+    static constexpr float kDefaultNodeRadius          = 5.0f;
+    static constexpr float kLineMinLength              = 1e-3f;
+    static constexpr float kHoverRadiusScale           = 1.1f;
+
+    static constexpr float kTextThresholdShowMul       = 1.5f;
+
+    static constexpr float kManyBodyDistanceLimitSq    = 40000.0f;
+
     void setupTimers();
     void ensureRenderTimerRunning();
     void requestRenderActivity();
     void rebuildSimulation();
+    void rebuildNeighborsFromEdges();
 
     void startSimThread();
     void stopSimThread();
@@ -148,6 +191,9 @@ private:
 
     // Build node instance data (pos, radius, color) for visible nodes in draw order
     void buildNodeInstanceData();
+
+    // Prepare frame data before rendering
+    void prepareFrame();
 
     static QColor mixColor(const QColor& c1, const QColor& c2, float t);
 
@@ -191,6 +237,8 @@ private:
     float m_sideWidthFactor = 1.0f;
     float m_sideWidth       = 1.0f;
     float m_radiusFactor    = 1.0f;
+    float m_arrowScale      = 1.0f;
+    bool  m_arrowEnabled    = true;
     float m_textThresholdBase   = 0.7f;
     float m_textThresholdFactor = 1.0f;
     float m_textThresholdOff    = 0.7f;
@@ -228,10 +276,15 @@ private:
     std::vector<int> m_lastDimEdges;
     std::vector<int> m_lastHighlightEdges;
 
-    // Line vertex data for GL: [x1,y1, x2,y2, ...] per batch
+    // Line vertex data for GL: [x, y, across] per vertex (6 vertices per edge quad)
     std::vector<float> m_lineVertsAll;
     std::vector<float> m_lineVertsDim;
     std::vector<float> m_lineVertsHighlight;
+
+    // Arrow head vertex data for GL: [x, y, across] per vertex (3 vertices per arrow triangle)
+    std::vector<float> m_arrowVertsAll;
+    std::vector<float> m_arrowVertsDim;
+    std::vector<float> m_arrowVertsHighlight;
 
     // Node instance data: interleaved [x, y, radius, r, g, b, a] per visible node (draw order)
 
@@ -273,6 +326,14 @@ private:
     std::unique_ptr<GraphRenderer> m_renderer;
     float m_scenePerPixel = 0.0f;
     bool m_glReady = false;
+    
+    // Cached data from prepareFrame for paintGL
+    bool m_cachedUsePointSprite = false;
+    float m_cachedMvp[16] = {0};
+    float m_cachedLeft = 0.0f;
+    float m_cachedRight = 0.0f;
+    float m_cachedTop = 0.0f;
+    float m_cachedBottom = 0.0f;
 
     // ---- FPS ----
     int    m_frameCount  = 0;

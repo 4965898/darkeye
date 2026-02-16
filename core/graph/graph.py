@@ -68,7 +68,6 @@ def generate_graph()->nx.Graph:
             f"a{aid}",  # 避免与作品 id 冲突
             label=name,
             group="actress",
-            color="#ff99cc"
         )
                 # 添加作品节点
     for wid, title in works:
@@ -76,7 +75,6 @@ def generate_graph()->nx.Graph:
             f"w{wid}",
             label=title,
             group="work",
-            color="#99ccff",
         )
 
     # 添加边（参演关系）
@@ -176,7 +174,6 @@ def generate_similar_graph()->nx.Graph:
             label=title,
             title=f"作品: {title}",
             group="work",
-            color="#99ccff",
             shape="box"
         )
 

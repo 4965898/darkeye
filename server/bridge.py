@@ -1,6 +1,6 @@
 from PySide6.QtCore import QObject, Signal
 
-#这个一行要在主线程
+#这个一行要运行在主线程
 class ServerBridge(QObject):
     """
     用于连接 FastAPI 线程和 PyQt 主线程的桥梁。

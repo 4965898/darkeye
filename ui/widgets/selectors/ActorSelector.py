@@ -5,7 +5,7 @@ import sqlite3
 from config import DATABASE
 from ui.dialogs.AddActorDialog import AddActorDialog
 import logging
-from controller import MessageBoxService
+from controller.MessageService import MessageBoxService
 from ui.basic import IconPushButton
 class ActorSelector(QWidget):
     '''男演员选择器'''
@@ -13,7 +13,7 @@ class ActorSelector(QWidget):
     selection_changed=Signal()#下方被选择的列表改变了
     def __init__(self):
         super().__init__()
-        self.setFixedWidth(170)
+
         self.msg=MessageBoxService(self)
         # 数据初始化
         self.choose_actor_all_items = self.load_actor_from_db()
