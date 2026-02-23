@@ -79,6 +79,7 @@ public:
     void setRadiusFactor(float f);
     void setSideWidthFactor(float f);
     void setTextThresholdFactor(float f);
+    void setNodeColors(const QVector<QColor>& colors);
     void setArrowScale(float f);
     void setArrowEnabled(bool enabled);
     void setNeighborDepth(int depth);  // 1-5*** End Patch】} ***!
@@ -95,6 +96,8 @@ public:
 
     // 获取指定节点的当前位置（通过节点ID）
     QPointF getNodePosition(const QString& nodeId) const;
+    // 获取当前所有节点 ID（与 m_nodeColors 索引一一对应，用于颜色重算）
+    QStringList getNodeIds() const;
 
     // ======================== Runtime Graph Modification ========================
     // 运行时添加节点（nodeId 为字符串 id，如 "a100"、"w123"、"c200"）

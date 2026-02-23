@@ -78,6 +78,10 @@ class ForceViewOpenGL(QOpenGLWidget):
 
     # 获取指定节点的当前位置（通过节点ID）
     def getNodePosition(self, nodeId: str) -> QPointF: ...
+    # 获取当前所有节点 ID（与节点颜色索引一一对应）
+    def getNodeIds(self) -> list[str]: ...
+    # 批量更新节点颜色（实时生效）
+    def setNodeColors(self, colors: list[QColor]) -> None: ...
 
     # ======================== Runtime Graph Modification ========================
     def add_node_runtime(

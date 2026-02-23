@@ -404,6 +404,22 @@ void ForceViewOpenGL::setSideWidthFactor(float f)   { m_sideWidthFactor = f; upd
 // 功能：设置文本显示阈值缩放因子
 void ForceViewOpenGL::setTextThresholdFactor(float f) { m_textThresholdFactor = f; updateFactor(); update(); }
 
+// 功能：批量更新节点颜色（不重建图，实时生效）
+void ForceViewOpenGL::setNodeColors(const QVector<QColor>& colors)
+{
+    if (!m_physicsState || colors.size() != m_physicsState->nNodes)
+        return;
+    m_nodeColors = colors;
+    requestRenderActivity();
+    update();
+}
+
+// 功能：返回当前所有节点 ID（与 m_nodeColors 索引一一对应）
+QStringList ForceViewOpenGL::getNodeIds() const
+{
+    return m_ids;
+}
+
 // 功能：统一缩放箭头大小（长度和宽度）
 void ForceViewOpenGL::setArrowScale(float f)
 {

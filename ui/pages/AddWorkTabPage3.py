@@ -1,8 +1,8 @@
 from PySide6.QtWidgets import QPushButton, QHBoxLayout, QLabel,QVBoxLayout,QLineEdit,QTextEdit,QSizePolicy,QPlainTextEdit,QWidget,QSplitter
 from PySide6.QtCore import Qt,QObject,Signal,Property,SignalInstance,Slot,QThreadPool,QTimer
 from PySide6.QtGui import QIntValidator
-import PySide6QtAds as ads
 
+from ui.myads.workspace_manager import WorkspaceManager, Placement, ContentConfig
 from ui.widgets.CrawlerToolBox import CrawlerToolBox
 import logging,json,asyncio
 from pathlib import Path
@@ -672,21 +672,16 @@ class AddWorkTabPage3(LazyWidget):
         self.input_story = WikiTextEdit()
         self.input_story.set_completer_func(get_serial_number)
 
-        # ---------- Dock 配置（与 test_dock 一致） ----------
-        ads.CDockManager.setConfigFlag(ads.CDockManager.OpaqueSplitterResize, True)
-        ads.CDockManager.setConfigFlag(ads.CDockManager.FocusHighlighting, True)
-        ads.CDockManager.setConfigFlag(ads.CDockManager.DockAreaHasTabsMenuButton, False)
-        ads.CDockManager.setConfigFlag(ads.CDockManager.DockAreaHasCloseButton, False)
-        ads.CDockManager.setConfigFlag(ads.CDockManager.DockAreaHasUndockButton, False)
-
-
+        # ---------- 工作区布局（与 ui/myads/tests/demo.py 用法一致） ----------
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
-        self.dock_manager = ads.CDockManager(self)
+        self._workspace_manager = WorkspaceManager(self)
+        main_layout.addWidget(self._workspace_manager.widget())
+        root = self._workspace_manager.get_root_pane()
 
-        main_layout.addWidget(self.dock_manager)
-
-        dock_features = ads.CDockWidget.DockWidgetMovable | ads.CDockWidget.DockWidgetFocusable
+        def make_config(title: str, w: QWidget, closeable: bool = True) -> ContentConfig:
+            cfg = self._workspace_manager.create_content_config()
+            return cfg.set_window_title(title).set_widget(w).set_closeable(closeable)
 
         # ---------- 1. 爬虫区 ----------
         page1 = self.crawler_toolbox.widget(0)
@@ -696,36 +691,18 @@ class AddWorkTabPage3(LazyWidget):
         crawler_layout.setContentsMargins(0, 0, 0, 0)
         crawler_layout.addWidget(page1)
         crawler_container.setMinimumHeight(200)
-        dock_crawler = ads.CDockWidget("CrawlerDock")
-        dock_crawler.setWidget(crawler_container)
-        dock_crawler.setWindowTitle("爬虫区")
-        dock_crawler.setFeatures(dock_features)
-        self.dock_manager.addDockWidget(ads.LeftDockWidgetArea, dock_crawler)
 
-        # ---------- 1b. 外部导航 ----------
         nav_container = QWidget()
         nav_layout = QVBoxLayout(nav_container)
         nav_layout.setContentsMargins(0, 0, 0, 0)
         nav_layout.addWidget(page2)
         nav_container.setMinimumHeight(200)
-        dock_nav = ads.CDockWidget("NavDock")
-        dock_nav.setWidget(nav_container)
-        dock_nav.setWindowTitle("外部导航")
-        dock_nav.setFeatures(dock_features)
-        self.dock_manager.addDockWidget(ads.CenterDockWidgetArea, dock_nav, dock_crawler.dockAreaWidget())
 
-        # ---------- 2. 封面栏 ----------
         cover_container = QWidget()
         cover_layout = QVBoxLayout(cover_container)
         cover_layout.setContentsMargins(0, 0, 0, 0)
         cover_layout.addWidget(self.coverdroplabel)
-        dock_cover = ads.CDockWidget("CoverDock")
-        dock_cover.setWidget(cover_container)
-        dock_cover.setWindowTitle("封面栏")
-        dock_cover.setFeatures(dock_features)
-        self.dock_manager.addDockWidget(ads.CenterDockWidgetArea, dock_cover, dock_crawler.dockAreaWidget())
 
-        # ---------- 3. 基础信息 ----------
         basic_info_container = QWidget()
         basic_layout = QVBoxLayout(basic_info_container)
         left_small_layout1 = QHBoxLayout()
@@ -755,83 +732,51 @@ class AddWorkTabPage3(LazyWidget):
         basic_layout.addLayout(jp_story_label_layout)
         basic_layout.addWidget(self.jp_story)
         basic_layout.addWidget(self.btn_add_work)
-        dock_basic = ads.CDockWidget("BasicInfoDock")
-        dock_basic.setWidget(basic_info_container)
-        dock_basic.setWindowTitle("基础信息")
-        dock_basic.setFeatures(dock_features)
-        self.dock_manager.addDockWidget(ads.RightDockWidgetArea, dock_basic, dock_crawler.dockAreaWidget())
 
-
-
-        # ---------- 4 & 5. 女优/男优选择器（同一 dock 内以 tab 形式） ----------
         actress_container = QWidget()
         actress_layout = QVBoxLayout(actress_container)
         actress_layout.setContentsMargins(0, 0, 0, 0)
         actress_layout.addWidget(self.actressselector)
-        dock_actress = ads.CDockWidget("ActressSelectorDock")
-        dock_actress.setWidget(actress_container)
-        dock_actress.setWindowTitle("女优选择器")
-        dock_actress.setFeatures(dock_features)
-        self.dock_manager.addDockWidget(ads.BottomDockWidgetArea, dock_actress, dock_cover.dockAreaWidget())
 
         actor_container = QWidget()
         actor_layout = QVBoxLayout(actor_container)
         actor_layout.setContentsMargins(0, 0, 0, 0)
         actor_layout.addWidget(self.actorselector)
-        dock_actor = ads.CDockWidget("ActorSelectorDock")
-        dock_actor.setWidget(actor_container)
-        dock_actor.setWindowTitle("男优选择器")
-        dock_actor.setFeatures(dock_features)
-        # 与 dock_actress 同一区域，ADS 会以 tab 形式叠在一起
-        self.dock_manager.addDockWidget(ads.CenterDockWidgetArea, dock_actor, dock_actress.dockAreaWidget())
-        dock_actress.raise_()
-        # 封面区与女优/男优区上下 5:5
-        def _set_cover_actress_split_ratio():
-            parent_splitter = dock_actress.dockAreaWidget().parentWidget()
-            if isinstance(parent_splitter, ads.CDockSplitter):
-                # 设置两个区域的大小。例如 500:500 即为 55 开
-                parent_splitter.setSizes([500, 500])
 
-        # ---------- 6. 标签选择器 ----------
         tag_container = QWidget()
         tag_layout = QVBoxLayout(tag_container)
         tag_layout.setContentsMargins(0, 0, 0, 0)
         tag_layout.addWidget(self.tag_selector)
-        dock_tag = ads.CDockWidget("TagSelectorDock")
-        dock_tag.setWidget(tag_container)
-        dock_tag.setWindowTitle("标签选择器")
-        dock_tag.setFeatures(dock_features)
-        self.dock_manager.addDockWidget(ads.RightDockWidgetArea, dock_tag, dock_basic.dockAreaWidget())
 
-        # ---------- 7. 力导向图区（容器，占位符由 _init_forceview 替换为 forceview） ----------
         self.forceview_container = QWidget()
         forceview_container_layout = QVBoxLayout(self.forceview_container)
         forceview_container_layout.setContentsMargins(0, 0, 0, 0)
         forceview_container_layout.addWidget(self.forceview_placeholder)
-        dock_forceview = ads.CDockWidget("ForceViewDock")
-        dock_forceview.setWidget(self.forceview_container)
-        dock_forceview.setWindowTitle("力导向图区")
-        dock_forceview.setFeatures(dock_features)
-        self.dock_manager.addDockWidget(ads.RightDockWidgetArea, dock_forceview, dock_tag.dockAreaWidget())
 
-        # ---------- 8. 编辑区 ----------
         editor_container = QWidget()
         editor_layout = QVBoxLayout(editor_container)
         editor_layout.setContentsMargins(0, 0, 0, 0)
         editor_layout.addWidget(self.input_story)
-        dock_editor = ads.CDockWidget("EditorDock")
-        dock_editor.setWidget(editor_container)
-        dock_editor.setWindowTitle("编辑区")
-        dock_editor.setFeatures(dock_features)
-        self.dock_manager.addDockWidget(ads.BottomDockWidgetArea, dock_editor, dock_forceview.dockAreaWidget())
-        def _set_force_basic_split_ratio():
-            parent_splitter = dock_editor.dockAreaWidget().parentWidget()
-            if isinstance(parent_splitter, ads.CDockSplitter):
-                # 设置两个区域的大小。例如 500:500 即为 55 开
-                parent_splitter.setSizes([600, 400])
-        QTimer.singleShot(0, _set_cover_actress_split_ratio)
-        QTimer.singleShot(0, _set_force_basic_split_ratio)
-        
+
+        # 先搭架子再填充：root -> 右侧依次 nav, cover, basic, tag, forceview；cover 下拆 actress；forceview 下拆 editor
+
+
+        pane_basic = self._workspace_manager.split(root, Placement.Right, ratio=0.7)
+        pane_tag = self._workspace_manager.split(pane_basic, Placement.Right, ratio=0.25)
+        pane_force = self._workspace_manager.split(pane_tag, Placement.Right, ratio=0.5)
+        pane_actress = self._workspace_manager.split(root, Placement.Bottom, ratio=0.5)
+        pane_editor = self._workspace_manager.split(pane_force, Placement.Bottom, ratio=0.4)
+
+        self._workspace_manager.fill_pane(root, make_config("爬虫区", crawler_container, closeable=False))
+        self._workspace_manager.fill_pane(root, make_config("外部导航", nav_container, closeable=False))
+        self._workspace_manager.fill_pane(root, make_config("封面栏", cover_container, closeable=False))
+        self._workspace_manager.fill_pane(pane_basic, make_config("基础信息", basic_info_container, closeable=False))
+        self._workspace_manager.fill_pane(pane_actress, make_config("女优选择器", actress_container, closeable=False))
+        self._workspace_manager.fill_pane(pane_actress, make_config("男优选择器", actor_container, closeable=False))
+        self._workspace_manager.fill_pane(pane_tag, make_config("标签选择器", tag_container, closeable=False))
+        self._workspace_manager.fill_pane(pane_force, make_config("力导向图区", self.forceview_container, closeable=False))
+        self._workspace_manager.fill_pane(pane_editor, make_config("编辑区", editor_container, closeable=False))
+
         QTimer.singleShot(0, self._init_forceview)
 
 

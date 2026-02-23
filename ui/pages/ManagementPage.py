@@ -102,14 +102,9 @@ class ManagementPage(QWidget):
         btn_addActor.setIcon(QIcon(str(ICONS_PATH / "mars.png")))
         btn_addActor.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
 
-
-
-
-
         # 右侧空白拉伸
         spacer = QWidget()
         spacer.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
-
 
         layout.addWidget(btn_addWork)
         layout.addWidget(btn_addAdress)
@@ -121,17 +116,19 @@ class ManagementPage(QWidget):
 
         layout.addWidget(spacer)
 
+        toolbar.setObjectName("managementPageToolbar")
         toolbar.setStyleSheet("""
-            QToolButton {
+            #managementPageToolbar QToolButton {
                 padding: 0px 0px;
                 background: #F0F0F0;
                 border: 1px solid #ccc;
                 border-radius: 0px;
             }
-            QToolButton:hover {
+            #managementPageToolbar QToolButton:hover {
                 background: #D8EAF9;
             }
         """)
+
         return toolbar
 
 

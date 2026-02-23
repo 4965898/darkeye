@@ -3,7 +3,8 @@
 from PySide6.QtWidgets import QWidget, QRubberBand
 from PySide6.QtCore import Qt, QRect
 
-from ui.demo.tab_drag_handler import DropZone
+from ui.myads.pane_widget import PaneWidget
+from ui.myads.tab_drag_handler import DropZone
 
 
 class SplitPreviewOverlay(QWidget):
@@ -15,9 +16,9 @@ class SplitPreviewOverlay(QWidget):
         self.setAttribute(Qt.WA_TranslucentBackground)
         self._rubber_band: QRubberBand | None = None
         self._zone: DropZone | None = None
-        self._target_pane = None
+        self._target_pane: PaneWidget | None = None
 
-    def show_preview(self, zone: DropZone | None, target_pane) -> None:
+    def show_preview(self, zone: DropZone | None, target_pane: PaneWidget | None) -> None:
         """显示预览。zone 为 None 时隐藏。"""
         self._zone = zone
         self._target_pane = target_pane
@@ -41,7 +42,7 @@ class SplitPreviewOverlay(QWidget):
             self._rubber_band.show()
         self.update()
 
-    def _preview_rect(self, zone: DropZone, pane) -> QRect:
+    def _preview_rect(self, zone: DropZone, pane: PaneWidget) -> QRect:
         """计算预览矩形（相对于 pane 的坐标）。"""
         r = pane.rect()
         w, h = r.width(), r.height()

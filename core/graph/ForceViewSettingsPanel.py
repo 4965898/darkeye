@@ -6,6 +6,8 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QPushButton, QHBoxLayout, QCheckBox, QLabel,
     QFormLayout, QRadioButton, QSlider, QScrollArea, QSizePolicy
 )
+from PySide6.QtGui import QColor
+from PySide6.QtWidgets import QColorDialog
 from PySide6.QtCore import Qt, Signal, QSize
 
 from ui.basic import ToggleSwitch
@@ -64,6 +66,22 @@ class ClickableSlider(QSlider):
         event.ignore()
 
 
+def _make_color_button(initial: QColor, group: str, parent: QWidget, on_changed):
+    """创建颜色选择按钮，点击打开取色器。"""
+    btn = QPushButton(parent)
+    btn.setFixedSize(56, 24)
+    btn.setStyleSheet(f"background-color: {initial.name()}; border: 1px solid #888; border-radius: 3px;")
+    btn.setCursor(Qt.PointingHandCursor)
+
+    def _pick():
+        c = QColorDialog.getColor(initial, parent, "选择颜色", QColorDialog.ShowAlphaChannel)
+        if c.isValid():
+            btn.setStyleSheet(f"background-color: {c.name()}; border: 1px solid #888; border-radius: 3px;")
+            on_changed(group, c)
+    btn.clicked.connect(_pick)
+    return btn
+
+
 class ForceViewSettingsPanel(QScrollArea):
     """Settings panel for force-directed view. Emits signals for parent to connect to view/session."""
 
@@ -85,6 +103,7 @@ class ForceViewSettingsPanel(QScrollArea):
     arrowScaleChanged = Signal(float)
     imageOverlayEnabledChanged = Signal(bool)
     graphNeighborDepthChanged = Signal(int)
+    nodeColorGroupChanged = Signal(str, "QColor")  # group: "actress"|"work"|"center"|"default"
 
     # Simulation controls
     restartRequested = Signal()
@@ -231,6 +250,27 @@ class ForceViewSettingsPanel(QScrollArea):
         display_form.addRow("连线宽度", self.link_width)
         display_form.addRow("邻居深度", self.neighbor_depth)
         display_form.addRow("图邻居深度", self.graph_neighbor_depth)
+
+        # 节点颜色（按类型覆盖）
+        color_emit = lambda g, c: self.nodeColorGroupChanged.emit(g, c)
+        self.color_actress = _make_color_button(QColor("#ff99cc"), "actress", self, color_emit)
+        self.color_work = _make_color_button(QColor("#99ccff"), "work", self, color_emit)
+        self.color_center = _make_color_button(QColor("#FFD700"), "center", self, color_emit)
+        self.color_default = _make_color_button(QColor("#5C5C5C"), "default", self, color_emit)
+        color_row = QHBoxLayout()
+        color_row.addWidget(QLabel("女优"))
+        color_row.addWidget(self.color_actress)
+        color_row.addWidget(QLabel("作品"))
+        color_row.addWidget(self.color_work)
+        color_row.addStretch()
+        display_form.addRow("节点颜色", color_row)
+        color_row2 = QHBoxLayout()
+        color_row2.addWidget(QLabel("中心"))
+        color_row2.addWidget(self.color_center)
+        color_row2.addWidget(QLabel("默认"))
+        color_row2.addWidget(self.color_default)
+        color_row2.addStretch()
+        display_form.addRow("", color_row2)
 
         display_section.addLayout(display_form)
 

@@ -236,14 +236,14 @@ QToolBox::tab:hover {
 
 
 
-/* 1. 整个 TabBar 的背景，去掉原生边框 */
-QTabBar {
+/* 1. 整个 TabBar 的背景，去掉原生边框（仅 QTabWidget 内的 TabBar；工作区 PaneWidget 的 TabBar 保持原生） */
+QTabWidget QTabBar {
     background-color: transparent;
     border: none;
 }
 
 /* 2. 基础 Tab 样式：控制间距、颜色、字体 */
-QTabBar::tab {
+QTabWidget QTabBar::tab {
     background-color: transparent;
     color: #888888;              /* 未选中时为灰色 */
     padding: 5px 0px;          /* 字与字的间距通过 padding 保持一致 */
@@ -253,12 +253,12 @@ QTabBar::tab {
 }
 
 /* 3. 鼠标悬停时的样式（提升交互感） */
-QTabBar::tab:hover {
+QTabWidget QTabBar::tab:hover {
     color: #555555;
 }
 
 /* 4. 选中状态：变黑、加粗、显示底线 */
-QTabBar::tab:selected {
+QTabWidget QTabBar::tab:selected {
     color: #000000;              /* 选中时为黑色 */
     font-weight: bold;           /* 加粗 */
     /* 实现底线：通过底部边框模拟 */
@@ -272,28 +272,30 @@ QTabWidget::pane {
 }
 
 
-/* 整个停靠区域背景 */
-ads--CDockAreaWidget {
-    background: #2b2b2b;
-    border: 1px solid #3f3f3f;
+/* 6. 工作区 PaneWidget 的 TabBar 恢复原生：AddWorkTabPage3 作为 QTabWidget 的 tab 时其内 QTabBar 会被上面规则匹配，此处用 objectName 覆盖 */
+QTabBar#WorkspaceDemoTabBar {
+    background-color: palette(base);
+    border: 1px solid palette(mid);
 }
-
-/* 标签栏美化 */
-ads--CDockTabBar {
-    background: #323232;
-    qproperty-drawBase: 0; /* 移除底部基线 */
-}
-
-/* 单个 Tab 的样式 */
-ads--CDockWidgetTab {
-    background: #3c3f41;
-    color: #afb1b3;
-    padding: 5px 15px;
-    border-top-left-radius: 4px;
-    border-top-right-radius: 4px;
+QTabBar#WorkspaceDemoTabBar::tab {
+    background-color: palette(button);
+    color: palette(window-text);
+    padding: 4px 12px;
     margin-right: 2px;
-    /* --- 字体设置 --- */
-    font-size: 14px;         /* 这里设置你想要的像素大小，比如 14px 或 16px */
-    font-weight: bold;       /* 可选：加粗字体让辨识度更高 */
-    font-family: "Microsoft YaHei", sans-serif; /* 建议指定中文字体 */
+    font-size: 13px;
+    font-weight: normal;
+    border: 1px solid palette(mid);
+    border-bottom: none;
 }
+QTabBar#WorkspaceDemoTabBar::tab:hover {
+    background-color: palette(midlight);
+    color: palette(window-text);
+}
+QTabBar#WorkspaceDemoTabBar::tab:selected {
+    background-color: palette(base);
+    color: palette(window-text);
+    font-weight: normal;
+    border-bottom: 1px solid palette(base);
+}
+
+

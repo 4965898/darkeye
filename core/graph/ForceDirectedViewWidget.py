@@ -31,6 +31,9 @@ class ForceDirectedViewWidget(QWidget):
 
         # 图片叠加层总开关（由设置面板控制）
         self._image_overlay_enabled: bool = True
+        # 节点颜色覆盖：{"actress"|"work"|"center"|"default" -> QColor or None}
+        self._color_overrides: dict[str, QColor | None] = {}
+        self._center_id: str | None = None
 
         self.init_ui()
         self.signal_connect()
@@ -93,6 +96,7 @@ class ForceDirectedViewWidget(QWidget):
         self.panel.radiusFactorChanged.connect(self.view.setRadiusFactor)
         self.panel.linkwidthFactorChanged.connect(self.view.setSideWidthFactor)
         self.panel.textThresholdFactorChanged.connect(self.view.setTextThresholdFactor)
+        self.panel.nodeColorGroupChanged.connect(self._on_node_color_group_changed)
 
         self.panel.restartRequested.connect(self.view.restartSimulation)
         self.panel.pauseRequested.connect(self.view.pauseSimulation)
@@ -284,6 +288,22 @@ class ForceDirectedViewWidget(QWidget):
                 self.settings_button.raise_()
             QTimer.singleShot(0, delayed_adjust)
         
+    def _on_node_color_group_changed(self, group: str, color: QColor) -> None:
+        """面板修改某类节点颜色后，更新覆盖并实时推送到 view。"""
+        self._color_overrides[group] = color
+        ids = self.view.getNodeIds()
+        if not ids:
+            return
+        colors = [
+            self._node_color(
+                str(nid),
+                None,
+                is_center=(self._center_id is not None and str(nid) == self._center_id),
+            )
+            for nid in ids
+        ]
+        self.view.setNodeColors(colors)
+
     def _switch_graph(self, mode: str):
         """
         切换图类型：只是用于测试使用
@@ -318,18 +338,22 @@ class ForceDirectedViewWidget(QWidget):
         pass
         #self.view.load_graph(G)
 
-    def _node_color(self, node_id: str, attr: dict, is_center: bool = False) -> QColor:
+    def _node_color(self, node_id: str, attr: dict | None, is_center: bool = False) -> QColor:
         """
-        根据节点 id / group 计算显示颜色。后续可由 panel 覆盖。
+        根据节点 id / group 计算显示颜色。可由 panel 颜色覆盖（_color_overrides）。
         """
         if is_center:
-            return QColor("#FFD700")
+            c = self._color_overrides.get("center")
+            return c if c is not None else QColor("#FFD700")
         group = attr.get("group") if attr else None
         if node_id.startswith("a") or group == "actress":
-            return QColor("#ff99cc")
+            c = self._color_overrides.get("actress")
+            return c if c is not None else QColor("#ff99cc")
         if node_id.startswith("w") or group == "work":
-            return QColor("#99ccff")
-        return QColor("#5C5C5C")
+            c = self._color_overrides.get("work")
+            return c if c is not None else QColor("#99ccff")
+        c = self._color_overrides.get("default")
+        return c if c is not None else QColor("#5C5C5C")
 
     def _set_graph_from_networkx(self, G: nx.Graph, modify: bool = False) -> None:
         """
@@ -389,6 +413,7 @@ class ForceDirectedViewWidget(QWidget):
         center_id = None
         if isinstance(self.session._filter, EgoFilter):
             center_id = self.session._filter.center_id
+        self._center_id = center_id
         node_colors = []
         for node_id in nodes:
             data = G.nodes[node_id]

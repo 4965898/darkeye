@@ -16,7 +16,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, QEvent, QObject
 
-from ui.demo.layout_tree import LayoutTree, SplitNode
+from ui.demo.layout_tree import LayoutTree, SplitModelNode
 from ui.demo.pane_widget import PaneWidget
 
 
@@ -56,38 +56,20 @@ def _pane_under_cursor(tree: LayoutTree, global_pos):
     return None
 
 
-def _tree_state_lines(node: SplitNode | PaneWidget, indent: int = 0) -> list[str]:
-    """递归生成树节点描述，返回多行文本。"""
-    lines = []
-    prefix = "  " * indent
-    if isinstance(node, SplitNode):
-        if node.orientation is None:
-            orient = "—"
-        else:
-            orient = "H" if node.orientation == Qt.Horizontal else "V"
-        lines.append(f"{prefix}Split({orient})")
-        for child in node.children:
-            lines.extend(_tree_state_lines(child, indent + 1))
-    else:
-        lines.append(f"{prefix}Pane({node.pane_id})")
-    return lines
-
-
 def _tree_state_str(tree: LayoutTree) -> str:
     """返回当前布局树的状态字符串（多行）。"""
-    root = tree.root()
-    if not root.children:
+    lines = tree.dump_tree()
+    if not lines or (len(lines) == 1 and "children=0" in lines[0]):
         return "LayoutTree(空)"
-    lines = ["LayoutTree:"] + _tree_state_lines(root, 0)
-    return "\n".join(lines)
+    return "LayoutTree:\n" + "\n".join(lines)
 
 
 def main():
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
 
-    # 布局树：根无方向，仅单窗格时无 splitter；加入第二窗格时由 split 方向定型
-    root = SplitNode(None)
+    # 布局树：根为 SplitModelNode（逻辑根设计）
+    root = SplitModelNode(Qt.Horizontal, [])
     tree = LayoutTree(root, style_splitter=_style_splitter)
 
     def on_pane_empty(pane: PaneWidget):
@@ -185,7 +167,7 @@ def main():
     btn_row.addStretch()
     layout.addLayout(btn_row)
 
-    layout.addWidget(root.root_widget(), 1)
+    layout.addWidget(tree.root(), 1)
 
     win.setCentralWidget(central)
     win.resize(700, 450)

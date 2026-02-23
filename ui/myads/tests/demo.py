@@ -12,28 +12,26 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QPushButton,
+    QLineEdit
 )
 from PySide6.QtCore import Qt, QEvent, QObject
 from PySide6.QtGui import QIcon
 
-from ui.demo.workspace_manager import WorkspaceManager, Placement, ContentConfig
-from ui.demo.layout_tree import LayoutTree
-from ui.demo.pane_widget import PaneWidget
+from ui.myads.workspace_manager import WorkspaceManager, Placement, ContentConfig
+from ui.myads.layout_tree import LayoutTree
+from ui.myads.pane_widget import PaneWidget
 from config import ICONS_PATH
 
 
 """工作区 Demo 主入口：WorkspaceDemoWidget，组合 Pane、LayoutTree、拖拽与预览。"""
 
 
-
-
-
-
 def _make_placeholder_content(text: str) -> QWidget:
     """创建占位内容。"""
     w = QWidget()
+    w.setStyleSheet("background-color: white;")
     layout = QVBoxLayout(w)
-    layout.addWidget(QLabel(text))
+    layout.addWidget(QLineEdit(text))
     return w
 
 
@@ -51,33 +49,34 @@ class WorkspaceDemoWidget(QWidget):
 
         root = self._manager.get_root_pane()
 
-        def make_config(title: str, icon_name: str) -> ContentConfig:
+        def make_config(title: str, icon_name: str, closeable: bool = True) -> ContentConfig:
             d = self._manager.create_content_config()
-            d.set_window_title(title).set_icon(QIcon(str(ICONS_PATH / icon_name))).set_widget(_make_placeholder_content(title))
+            d.set_window_title(title).set_icon(QIcon(str(ICONS_PATH / icon_name))).set_widget(_make_placeholder_content(title)).set_closeable(closeable)
             return d
 
-        d_a = make_config("内容 A", "library-big.svg")
+        d_a = make_config("内容 A", "library-big.svg", False)
         d_b = make_config("内容 B", "film.svg")
-        d_c = make_config("内容 C", "chart-line.svg")
+        d_c = make_config("内容 C", "chart-line.svg", False)
         d_d = make_config("内容 D", "scroll-text.svg")
-        d_e = make_config("内容 E", "layout-panel-left.svg")
+        d_e = make_config("内容 E", "layout-panel-left.svg", False)
 
         d3 = make_config("内容 A", "library-big.svg")
-        d4 = make_config("内容 B", "film.svg")
+        d4 = make_config("内容 B", "film.svg", False)
         d5 = make_config("内容 A 下", "layout-panel-left.svg")
 
         # 先搭架子再填充：layout_tree 在 reparent 后会做 updateGeometry/update，两种顺序均支持
         pane3 = self._manager.split(root, Placement.Right, ratio=0.3)
+        pane3.set_icon_only(True)
         pane4 = self._manager.split(root, Placement.Bottom, ratio=0.4)
-        pane5 = self._manager.split(pane3, Placement.Bottom, ratio=0.5)
-        pane6 = self._manager.split(pane5, Placement.Left, ratio=0.5)
-        #pane7 = self._manager.split(pane3, Placement.Top, ratio=0.5)#可以不填东西
+        pane5 = self._manager.split(pane3, Placement.Right, ratio=0.3)
+        pane6 = self._manager.split(pane5, Placement.Bottom, ratio=0.7)
+        pane7 = self._manager.split(pane3, Placement.Top, ratio=0.5)#可以不填东西
 
 
         self._manager.fill_pane(root, d_a)
         self._manager.fill_pane(root, d_b)
         self._manager.fill_pane(root, d_c)
-        #self._manager.fill_pane(root, d_d)
+        self._manager.fill_pane(root, d_d)
 
         self._manager.fill_pane(pane3, d3)
         self._manager.fill_pane(pane4, d4)
@@ -139,7 +138,7 @@ def main():
 
     container = QWidget()
     layout = QVBoxLayout(container)
-    layout.setContentsMargins(4, 4, 4, 4)
+    layout.setContentsMargins(0, 0, 0, 0)
 
     current_target_label = QLabel(
         "当前拆分目标: " + (split_target_holder[0].pane_id if split_target_holder[0] else "无")
