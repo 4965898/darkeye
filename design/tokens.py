@@ -23,6 +23,7 @@ class ThemeTokens:
     color_icon: str
     color_icon_disabled: str
     radius_md: str
+    font_family_base: str
     font_size_base: str
     border_width: str
 
@@ -48,6 +49,7 @@ LIGHT_TOKENS = ThemeTokens(
     color_icon="#333333",
     color_icon_disabled="#999",
     radius_md="8px",
+    font_family_base="Microsoft YaHei",
     font_size_base="12px",
     border_width="2px",
 )
@@ -70,6 +72,7 @@ DARK_TOKENS = ThemeTokens(
     color_icon="#e0e0e0",
     color_icon_disabled="#666",
     radius_md="8px",
+    font_family_base="Microsoft YaHei",
     font_size_base="12px",
     border_width="2px",
 )
@@ -92,6 +95,7 @@ RED_TOKENS = ThemeTokens(
     color_icon="#4a1515",
     color_icon_disabled="#8d6e63",
     radius_md="8px",
+    font_family_base="Microsoft YaHei",
     font_size_base="12px",
     border_width="2px",
 )

@@ -2,6 +2,7 @@
 
 QWidget {
     background-color: {{color_bg_page}};
+    font-family: {{font_family_base}};
 }
 
 /* ----- Button (objectName=DesignButton) ----- */
@@ -59,6 +60,16 @@ QPushButton#DesignStateToggleButton {
     border-radius: {{radius_md}};
 }
 QPushButton#DesignStateToggleButton:hover {
+    background-color: {{color_bg_input}};
+}
+
+/* ----- IconPushButton (objectName=DesignIconPushButton) ----- */
+QPushButton#DesignIconPushButton {
+    border: none;
+    background: transparent;
+    border-radius: {{radius_md}};
+}
+QPushButton#DesignIconPushButton:hover {
     background-color: {{color_bg_input}};
 }
 

@@ -20,7 +20,7 @@ from PySide6.QtCore import Qt
 
 from design import ThemeManager, ThemeId, get_builtin_icon
 from design.icon import BUILTIN_ICONS
-from ui.components import Button, Label, Input, StateToggleButton
+from ui.components import Button, IconPushButton, Label, Input, StateToggleButton
 
 # 所有内置图标名（来自 resources/icons 内联）
 BUILTIN_ICON_NAMES = tuple(BUILTIN_ICONS.keys())
@@ -54,6 +54,14 @@ def main():
     toggle_row.addWidget(StateToggleButton(state1_icon="eye", state2_icon="eye_off", theme_manager=theme_mgr))
     toggle_row.addWidget(StateToggleButton(state1_icon="chevron_down", state2_icon="chevron_up", theme_manager=theme_mgr))
     layout.addLayout(toggle_row)
+
+    layout.addWidget(Label("图标按钮（令牌驱动，随主题变色）"))
+    icon_btn_row = QHBoxLayout()
+    for name in ("settings", "search", "refresh_cw", "copy", "trash_2", "save"):
+        btn = IconPushButton(icon_name=name, theme_manager=theme_mgr)
+        btn.setToolTip(name)
+        icon_btn_row.addWidget(btn)
+    layout.addLayout(icon_btn_row)
 
     layout.addWidget(Label("内置图标（来自 resources/icons 内联，颜色随主题）"))
     icon_size = 24
