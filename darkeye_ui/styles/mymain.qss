@@ -79,6 +79,10 @@ QLabel#DesignLabel {
     font-size: {{font_size_base}};
 }
 
+QLabel#DesignLabel[tone="inverse"] {
+    color: {{color_text_inverse}};
+}
+
 /* ----- Input (objectName=DesignInput) ----- */
 QLineEdit#DesignInput {
     background-color: {{color_bg}};

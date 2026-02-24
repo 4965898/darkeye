@@ -6,7 +6,7 @@ from PySide6.QtGui import QPixmap, QPainter, QLinearGradient, QColor,QIcon
 from PySide6.QtCore import Qt, QPointF, QPropertyAnimation, QEasingCurve,QParallelAnimationGroup,QSize,Signal,QTimer
 from config import WORKCOVER_PATH,ICONS_PATH
 
-from ..basic.FlowLayout import FlowLayout
+from darkeye_ui.layouts import FlowLayout
 
 
 #渐变层纯绘图层

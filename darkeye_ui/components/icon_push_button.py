@@ -4,11 +4,11 @@ from typing import TYPE_CHECKING, Optional
 from PySide6.QtCore import QSize, Qt
 from PySide6.QtWidgets import QPushButton
 
-from design import get_builtin_icon
-from design.tokens import ThemeTokens, LIGHT_TOKENS
+from ..design import get_builtin_icon
+from ..design.tokens import ThemeTokens, LIGHT_TOKENS
 
 if TYPE_CHECKING:
-    from design.theme_manager import ThemeManager
+    from ..design.theme_manager import ThemeManager
 
 
 class IconPushButton(QPushButton):

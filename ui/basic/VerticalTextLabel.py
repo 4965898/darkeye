@@ -3,7 +3,7 @@ from PySide6.QtGui import QPainter, QFont, QColor, QFontMetrics, QPen
 from PySide6.QtCore import Qt, QRect, QSize
 import re
 import logging
-from .VerticalTextLayout import VerticalTextLayout
+from darkeye_ui.layouts import VerticalTextLayout
 
 class VerticalTextLabel(QWidget):
     '''纯粹的竖向文字类，自绘

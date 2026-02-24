@@ -3,15 +3,15 @@
 '''
 from .VerticalTextLabel import VerticalTextLabel
 from .ColorPicker import ColorPicker
-from .WaterfallLayout import WaterfallLayout
-from .FlowLayout import FlowLayout
+from darkeye_ui.layouts import WaterfallLayout
+from darkeye_ui.layouts import FlowLayout
 from .HeartRatingWidget import HeartRatingWidget
 from .VLabel import VLabel
 from .LazyScrollArea import LazyScrollArea
 from .OctImage import OctImage
 from .HeartLabel import HeartLabel
 from .Effect import ShadowEffectMixin
-from .VFlowLayout import VFlowLayout
+from darkeye_ui.layouts import VFlowLayout
 
 from .ModelSearch import ModelSearch
 from .IconPushButton import IconPushButton

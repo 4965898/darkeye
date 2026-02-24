@@ -5,6 +5,7 @@ from .input import Input
 from .label import Label
 from .state_toggle_button import StateToggleButton
 from .toggle_switch import ToggleSwitch
+from .vertical_text_label import VerticalTextLabel
 
 __all__ = [
     "Button",
@@ -13,4 +14,5 @@ __all__ = [
     "Input",
     "StateToggleButton",
     "ToggleSwitch",
+    "VerticalTextLabel",
 ]

@@ -6,7 +6,7 @@ from PySide6.QtCore import QSize
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QPushButton
 
-from design.icon import svg_to_icon
+from ..design.icon import svg_to_icon
 
 
 class Button(QPushButton):

@@ -1,4 +1,4 @@
-# design/demo.py - 展示设计系统组件与主题切换（从项目根目录运行：python -m design.demo）
+# darkeye_ui.design.demo - 展示设计系统组件与主题切换（从项目根目录运行：python -m darkeye_ui.design.demo）
 import sys
 from pathlib import Path
 
@@ -18,10 +18,18 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt
 
-from design import ThemeManager, ThemeId, get_builtin_icon
-from design.icon import BUILTIN_ICONS
-from ui.components import Button, IconPushButton, Label, Input, StateToggleButton, ToggleSwitch
-from ui.basic.FlowLayout import FlowLayout
+from darkeye_ui.design import ThemeManager, ThemeId, get_builtin_icon
+from darkeye_ui.design.icon import BUILTIN_ICONS
+from darkeye_ui.components import (
+    Button,
+    IconPushButton,
+    Input,
+    Label,
+    StateToggleButton,
+    ToggleSwitch,
+    VerticalTextLabel,
+)
+from darkeye_ui.layouts import FlowLayout
 
 # 所有内置图标名（来自 resources/icons 内联）
 BUILTIN_ICON_NAMES = tuple(BUILTIN_ICONS.keys())
@@ -103,6 +111,35 @@ def main():
     scroll.setFrameShape(QFrame.Shape.NoFrame)
     scroll.setMaximumHeight(220)
     layout.addWidget(scroll)
+
+    # Label tone 变体示例
+    layout.addWidget(Label("Label tone 变体（normal / inverse）"))
+    label_tone_row = QHBoxLayout()
+    label_tone_row.addWidget(Label("普通背景 normal"))
+    label_tone_row.addWidget(Label("反相文字 inverse", tone="inverse"))
+    layout.addLayout(label_tone_row)
+
+    # 竖排文字 tone 变体示例
+    layout.addWidget(Label("竖排文字 VerticalTextLabel（tone 变体）"))
+    vertical_row = QHBoxLayout()
+
+    vlabel_normal = VerticalTextLabel(
+        "普通竖排\nnormal",
+        theme_manager=theme_mgr,
+        tone="normal",
+    )
+    vlabel_normal.setMinimumHeight(160)
+    vertical_row.addWidget(vlabel_normal)
+
+    vlabel_inverse = VerticalTextLabel(
+        "反相文字\ninverse",
+        theme_manager=theme_mgr,
+        tone="inverse",
+    )
+    vlabel_inverse.setMinimumHeight(160)
+    vertical_row.addWidget(vlabel_inverse)
+
+    layout.addLayout(vertical_row)
 
     def update_theme_buttons():
         for tid, btn in theme_buttons.items():

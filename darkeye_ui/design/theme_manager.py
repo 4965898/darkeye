@@ -1,6 +1,7 @@
 # design/theme_manager.py - 主题切换与 QSS 应用
 from enum import Enum
 from typing import TYPE_CHECKING
+from pathlib import Path
 
 from PySide6.QtCore import QObject, Signal
 
@@ -40,10 +41,9 @@ class ThemeManager(QObject):
 
     def set_theme(self, app: "QApplication", theme_id: ThemeId) -> None:
         """切换主题并应用样式表。"""
-        from config import QSS_PATH
-
         self._current = theme_id
-        template_path = QSS_PATH / self._qss_filename
+        base_dir = Path(__file__).resolve().parent.parent  # darkeye_ui 根目录
+        template_path = base_dir / "styles" / self._qss_filename
         qss = load_stylesheet(template_path, self.tokens())
         app.setStyleSheet(qss)
         self.themeChanged.emit(theme_id)

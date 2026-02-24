@@ -14,6 +14,7 @@ class ThemeTokens:
     color_border: str
     color_border_focus: str
     color_text: str
+    color_text_inverse: str
     color_text_placeholder: str
     color_text_disabled: str
     color_success: str
@@ -40,6 +41,7 @@ LIGHT_TOKENS = ThemeTokens(
     color_border="#ccc",
     color_border_focus="#00aaff",
     color_text="#333333",
+    color_text_inverse="#ffffff",
     color_text_placeholder="#bbb",
     color_text_disabled="#999",
     color_success="#2e7d32",
@@ -63,6 +65,7 @@ DARK_TOKENS = ThemeTokens(
     color_border="#444",
     color_border_focus="#00aaff",
     color_text="#e0e0e0",
+    color_text_inverse="#1e1e1e",
     color_text_placeholder="#888",
     color_text_disabled="#666",
     color_success="#66bb6a",
@@ -86,6 +89,7 @@ RED_TOKENS = ThemeTokens(
     color_border="#ef9a9a",
     color_border_focus="#c62828",
     color_text="#4a1515",
+    color_text_inverse="#1e1e1e",
     color_text_placeholder="#c62828",
     color_text_disabled="#8d6e63",
     color_success="#1b5e20",

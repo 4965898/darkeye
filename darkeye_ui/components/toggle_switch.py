@@ -5,10 +5,10 @@ from PySide6.QtCore import Qt, QSize, Signal, Property, QPropertyAnimation
 from PySide6.QtGui import QPainter, QColor, QBrush
 from PySide6.QtWidgets import QWidget
 
-from design.tokens import ThemeTokens, LIGHT_TOKENS
+from ..design.tokens import ThemeTokens, LIGHT_TOKENS
 
 if TYPE_CHECKING:
-    from design.theme_manager import ThemeManager
+    from ..design.theme_manager import ThemeManager
 
 
 class ToggleSwitch(QWidget):
