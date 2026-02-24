@@ -10,8 +10,19 @@ if str(_root) not in sys.path:
 from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QFrame
 from PySide6.QtCore import Qt
 
-from design import ThemeManager, ThemeId
+from design import ThemeManager, ThemeId, get_builtin_icon
 from ui.components import Button, Label, Input
+
+BUILTIN_ICON_NAMES = (
+    "close",
+    "check",
+    "arrow_up",
+    "arrow_down",
+    "arrow_left",
+    "arrow_right",
+    "plus",
+    "minus",
+)
 
 
 def main():
@@ -36,6 +47,15 @@ def main():
     btn_row.addWidget(Button("默认按钮"))
     btn_row.addWidget(Button("主要按钮", variant="primary"))
     layout.addLayout(btn_row)
+
+    layout.addWidget(Label("内置图标"))
+    icon_row = QHBoxLayout()
+    for name in BUILTIN_ICON_NAMES:
+        btn = Button(icon=get_builtin_icon(name, size=20), icon_size=20)
+        btn.setToolTip(name)
+        btn.setMinimumWidth(40)
+        icon_row.addWidget(btn)
+    layout.addLayout(icon_row)
 
     def toggle_theme():
         app = QApplication.instance()
