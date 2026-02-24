@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
     QScrollArea,
     QGridLayout,
     QFrame,
+    QComboBox,
 )
 from PySide6.QtCore import Qt
 
@@ -141,33 +142,30 @@ def main():
 
     layout.addLayout(vertical_row)
 
-    def update_theme_buttons():
-        for tid, btn in theme_buttons.items():
-            btn.setProperty("variant", "primary" if theme_mgr.current() == tid else "default")
-            btn.style().unpolish(btn)
-            btn.style().polish(btn)
+    # 主题切换下拉框
+    theme_options = [
+        (ThemeId.LIGHT, "浅色"),
+        (ThemeId.DARK, "深色"),
+        (ThemeId.RED, "红色"),
+    ]
+
+    theme_combo = QComboBox()
+    for _tid, label in theme_options:
+        theme_combo.addItem(label)
+    # 根据当前主题设置选中项
+    current_index = next(i for i, (tid, _) in enumerate(theme_options) if tid == theme_mgr.current())
+    theme_combo.setCurrentIndex(current_index)
+
+    def on_theme_changed(index: int):
+        app = QApplication.instance()
+        theme_id = theme_options[index][0]
+        theme_mgr.set_theme(app, theme_id)
         refresh_icon_colors()
 
-    def make_theme_switch(theme_id: ThemeId, label: str):
-        def on_click():
-            app = QApplication.instance()
-            theme_mgr.set_theme(app, theme_id)
-            update_theme_buttons()
-
-        btn = Button(label, variant="primary" if theme_mgr.current() == theme_id else "default")
-        btn.clicked.connect(on_click)
-        return btn
+    theme_combo.currentIndexChanged.connect(on_theme_changed)
 
     layout.addWidget(Label("主题切换"))
-    theme_buttons = {
-        ThemeId.LIGHT: make_theme_switch(ThemeId.LIGHT, "浅色"),
-        ThemeId.DARK: make_theme_switch(ThemeId.DARK, "深色"),
-        ThemeId.RED: make_theme_switch(ThemeId.RED, "红色"),
-    }
-    theme_row = QHBoxLayout()
-    for btn in theme_buttons.values():
-        theme_row.addWidget(btn)
-    layout.addLayout(theme_row)
+    layout.addWidget(theme_combo)
 
     layout.addStretch()
     win.show()
