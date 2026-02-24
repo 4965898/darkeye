@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 from PySide6.QtCore import QObject, Signal
 
 from .loader import load_stylesheet
-from .tokens import DARK_TOKENS, LIGHT_TOKENS, ThemeTokens
+from .tokens import DARK_TOKENS, LIGHT_TOKENS, RED_TOKENS, ThemeTokens
 
 if TYPE_CHECKING:
     from PySide6.QtWidgets import QApplication
@@ -14,6 +14,7 @@ if TYPE_CHECKING:
 class ThemeId(Enum):
     LIGHT = "light"
     DARK = "dark"
+    RED = "red"
 
 
 class ThemeManager(QObject):
@@ -28,6 +29,7 @@ class ThemeManager(QObject):
         self._tokens_map: dict[ThemeId, ThemeTokens] = {
             ThemeId.LIGHT: LIGHT_TOKENS,
             ThemeId.DARK: DARK_TOKENS,
+            ThemeId.RED: RED_TOKENS,
         }
 
     def current(self) -> ThemeId:

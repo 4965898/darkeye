@@ -14,13 +14,14 @@ from .icon import (
 )
 from .loader import load_stylesheet
 from .theme_manager import ThemeId, ThemeManager
-from .tokens import DARK_TOKENS, LIGHT_TOKENS, ThemeTokens
+from .tokens import DARK_TOKENS, LIGHT_TOKENS, RED_TOKENS, ThemeTokens
 
 __all__ = [
     "ThemeTokens",
     "ThemeId",
     "LIGHT_TOKENS",
     "DARK_TOKENS",
+    "RED_TOKENS",
     "load_stylesheet",
     "ThemeManager",
     "svg_to_icon",

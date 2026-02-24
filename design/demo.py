@@ -57,18 +57,32 @@ def main():
         icon_row.addWidget(btn)
     layout.addLayout(icon_row)
 
-    def toggle_theme():
-        app = QApplication.instance()
-        if theme_mgr.current() == ThemeId.LIGHT:
-            theme_mgr.set_theme(app, ThemeId.DARK)
-            switch_btn.setText("切换为浅色")
-        else:
-            theme_mgr.set_theme(app, ThemeId.LIGHT)
-            switch_btn.setText("切换为深色")
+    def update_theme_buttons():
+        for tid, btn in theme_buttons.items():
+            btn.setProperty("variant", "primary" if theme_mgr.current() == tid else "default")
+            btn.style().unpolish(btn)
+            btn.style().polish(btn)
 
-    switch_btn = Button("切换为深色", variant="primary")
-    switch_btn.clicked.connect(toggle_theme)
-    layout.addWidget(switch_btn)
+    def make_theme_switch(theme_id: ThemeId, label: str):
+        def on_click():
+            app = QApplication.instance()
+            theme_mgr.set_theme(app, theme_id)
+            update_theme_buttons()
+
+        btn = Button(label, variant="primary" if theme_mgr.current() == theme_id else "default")
+        btn.clicked.connect(on_click)
+        return btn
+
+    layout.addWidget(Label("主题切换"))
+    theme_buttons = {
+        ThemeId.LIGHT: make_theme_switch(ThemeId.LIGHT, "浅色"),
+        ThemeId.DARK: make_theme_switch(ThemeId.DARK, "深色"),
+        ThemeId.RED: make_theme_switch(ThemeId.RED, "红色"),
+    }
+    theme_row = QHBoxLayout()
+    for btn in theme_buttons.values():
+        theme_row.addWidget(btn)
+    layout.addLayout(theme_row)
 
     layout.addStretch()
     win.show()

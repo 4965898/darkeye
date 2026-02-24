@@ -55,3 +55,19 @@ DARK_TOKENS = ThemeTokens(
     font_size_base="12px",
     border_width="2px",
 )
+
+RED_TOKENS = ThemeTokens(
+    color_primary="#c62828",
+    color_primary_hover="#b71c1c",
+    color_bg="#fff5f5",
+    color_bg_input="#ffebee",
+    color_bg_page="#fce4ec",
+    color_border="#ef9a9a",
+    color_border_focus="#c62828",
+    color_text="#4a1515",
+    color_text_placeholder="#c62828",
+    color_text_disabled="#8d6e63",
+    radius_md="8px",
+    font_size_base="12px",
+    border_width="2px",
+)
