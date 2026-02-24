@@ -28,7 +28,7 @@ def _run_main_app():
     # 启动本地API服务（异步）
     profiler.measure_import("server")
     from server import start_server
-    start_server()
+    #start_server()
     profiler.checkpoint("API服务器线程启动")
 
     # 仅导入必要的 GUI 启动组件（测量导入时间）

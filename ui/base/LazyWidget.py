@@ -14,5 +14,5 @@ class LazyWidget(QWidget):
 
 
     def _lazy_load(self):
-        """子类必须实现：初始化 UI"""
-        raise NotImplementedError("子类必须实现 _init_ui()")
+        """子类必须实现：惰性初始化 UI（首次 show 时调用）"""
+        raise NotImplementedError("子类必须实现 _lazy_load()")

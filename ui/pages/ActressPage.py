@@ -15,9 +15,7 @@ from utils.utils import timeit
 
 
 class FlashComboBox(QComboBox):
-    '''带刷新的comboBox,输入一个函数'''
-    def __init__(self,func):
-        super().__init__()
+    '''带刷新的 ComboBox，通过 loader_func 加载选项列表'''
     def __init__(self, loader_func: Callable[[], list] = None, parent=None):
         """
         初始化
