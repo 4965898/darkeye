@@ -20,7 +20,7 @@ from PySide6.QtCore import Qt
 
 from design import ThemeManager, ThemeId, get_builtin_icon
 from design.icon import BUILTIN_ICONS
-from ui.components import Button, IconPushButton, Label, Input, StateToggleButton
+from ui.components import Button, IconPushButton, Label, Input, StateToggleButton, ToggleSwitch
 
 # 所有内置图标名（来自 resources/icons 内联）
 BUILTIN_ICON_NAMES = tuple(BUILTIN_ICONS.keys())
@@ -54,6 +54,18 @@ def main():
     toggle_row.addWidget(StateToggleButton(state1_icon="eye", state2_icon="eye_off", theme_manager=theme_mgr))
     toggle_row.addWidget(StateToggleButton(state1_icon="chevron_down", state2_icon="chevron_up", theme_manager=theme_mgr))
     layout.addLayout(toggle_row)
+
+    layout.addWidget(Label("开关 ToggleSwitch（令牌驱动，随主题变色）"))
+    switch_row = QHBoxLayout()
+    switch = ToggleSwitch(theme_manager=theme_mgr)
+    switch.toggled.connect(lambda on: print("Switch:", on))
+    switch_row.addWidget(switch)
+    switch_row.addWidget(Label("默认"))
+    switch_checked = ToggleSwitch(theme_manager=theme_mgr)
+    switch_checked.setChecked(True)
+    switch_row.addWidget(switch_checked)
+    switch_row.addWidget(Label("默认开"))
+    layout.addLayout(switch_row)
 
     layout.addWidget(Label("图标按钮（令牌驱动，随主题变色）"))
     icon_btn_row = QHBoxLayout()

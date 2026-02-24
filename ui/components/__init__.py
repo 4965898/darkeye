@@ -4,5 +4,13 @@ from .icon_push_button import IconPushButton
 from .input import Input
 from .label import Label
 from .state_toggle_button import StateToggleButton
+from .toggle_switch import ToggleSwitch
 
-__all__ = ["Button", "IconPushButton", "Label", "Input", "StateToggleButton"]
+__all__ = [
+    "Button",
+    "IconPushButton",
+    "Label",
+    "Input",
+    "StateToggleButton",
+    "ToggleSwitch",
+]
