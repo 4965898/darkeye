@@ -1,13 +1,17 @@
-from PySide6.QtWidgets import QScrollArea, QWidget,QLayoutItem,QApplication,QVBoxLayout
-from PySide6.QtCore import QTimer,Qt
+from PySide6.QtWidgets import QScrollArea, QWidget, QLayoutItem, QVBoxLayout
+from PySide6.QtCore import QTimer, Qt
 from PySide6.QtWidgets import QScrollBar
 import logging
 
 from ui.basic import WaterfallLayout
 from controller.MessageService import MessageBoxService
 
+# 延迟检查滚动条时的最大重试次数，避免无限递归
+_MAX_SCROLL_CHECK_RETRIES = 10
+
+
 class LazyScrollArea(QScrollArea):
-    def __init__(self, column_width=200,widget=None,hint=True, parent=None):
+    def __init__(self, column_width=200, widget=None, hint=True, parent=None):
         super().__init__(parent)
         self.setWidgetResizable(True)
         self.setStyleSheet("""
@@ -19,41 +23,32 @@ class LazyScrollArea(QScrollArea):
                 height: 10px;
             }
         """)
-        self.msg=MessageBoxService(self)
-        # 内容容器
-        self._hint=hint
+        self.msg = MessageBoxService(self)
+        self._hint = hint
 
-        if widget is not None:#在最上部添加一个widget
+        if widget is not None:
             content_widget = QWidget()
-            vlayout=QVBoxLayout(content_widget)
-            waterfall_widget=QWidget()
-            self.waterfall_layout = WaterfallLayout(waterfall_widget,column_width=column_width)
-            vlayout.setContentsMargins(0,0,0,0)
-            vlayout.addWidget(widget,0, Qt.AlignCenter|Qt.AlignmentFlag.AlignTop)
-            #vlayout.addWidget(widget)
-            vlayout.addWidget(waterfall_widget,0,Qt.AlignmentFlag.AlignTop)
-            '''
-            waterfall_widget.setStyleSheet("""
-    background-color: white;          /* 背景色 */
-    /*border: 2px solid black;        边框宽度和颜色 */
-""")     '''   
+            vlayout = QVBoxLayout(content_widget)
+            waterfall_widget = QWidget()
+            self.waterfall_layout = WaterfallLayout(waterfall_widget, column_width=column_width)
+            vlayout.setContentsMargins(0, 0, 0, 0)
+            vlayout.addWidget(widget, 0, Qt.AlignCenter | Qt.AlignmentFlag.AlignTop)
+            vlayout.addWidget(waterfall_widget, 0, Qt.AlignmentFlag.AlignTop)
             vlayout.addStretch()
         else:
             content_widget = QWidget()
             self.waterfall_layout = WaterfallLayout(content_widget, column_width=column_width)
 
-        self.waterfall_layout.setContentsMargins(0,5,0,0)
+        self.waterfall_layout.setContentsMargins(0, 5, 0, 0)
         self.setWidget(content_widget)
 
-
-        # 分页状态
         self.page_size = 30
         self.current_page = 0
         self.reached_end = False
         self.loading = False
-        self._loader_fn = None  # 外部传入的加载函数
+        self._loader_fn = None
+        self._scroll_check_retries = 0
 
-        # 监听滚动
         self.verticalScrollBar().valueChanged.connect(self._on_scroll)
 
 
@@ -99,33 +94,31 @@ class LazyScrollArea(QScrollArea):
         # 事件循环里的延迟调用，避免阻塞UI
         self._fetch_and_append()
 
-    def _fetch_and_append(self):
-        
-        widgets:list = self._loader_fn(self.current_page, self.page_size)#这里真正调用了读数据并加载UI的函数
-        if not widgets :#没有新数据的情况
-            #if self.current_page == 0 and self._hint:
-                #self.msg.show_info("提示", "未查询到数据")
-                # 第一次加载没有数据，显示提示
-            self.reached_end = True      
-        else:#有数据
-            if len(widgets)< self.page_size:
-                self.reached_end = True  
+    def _fetch_and_append(self) -> None:
+        """在主线程拉取一页并追加（loader 返回 QWidget 列表，必须在主线程创建）。"""
+        widgets: list = self._loader_fn(self.current_page, self.page_size)
+        if not widgets:
+            self.reached_end = True
+        else:
+            if len(widgets) < self.page_size:
+                self.reached_end = True
             for w in widgets:
                 self.waterfall_layout.addWidget(w)
             self.current_page += 1
-        #logging.debug(self.waterfall_layout._items.__len__())
         self.loading = False
-    # 延迟到下一轮事件循环再检查滚动条
         if not self.reached_end:
+            self._scroll_check_retries = 0
             QTimer.singleShot(0, self._check_scrollable_and_load_next)
 
-    def _check_scrollable_and_load_next(self):
-        QApplication.processEvents()
+    def _check_scrollable_and_load_next(self) -> None:
+        """下一轮事件循环检查：若仍不可滚动则再加载一页；不使用 processEvents。"""
         sb = self.verticalScrollBar()
-        # 这一轮事件循环结束后，布局和滚动条已经刷新
-        #logging.debug(sb.maximum())
-        if sb.maximum() == 0 and not self.reached_end:
+        if sb.maximum() == 0 and not self.reached_end and not self.loading:
             self._load_next_page()
+            return
+        if sb.maximum() == 0 and not self.reached_end and self._scroll_check_retries < _MAX_SCROLL_CHECK_RETRIES:
+            self._scroll_check_retries += 1
+            QTimer.singleShot(50, self._check_scrollable_and_load_next)
 
 
     def showEvent(self, event):

@@ -1,5 +1,5 @@
-from PySide6.QtWidgets import QWidget,QStackedWidget,QHBoxLayout,QMainWindow
-from PySide6.QtCore import QTimer,Slot
+from PySide6.QtWidgets import QWidget, QStackedWidget, QHBoxLayout, QMainWindow, QLabel
+from PySide6.QtCore import QTimer, Slot
 from PySide6.QtGui import QIcon
 import logging
 
@@ -30,7 +30,7 @@ class MainWindow(QMainWindow):
 
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_memory)
-        self.timer.start(500)
+        self.timer.start(3000)  # 3 秒更新一次，减少标题栏重绘
 
         self.signal_connect()
 
@@ -76,9 +76,11 @@ class MainWindow(QMainWindow):
         self.stack = QStackedWidget()
 
 
-        #左右两栏布局
+        # 左右两栏布局
         main_layout.addWidget(self.sidebar)
         main_layout.addWidget(self.stack)
+
+
 
     def init_router(self) -> None:
         '''配置路由'''
@@ -249,13 +251,15 @@ class MainWindow(QMainWindow):
 
     @Slot()
     def update_memory(self) -> None:
-        '''更新内存'''
-        import psutil,os
+        """更新内存（仅在前台时更新标题，降低开销）"""
+        if not self.isVisible() or not self.isActiveWindow():
+            return
+        import psutil
+        import os
         process = psutil.Process(os.getpid())
         mem_main: int = process.memory_info().rss
         main_mb: float = mem_main / 1024 ** 2
-        #self.memlabel.setText(f"内存使用: {main_mb:.2f} MB")
-        self.setWindowTitle("暗之眼 "+"V"+APP_VERSION+f" 内存使用: {main_mb:.2f} MB")
+        self.setWindowTitle("暗之眼 " + "V" + APP_VERSION + f" 内存使用: {main_mb:.2f} MB")
 
     @Slot()
     def update_thread_count(self) -> None:
