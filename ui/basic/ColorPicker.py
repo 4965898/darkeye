@@ -11,6 +11,7 @@ import logging
 
 
 from cpp_bindings.color_wheel.PyColorWheel import ColorWheelSimple
+
 class ColorPicker(QLabel):
     colorChanged = Signal(str)
 
