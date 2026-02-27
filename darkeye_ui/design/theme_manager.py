@@ -8,7 +8,16 @@ from PySide6.QtCore import QObject, Signal
 
 from .icon import SVG_ARROW_DOWN, render_svg_to_file
 from .loader import load_stylesheet
-from .tokens import DARK_TOKENS, LIGHT_TOKENS, RED_TOKENS, ThemeTokens
+from .tokens import (
+    BLUE_TOKENS,
+    DARK_TOKENS,
+    GREEN_TOKENS,
+    LIGHT_TOKENS,
+    PURPLE_TOKENS,
+    RED_TOKENS,
+    ThemeTokens,
+    YELLOW_TOKENS,
+)
 
 if TYPE_CHECKING:
     from PySide6.QtWidgets import QApplication
@@ -18,6 +27,10 @@ class ThemeId(Enum):
     LIGHT = "light"
     DARK = "dark"
     RED = "red"
+    GREEN = "green"
+    YELLOW = "yellow"
+    BLUE = "blue"
+    PURPLE = "purple"
 
 
 class ThemeManager(QObject):
@@ -33,6 +46,10 @@ class ThemeManager(QObject):
             ThemeId.LIGHT: LIGHT_TOKENS,
             ThemeId.DARK: DARK_TOKENS,
             ThemeId.RED: RED_TOKENS,
+            ThemeId.GREEN: GREEN_TOKENS,
+            ThemeId.YELLOW: YELLOW_TOKENS,
+            ThemeId.BLUE: BLUE_TOKENS,
+            ThemeId.PURPLE: PURPLE_TOKENS,
         }
 
     def current(self) -> ThemeId:

@@ -178,6 +178,10 @@ def main():
         (ThemeId.LIGHT, "浅色"),
         (ThemeId.DARK, "深色"),
         (ThemeId.RED, "红色"),
+        (ThemeId.GREEN, "绿色"),
+        (ThemeId.YELLOW, "黄色"),
+        (ThemeId.BLUE, "蓝色"),
+        (ThemeId.PURPLE, "紫色"),
     ]
     theme_combo = ComboBox()
     for _tid, label in theme_options:
