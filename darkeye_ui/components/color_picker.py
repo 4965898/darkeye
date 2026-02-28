@@ -103,6 +103,7 @@ class ColorPicker(QLabel):
             painter.setPen(Qt.PenStyle.NoPen)
             painter.setBrush(QBrush(self._color))
             painter.drawEllipse(rect)
+            painter.end()
             return
         super().paintEvent(event)
 

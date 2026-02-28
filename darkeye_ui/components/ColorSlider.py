@@ -135,6 +135,7 @@ class AlphaSliderCustom(QWidget):
         '''
 
         painter.restore()
+        painter.end()
 
     def draw_checker(self,painter:QPainter):
         '''绘制透明背景'''

@@ -69,6 +69,7 @@ class HeartLabel(QLabel):
         draw_x = (self.width() - scaled_img.width()) / 2
         draw_y = (self.height() - scaled_img.height()) / 2
         painter.drawImage(int(draw_x), int(draw_y), scaled_img)
+        painter.end()
 
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:

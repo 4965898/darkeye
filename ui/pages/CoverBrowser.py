@@ -47,6 +47,7 @@ class GradientOverlay(QWidget):
         grad_right.setColorAt(1, QColor(0, 0, 0, 0))    # 中间透明
         painter.setBrush(grad_right)
         painter.drawRect(window_width-0.1*self._scaled_width,0,window_width,window_height)
+        painter.end()
 
 #信息层
 class InfoOverlay(QWidget):

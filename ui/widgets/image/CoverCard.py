@@ -149,6 +149,7 @@ class CoverCard(QWidget):
         path.closeSubpath()
 
         painter.fillPath(path, QColor(self.background_color))  # 背景颜色
+        painter.end()  # 必须在 super() 之前结束，避免 QBackingStore::endPaint 报错
         super().paintEvent(event)
 
 

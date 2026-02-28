@@ -80,6 +80,7 @@ class SingleActressInfo(QWidget):
         rect = self.rect()
         rect.adjust(1, 1, -1, -1)  # 避免超出控件边缘
         painter.drawRect(rect)
+        painter.end()
 
     def beaute(self):
         '''对控件美化。ClickableLabel 颜色由主题 Label#DesignLabel 控制，此处只设字体，避免写死 color 以随主题变色。'''

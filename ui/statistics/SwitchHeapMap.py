@@ -173,14 +173,18 @@ class SwitchHeapMap(QWidget):
         self.heatmap_name.setText(self.heatmap_names[index])
 
     @Slot(int)
-    def update(self,year:int):
-        '''根据年份去更新自身'''
+    def update(self, year: int, force_refresh: bool = False):
+        '''根据年份去更新自身。force_refresh=True 时忽略缓存强制重新加载（用于数据变更后刷新）'''
         self.current_year = year
 
         # 显示加载状态
         self.heatmap_names = ["加载中...", "加载中...", "加载中..."]
         self.heatmap_name.setText(self.heatmap_names[self.stack.currentIndex()])
         self.content_stack.setCurrentWidget(self.placeholder_widget)
+
+        # 数据变更后需强制刷新，不使用旧缓存
+        if force_refresh and year in self.heatmap_data_cache:
+            del self.heatmap_data_cache[year]
 
         # 检查缓存
         if year in self.heatmap_data_cache:

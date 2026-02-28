@@ -117,6 +117,7 @@ class Sidebar2(QWidget):
         painter.setPen(QPen(c, 1))
         painter.setBrush(QBrush(c))
         painter.drawPath(path)
+        painter.end()
 
     # --------- 兼容接口 ---------
     def _on_button_clicked(self, menu_id: str) -> None:

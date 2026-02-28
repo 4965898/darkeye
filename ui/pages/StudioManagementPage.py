@@ -1,9 +1,9 @@
-from PySide6.QtWidgets import QTableView, QPushButton, QVBoxLayout, QHBoxLayout, QMessageBox,QAbstractItemView,QDataWidgetMapper,QFormLayout,QLineEdit,QComboBox,QSplitter
-from PySide6.QtCore import Slot,Qt
-from PySide6.QtSql import QSqlRelation,QSqlRelationalTableModel,QSqlRelationalDelegate,QSqlQueryModel,QSqlTableModel,QSqlDatabase
+from PySide6.QtCore import QModelIndex, Qt, Slot
+from PySide6.QtSql import QSqlDatabase, QSqlQueryModel, QSqlRelation, QSqlRelationalDelegate, QSqlRelationalTableModel, QSqlTableModel
+from PySide6.QtWidgets import QAbstractItemView, QComboBox, QDataWidgetMapper, QFormLayout, QHBoxLayout, QLineEdit, QMessageBox, QPushButton, QSplitter, QStyleOptionViewItem, QTableView, QVBoxLayout, QWidget
 import logging
 
-from config import BASE_DIR,DATABASE,INI_FILE
+from config import BASE_DIR, DATABASE, INI_FILE
 from ui.basic import ModelSearch
 from darkeye_ui import LazyWidget
 from darkeye_ui.components.label import Label
@@ -11,6 +11,29 @@ from darkeye_ui.components.token_table_view import TokenTableView
 from darkeye_ui.components.button import Button
 from darkeye_ui.components.input import LineEdit
 from darkeye_ui.components.combo_box import ComboBox
+
+
+class _RelationalTableDelegate(QSqlRelationalDelegate):
+    """view1 专用：LineEdit 与 _TableEditorDelegate 一致，ComboBox 与 DesignComboBox 一致。"""
+
+    def createEditor(self, parent, option, index):
+        model = index.model()
+        if hasattr(model, "relation") and model.relation(index.column()).isValid():
+            editor = ComboBox(parent)
+            rel_model = model.relationModel(index.column())
+            rel = model.relation(index.column())
+            editor.setModel(rel_model)
+            editor.setModelColumn(rel_model.fieldIndex(rel.displayColumn()))
+        else:
+            editor = LineEdit(parent)
+        return editor
+
+    def updateEditorGeometry(self, editor, option, index):
+        # 与 _TableEditorDelegate 相同的几何逻辑
+        margin = 0
+        rect = option.rect.adjusted(margin, margin, -margin, -margin)
+        editor.setGeometry(rect)
+
 
 class StudioManagementPage(LazyWidget):
     #StudioManagementPage
@@ -51,7 +74,9 @@ class StudioManagementPage(LazyWidget):
         self.view1.setSelectionMode(QAbstractItemView.SingleSelection)#只能选一个
         self.view1.setSelectionBehavior(QTableView.SelectRows)
         self.view1.setColumnHidden(0, True)  # 隐藏 ID 列（主键）
-        self.view1.setItemDelegate(QSqlRelationalDelegate(self.view1))#这样会产生下拉框
+        self.view1.setColumnWidth(1, 180)  # 番号前缀
+        self.view1.setColumnWidth(2, 180)  # 制作商
+        self.view1.setItemDelegate(_RelationalTableDelegate(self.view1))
 
         # 设置组合框的关系模型（外键关联）
         self.studio.setModel(self.model1.relationModel(studio_idx))
@@ -60,7 +85,7 @@ class StudioManagementPage(LazyWidget):
         # 创建数据窗口映射器
         self.mapper1 = QDataWidgetMapper(self)
         self.mapper1.setModel(self.model1)
-        self.mapper1.setItemDelegate(QSqlRelationalDelegate(self.view1))
+        self.mapper1.setItemDelegate(_RelationalTableDelegate(self.view1))
         self.mapper1.addMapping(self.serial_number, self.model1.fieldIndex("prefix"))
         self.mapper1.addMapping(self.studio, studio_idx)
 
@@ -87,6 +112,8 @@ class StudioManagementPage(LazyWidget):
         self.view2.setSelectionMode(QAbstractItemView.SingleSelection)#只能选一个
         self.view2.setSelectionBehavior(QTableView.SelectRows)
         self.view2.setColumnHidden(0, True)  # 隐藏 ID 列（主键）
+        self.view2.setColumnWidth(1, 180)  # 中文名
+        self.view2.setColumnWidth(2, 180)  # 日文名
 
         self.mapper2 = QDataWidgetMapper(self)
         self.mapper2.setModel(self.model2)
@@ -152,7 +179,7 @@ class StudioManagementPage(LazyWidget):
         hlayout.addLayout(formlayout2)
 
         layout = QVBoxLayout(self)
-        layout.addWidget(splitter)
+        layout.addWidget(splitter, 1)  # stretch=1 让 splitter 占据剩余空间
         layout.addWidget(self.searchWidget)
         layout.addLayout(button_layout)
         layout.addLayout(hlayout)

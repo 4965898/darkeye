@@ -181,6 +181,7 @@ class ChamferButton(QAbstractButton):
                 ix = x + (w - self._icon_size) / 2
                 iy = y + (h - self._icon_size) / 2
                 painter.drawPixmap(int(ix), int(iy), pix)
+        painter.end()
 
     def sizeHint(self) -> QSize:
         return QSize(self._out_size, self._out_size)

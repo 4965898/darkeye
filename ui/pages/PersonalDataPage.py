@@ -77,9 +77,11 @@ class PersonalDataPage(LazyWidget):
         global_signals.masterbation_changed.connect(most_like_actress180.update_actress)
         global_signals.masterbation_changed.connect(most_like_actress365.update_actress)
         from datetime import datetime
-        global_signals.masterbation_changed.connect(lambda:calendar_heatmap.update(datetime.now().year))
-        global_signals.lovemaking_changed.connect(lambda:calendar_heatmap.update(datetime.now().year))
-        global_signals.sexarousal_changed.connect(lambda:calendar_heatmap.update(datetime.now().year))
+        def refresh_heatmap():
+            calendar_heatmap.update(datetime.now().year, force_refresh=True)
+        global_signals.masterbation_changed.connect(refresh_heatmap)
+        global_signals.lovemaking_changed.connect(refresh_heatmap)
+        global_signals.sexarousal_changed.connect(refresh_heatmap)
 
 
 class OctagonCard(QWidget, ShadowEffectMixin):
@@ -148,6 +150,7 @@ class OctagonCard(QWidget, ShadowEffectMixin):
         painter.setPen(QPen(QColor(t.color_border), 1))
         painter.setBrush(QBrush(QColor(t.color_bg)))
         painter.drawPath(path)
+        painter.end()
 
 
 class WorkSaleCycle(OctagonCard):

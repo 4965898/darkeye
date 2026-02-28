@@ -120,6 +120,7 @@ class ToggleSwitch(QWidget):
         painter.drawEllipse(
             int(self._offset), 2, circle_diameter, circle_diameter
         )
+        painter.end()
 
     def mousePressEvent(self, event) -> None:
         if event.button() == Qt.MouseButton.LeftButton:

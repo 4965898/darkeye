@@ -178,7 +178,7 @@ class VerticalActorLabel(VLabel):
             #global_signals.actor_clicked.emit(self._actor_id)
             # 使用路由替代信号跳转
             from ui.navigation.router import Router
-            Router.instance().push("actor", actor_id=self._actor_id)
+            Router.instance().push("mutiwork", actor_id=self._actor_id)
         super().mousePressEvent(event)  # 保留默认行为
 
     def enterEvent(self, event):
