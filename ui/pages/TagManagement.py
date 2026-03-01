@@ -83,7 +83,8 @@ class ViewModel(QObject):
     def set_tag_id(self,value:int):
         if self.model._tag_id != value:
             self.model._tag_id = value
-            self.tag_id_changed.emit(value)
+            if value is not None:
+                self.tag_id_changed.emit(value)
 
     tag_id=Property(int,get_tag_id,set_tag_id,notify=tag_id_changed)
 
@@ -98,6 +99,8 @@ class ViewModel(QObject):
     def get_tag_type_id(self) -> int:
         return self.model._tag_type_id
     def set_tag_type_id(self, value: int):
+        if value is None:
+            return
         clean_value = value
         if self.model._tag_type_id != clean_value:
             self.model._tag_type_id = clean_value
@@ -134,7 +137,8 @@ class ViewModel(QObject):
     def set_tag_redirect_tag_id(self, value: int | None):
         if self.model._tag_redirect_tag_id != value:
             self.model._tag_redirect_tag_id = value
-            self.tag_redirect_tag_id.emit(value)
+            if value is not None:
+                self.tag_redirect_tag_id.emit(value)
 
     # Corrected Property declaration
     tag_redirect_tag_id = Property(int, get_tag_redirect_tag_id, set_tag_redirect_tag_id, notify=tag_redirect_tag_id)
@@ -234,7 +238,9 @@ class ViewModel(QObject):
         self.set_tag_detail("")
         self.set_tag_id(None)
         self.set_tag_redirect_tag_id(None)
-        self.set_tag_type_id(self.find_tag_type_id_by_value("默认分类"))
+        default_type_id = self.find_tag_type_id_by_value("默认分类") or next(iter(self.tag_type_map), None)
+        if default_type_id is not None:
+            self.set_tag_type_id(default_type_id)
         self.set_tag_alias([])
         
     def find_tag_type_id_by_value(self,target_value):
@@ -359,7 +365,7 @@ class TagManagement(LazyWidget):
 
         # model-UI
         self.vm.tag_color_changed.connect(self.colorpick_model_to_ui)
-        self.vm.tag_type_id_changed.connect(lambda key:self.tag_type.setCurrentText(self.vm.tag_type_map.get(key)))
+        self.vm.tag_type_id_changed.connect(lambda key:self.tag_type.setCurrentText(self.vm.tag_type_map.get(key) or ""))
 
         bindings_map2 = {
             "tag_name": self.tag_name,
@@ -399,7 +405,7 @@ class TagManagement(LazyWidget):
     def createlivetag(self):
         '''创建一个实时的跟着动的tag'''
         if not self.livetaglabel:
-            self.livetaglabel = VShowTagLabel(self.vm.get_tag_id(),self.vm.get_tag_name(),self.vm.get_tag_color(),self.vm.get_tag_detail())
+            self.livetaglabel = VShowTagLabel(self.vm.get_tag_id() or -1,self.vm.get_tag_name(),self.vm.get_tag_color(),self.vm.get_tag_detail())
             self.tag_liveshow.mainlayout.addWidget(self.livetaglabel)
     
     @Slot(str)

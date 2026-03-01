@@ -169,58 +169,22 @@ class Router(QObject):
         if self.sidebar and menu_id:
             self.sidebar.select(menu_id)#高亮选中的侧边栏
 
-        if route_name == "mutiwork":
-            self._handle_work_route(page, **kwargs)
-            return
+        # 业务状态迁移到页：Router 只传参，页面自行处理
+        if kwargs:
+            if hasattr(page, "load_with_params"):
+                try:
+                    page.load_with_params(**kwargs)
+                except Exception as e:
+                    logging.error(f"Router: Failed to load page {route_name} with params: {e}")
+            elif hasattr(page, "update"):
+                # 兼容旧接口：单参数页面 (actress_id / work_id / actor_id)
+                for key in ("actress_id", "work_id", "actor_id"):
+                    if key in kwargs:
+                        try:
+                            page.update(kwargs[key])
+                        except Exception as e:
+                            logging.error(f"Router: Failed to update page {route_name}: {e}")
+                        break
 
-        if route_name == "work_edit":
-            self._handle_work_edit_route(page, **kwargs)
-            return
-
-        if "actress_id" in kwargs and hasattr(page, "update"):
-            try:
-                page.update(kwargs["actress_id"])
-            except Exception as e:
-                logging.error(f"Router: Failed to update page {route_name}: {e}")
-                
-        elif "work_id" in kwargs and hasattr(page, "update"):
-            try:
-                page.update(kwargs["work_id"])
-            except Exception as e:
-                logging.error(f"Router: Failed to update page {route_name}: {e}")
-
-        elif "actor_id" in kwargs and hasattr(page, "update"):
-            try:
-                page.update(kwargs["actor_id"])
-            except Exception as e:
-                logging.error(f"Router: Failed to update page {route_name}: {e}")
-
-    def _handle_work_route(self, page: QWidget, **kwargs):
-        actor_id = kwargs.get("actor_id")
-        tag_id=kwargs.get("tag_id")
-        serial_number=kwargs.get("serial_number")
-        if actor_id is not None and hasattr(page, "actor_input"):
-            from core.database.query import get_actor_allname
-            namelist = get_actor_allname(actor_id)
-            if namelist:
-                name = namelist[0].get("cn")
-                page.actor_input.setText(name)
-        if tag_id is not None and hasattr(page, "tagselector"):
-            page.tagselector.load_with_ids([tag_id])
-        if serial_number is not None and hasattr(page, "serial_number_input"):
-            page.serial_number_input.setText(serial_number)
-
-    def _handle_work_edit_route(self, page: QWidget, **kwargs):
-        serial_number = kwargs.get("serial_number")
-        if serial_number is None:
-            return
-        if hasattr(page, "tab_widget") and hasattr(page, "worktab"):
-            page.tab_widget.setCurrentWidget(page.worktab)
-            worktab = page.worktab
-            if hasattr(worktab, "input_serial_number"):
-                worktab.viewmodel.set_serial_number(serial_number)
-                worktab.viewmodel._load_from_db()
-
-                
 
      

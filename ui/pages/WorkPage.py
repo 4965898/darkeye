@@ -6,7 +6,7 @@ from ui.widgets import CompleterLineEdit,CoverCard
 from darkeye_ui.components import LazyScrollArea
 from ui.basic import HorizontalScrollArea
 from config import DATABASE
-from core.database.query import get_actressname,getUniqueDirector,get_actorname,get_serial_number,get_maker_name
+from core.database.query import get_actressname, get_unique_director, get_actorname, get_serial_number, get_maker_name, get_actor_allname
 from core.database.db_utils import attach_private_db,detach_private_db
 from darkeye_ui import LazyWidget
 from darkeye_ui.components.label import Label
@@ -73,7 +73,7 @@ class WorkPage(LazyWidget):
         self.title_input=LineEdit()
         self.serial_number_input=CompleterLineEdit(get_serial_number)
         self.actress_input = CompleterLineEdit(get_actressname)
-        self.director_input = CompleterLineEdit(getUniqueDirector)
+        self.director_input = CompleterLineEdit(get_unique_director)
         self.actor_input=CompleterLineEdit(get_actorname)
         self.maker_input=CompleterLineEdit(get_maker_name)
 
@@ -197,6 +197,22 @@ class WorkPage(LazyWidget):
         global_signals.actor_data_changed.connect(self.actor_input.reload_items)
 
         self.btn_eraser.clicked.connect(self._clear_all_search)
+
+    def load_with_params(self, actor_id=None, tag_id=None, serial_number=None, **kwargs):
+        """
+        根据路由参数加载筛选条件（业务状态由页面自身管理，Router 只传参）
+        """
+        if actor_id is not None and hasattr(self, "actor_input"):
+            namelist = get_actor_allname(actor_id)
+            if namelist:
+                name = namelist[0].get("cn")
+                self.actor_input.setText(name or "")
+        if tag_id is not None and hasattr(self, "tagselector"):
+            self.tagselector.load_with_ids([tag_id])
+        if serial_number is not None and hasattr(self, "serial_number_input"):
+            self.serial_number_input.setText(serial_number)
+        if actor_id is not None or tag_id is not None or serial_number is not None:
+            self.apply_filter()
 
     @Slot()
     def _clear_all_search(self):

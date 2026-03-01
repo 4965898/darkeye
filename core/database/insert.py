@@ -1,12 +1,17 @@
+"""
+插入数据库的操作在这里。
 
-'''插入数据库的操作在这里'''
+【写操作后信号发射规范】
+写操作完成后，调用方负责 emit 对应的 global_signals.*_changed 信号。
+详见 docs/write_ops_signal_mapping.md 映射表。
+"""
 from sqlite3 import IntegrityError
 from config import DATABASE,PRIVATE_DATABASE
 import logging
 from .connection import get_connection
 
 def InsertNewActress(ch_name,jp_name)->bool:
-    '''插入女优数据'''
+    '''插入女优数据。调用后需 emit: global_signals.actress_data_changed'''
     conn = get_connection(DATABASE,False)
     cursor = conn.cursor()
     success=False
@@ -31,7 +36,7 @@ def InsertNewActress(ch_name,jp_name)->bool:
     return success
     
 def InsertNewActor(cn_name,jp_name)->bool:
-    '''插入男优数据'''
+    '''插入男优数据。调用后需 emit: global_signals.actor_data_changed'''
     conn = get_connection(DATABASE,False)
     cursor = conn.cursor()
     success=False
@@ -57,6 +62,7 @@ def InsertNewActor(cn_name,jp_name)->bool:
     return success
 
 def InsertNewWork(serial_number:str)->int:
+    '''添加新作品。调用后需 emit: global_signals.work_data_changed'''
     conn = get_connection(DATABASE,False)
     cursor = conn.cursor()
     success=False
@@ -79,6 +85,7 @@ def InsertNewWork(serial_number:str)->int:
     return success
 
 def InsertNewWorkByHand(serial_number,director,release_date,story,actress_ids,actor_ids,cn_title,cn_story,jp_title,jp_story,image_url,tag_ids)->bool:
+    '''手动添加新作品。调用后需 emit: global_signals.work_data_changed'''
     success=False
     try:
         conn = get_connection(DATABASE,False)
@@ -104,6 +111,7 @@ def InsertNewWorkByHand(serial_number,director,release_date,story,actress_ids,ac
     return success
 
 def insert_tag(tag_name:str,tag_type_id:int,tag_color:str,tag_detail:str,tag_redirect_tag_id:int,tag_alias:list[dict])->tuple[bool, str,int|None]:
+    '''插入标签。调用后需 emit: global_signals.tag_data_changed'''
     success=False
     try:
         conn = get_connection(DATABASE,False)
@@ -135,7 +143,7 @@ def insert_tag(tag_name:str,tag_type_id:int,tag_color:str,tag_detail:str,tag_red
     return success
 
 def add_tag2work(work_id:int,tag_ids:list[int])->bool:
-    '''给作品添加标签,只添加没有的,是直写入数据库'''
+    '''给作品添加标签,只添加没有的,是直写入数据库。调用后需 emit: global_signals.work_data_changed'''
     success=False
     try:
         conn = get_connection(DATABASE,False)
@@ -210,7 +218,7 @@ def rename_save_image(_path:str,name:str,type:str):
 
 def insert_masturbation_record(work_id,serial_number,start_time,rating,tool_name,comment)->bool:
     """
-    向自慰记录表 masturbation 插入一条新的记录。
+    向自慰记录表 masturbation 插入一条新的记录。调用后需 emit: global_signals.masterbation_changed
 
     参数:
     - work_id: 关联作品的ID（整数）
@@ -244,7 +252,7 @@ def insert_masturbation_record(work_id,serial_number,start_time,rating,tool_name
 
 def insert_lovemaking_record(event_time, rating, comment) -> bool:
     """
-    向做爱记录表 lovemaking 插入一条新的记录。
+    向做爱记录表 lovemaking 插入一条新的记录。调用后需 emit: global_signals.lovemaking_changed
 
     参数:
     - event_time: 做爱事件的时间，文本格式（如“YYYY-MM-DD HH:MM”）
@@ -276,7 +284,7 @@ def insert_lovemaking_record(event_time, rating, comment) -> bool:
 
 def insert_sexual_arousal_record(arousal_time, comment) -> bool:
     """
-    向晨勃记录表 sexual_arousal 插入一条新的记录。
+    向晨勃记录表 sexual_arousal 插入一条新的记录。调用后需 emit: global_signals.sexarousal_changed
 
     参数:
     - arousal_time: 晨勃时间，文本格式（如“YYYY-MM-DD HH:MM”）
@@ -306,7 +314,7 @@ def insert_sexual_arousal_record(arousal_time, comment) -> bool:
     return success
 
 def insert_liked_actress(actress_id)->bool:
-    '''向私库中添加喜欢的女优'''
+    '''向私库中添加喜欢的女优。调用后需 emit: global_signals.like_actress_changed'''
     from .db_utils import attach_private_db,detach_private_db
     success=False
     try:
@@ -340,7 +348,7 @@ WHERE actress_id=?
     return success
 
 def insert_liked_work(work_id)->bool:
-    '''向私库中添加喜欢的女优'''
+    '''向私库中添加喜欢的作品。调用后需 emit: global_signals.like_work_changed'''
     from .db_utils import attach_private_db,detach_private_db
     success=False
     try:
@@ -374,7 +382,7 @@ WHERE work_id=?
     return success
 
 def InsertAliasName(id,alias_chain:list[dict])->bool:
-    '''插入女优别名链'''
+    '''插入女优别名链。调用后需 emit: global_signals.actress_data_changed'''
     conn = get_connection(DATABASE,False)
     cursor = conn.cursor()
     success=False

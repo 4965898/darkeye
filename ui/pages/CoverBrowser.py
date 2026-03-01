@@ -416,9 +416,9 @@ class CoverBrowser(QWidget):
 
     def update_actress(self):
         '''更新女优的信息'''
-        from core.database.query import findActressFromWorkID
+        from core.database.query import get_actress_from_work_id
         work_id = self.works[self.current_index]["work_id"]
-        self.info_overlay.update_actress_buttons(findActressFromWorkID(work_id))
+        self.info_overlay.update_actress_buttons(get_actress_from_work_id(work_id))
         #根据这个id去找女优
 
     def update_tag(self):

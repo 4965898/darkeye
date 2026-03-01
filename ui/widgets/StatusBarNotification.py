@@ -1,8 +1,8 @@
 
 #关于后台任务与通知相关的组件这个基本不可复用
-from PySide6.QtWidgets import QWidget, QHBoxLayout, QPushButton,QMainWindow,QVBoxLayout,QListWidget,QSizePolicy
+from PySide6.QtWidgets import QWidget, QHBoxLayout,QVBoxLayout,QListWidget,QSizePolicy
 from PySide6.QtCore import Slot, Qt,QObject,QTimer,QPoint
-from ui.basic import IconPushButton
+from darkeye_ui.components.icon_push_button import IconPushButton
 from datetime import datetime
 from controller.GlobalSignalBus import global_signals
 from darkeye_ui.components.label import Label
@@ -93,7 +93,7 @@ class StatusBarNotification(QWidget):
         self.msg_count = 0
 
         # 3. 功能按钮
-        self.action_btn = IconPushButton("bell.svg",16,16)
+        self.action_btn = IconPushButton(icon_name="bell", icon_size=16, out_size=16)
 
         layout.addWidget(self.action_btn)
         layout.addWidget(self.count_label)

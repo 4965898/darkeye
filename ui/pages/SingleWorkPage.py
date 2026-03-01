@@ -362,10 +362,10 @@ class WorkInfo(TransparentWidget):
         
 
     def update(self,work_id):
-        from core.database.query import get_workinfo_by_workid,findActressFromWorkID,get_worktaginfo_by_workid,query_work,findActorFromWorkID
+        from core.database.query import get_workinfo_by_workid, get_actress_from_work_id, get_worktaginfo_by_workid, query_work, get_actor_from_work_id
         self._work_id=work_id
         self.set_info(get_workinfo_by_workid(work_id))
-        self.update_actress(findActressFromWorkID(work_id),findActorFromWorkID(work_id))
+        self.update_actress(get_actress_from_work_id(work_id), get_actor_from_work_id(work_id))
         self.update_tag(get_worktaginfo_by_workid(work_id))
 
         #更新爱心状态
@@ -442,6 +442,6 @@ class SingleWorkPage(LazyWidget):
 
     def update(self,work_id):
         '''传入一个work_id并更新整个页面'''
-        from core.database.query import get_coveriamgeurl
+        from core.database.query import get_cover_image_url
         self.cover.work_info.update(work_id)
-        self.cover.bg_label.set_cover(get_coveriamgeurl(work_id))
+        self.cover.bg_label.set_cover(get_cover_image_url(work_id))

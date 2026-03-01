@@ -7,7 +7,7 @@ from threading import Lock
 from PySide6.QtCore import QObject, Signal
 
 from core.graph.text_parser import parse_wikilinks
-from core.database.query import get_workid_by_serialnumber, findActressFromWorkID, get_serial_number_map, get_work_story_rows, get_recent_work_story_rows
+from core.database.query import get_workid_by_serialnumber, get_actress_from_work_id, get_serial_number_map, get_work_story_rows, get_recent_work_story_rows
 
 
 '''
@@ -314,7 +314,7 @@ class GraphManager(QObject):
                                 logging.debug(f"更新引用边: {source_serial} -> {target_serial}")
 
                 # 3. 女优-作品边：按 DB 同步
-                actress_list = findActressFromWorkID(source_work_id)
+                actress_list = get_actress_from_work_id(source_work_id)
                 if actress_list is None:
                     actress_list = []
 

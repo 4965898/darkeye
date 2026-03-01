@@ -15,7 +15,7 @@ from config import DATABASE
 from core.database.db_utils import attach_private_db, detach_private_db
 from core.database.query import (
     get_actressname,
-    getUniqueDirector,
+    get_unique_director,
     get_actorname,
     get_serial_number,
     get_maker_name,
@@ -83,7 +83,7 @@ class ShelfWidget(QWidget):
         self.title_input = LineEdit()
         self.serial_number_input = CompleterLineEdit(get_serial_number)
         self.actress_input = CompleterLineEdit(get_actressname)
-        self.director_input = CompleterLineEdit(getUniqueDirector)
+        self.director_input = CompleterLineEdit(get_unique_director)
         self.actor_input = CompleterLineEdit(get_actorname)
         self.maker_input = CompleterLineEdit(get_maker_name)
 

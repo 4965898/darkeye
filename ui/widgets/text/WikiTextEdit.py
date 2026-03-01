@@ -8,7 +8,7 @@ from PySide6.QtCore import Qt, Signal, QStringListModel, QEvent, QTimer, QSize
 from PySide6.QtGui import QTextCursor, QDesktopServices, QPixmap,QImage
 from ui.widgets.text.WikiHighlighter import WikiHighlighter
 from ui.navigation.router import Router
-from core.database.query import get_workid_by_serialnumber, exist_actress, get_actress_info, get_coveriamgeurl
+from core.database.query import get_workid_by_serialnumber, exist_actress, get_actress_info
 from config import WORKCOVER_PATH, ACTRESSIMAGES_PATH
 from functools import lru_cache
 from darkeye_ui.components.input import TextEdit
@@ -85,9 +85,9 @@ def get_image_path_for_text(text):
     text = str(text).strip()
     
 
-    from core.database.query import get_coverimageurl_
+    from core.database.query import get_cover_image_url_by_serial
     # 2. 尝试作为番号查询
-    cover_url = get_coverimageurl_(text)
+    cover_url = get_cover_image_url_by_serial(text)
     if cover_url:
         path = WORKCOVER_PATH / cover_url
         if path.exists():

@@ -50,6 +50,26 @@ class ManagementPage(QWidget):
         self.tab_widget.addTab(self.g_management,"综合管理")
         self.tab_widget.addTab(self.rubbish,"回收站")
 
+    def load_with_params(self, serial_number=None, work_id=None, **kwargs):
+        """
+        根据路由参数加载管理页（如切换到添加/修改作品 tab 并预填番号）
+        业务状态由页面自身管理，Router 只传参。
+        """
+        if serial_number is None and work_id is not None:
+            from core.database.query import get_workinfo_by_workid
+            try:
+                info = get_workinfo_by_workid(work_id)
+                if info:
+                    serial_number = info.get("serial_number")
+            except Exception:
+                pass
+        if serial_number is None:
+            return
+        self.tab_widget.setCurrentWidget(self.worktab)
+        if hasattr(self.worktab, "viewmodel"):
+            self.worktab.viewmodel.set_serial_number(serial_number)
+            self.worktab.viewmodel._load_from_db()
+
     #工具栏
     def create_toolbar(self):
         #工具栏

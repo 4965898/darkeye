@@ -13,7 +13,7 @@ import logging
 from typing import TYPE_CHECKING, Optional
 
 from config import ICONS_PATH
-from core.database.query import getTags, get_tagid_by_keyword
+from core.database.query import get_tags, get_tagid_by_keyword
 
 from controller.MessageService import MessageBoxService
 from darkeye_ui.components import TokenVerticalTabBar
@@ -687,7 +687,7 @@ class TagSelector5(QWidget):
         耗时优化核心：只创建 Python 对象和 GraphicsItem，不创建 Widget。
         """
         logging.debug("TagSelector5 加载 tag 数据库")
-        tags = getTags()
+        tags = get_tags()
         
         # 清理旧数据
         self.panel.tag_emit_tabwidget.clear()
