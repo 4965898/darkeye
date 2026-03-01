@@ -22,15 +22,14 @@ class SingleActressPage(LazyWidget):
 
         self.single_actress_info=SingleActressInfo()
         
-        #spacer_widget = QWidget()
-        #spacer_widget.setFixedHeight(70)
+
 
         self.lazy_area = LazyScrollArea(column_width=220,widget=self.single_actress_info,hint=False)
         self.lazy_area.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         
         mainlayout = QVBoxLayout(self)
         mainlayout.setContentsMargins(0, 0, 0, 0)
-        #mainlayout.addWidget(spacer_widget)
+
         mainlayout.addWidget(self.lazy_area)
 
 

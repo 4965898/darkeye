@@ -304,9 +304,11 @@ class SingleActressInfo(QWidget):
     def on_clicked_heart(self):
         from core.database.insert import insert_liked_actress
         from core.database.delete import delete_favorite_actress
+        from controller.GlobalSignalBus import global_signals
         if self.heart.get_statue():
             '''添加到喜欢'''
             insert_liked_actress(self._actress_id)
         else:
             '''删除'''
             delete_favorite_actress(self._actress_id)
+        global_signals.like_actress_changed.emit()

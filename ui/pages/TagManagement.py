@@ -1,11 +1,10 @@
 
-from PySide6.QtWidgets import  QVBoxLayout, QLabel,QWidget,QHBoxLayout,QLineEdit,QComboBox,QFormLayout,QLayout,QTableView,QSizePolicy,QDialog
+from PySide6.QtWidgets import  QVBoxLayout,QWidget,QHBoxLayout,QLineEdit,QFormLayout,QLayout,QSizePolicy
 from PySide6.QtCore import Qt,QObject,Signal,Property,Slot,SignalInstance
-from PySide6.QtSql import QSqlRelation,QSqlRelationalTableModel,QSqlTableModel,QSqlRelationalDelegate,QSqlQueryModel,QSqlQuery,QSqlDatabase
 
 from ui.widgets.selectors.TagSelector5 import TagSelector5
-from ui.widgets import CompleterLineEdit
-from core.database.query import get_tag_name,get_tag_type_dict,get_unique_tag_type
+
+from core.database.query import get_tag_type_dict,get_unique_tag_type
 from darkeye_ui.components.color_picker import ColorPicker
 import logging
 from darkeye_ui import LazyWidget
