@@ -20,24 +20,35 @@ from PySide6.QtWidgets import (
     QFrame,
     QButtonGroup,
     QStackedWidget,
+    QTableWidgetItem,
 )
-from PySide6.QtCore import Qt, QStringListModel, QDateTime, QTime
+from PySide6.QtCore import Qt, QStringListModel, QDateTime, QTime, QEvent, QObject, QTimer
 from PySide6.QtGui import QColor
 
 from darkeye_ui.design import ThemeManager, ThemeId, get_builtin_icon
 from darkeye_ui.design.icon import BUILTIN_ICONS
 from darkeye_ui.components import (
     Button,
+    CalloutTooltip,
+    ChamferButton,
     ClickableSlider,
     ColorPicker,
     ComboBox,
+    CompleterLineEdit,
+    HeartLabel,
+    HeartRatingWidget,
     IconPushButton,
     LineEdit,
     Label,
+    OctImage,
+    PlainTextEdit,
+    RotateButton,
+    ShakeButton,
     Sidebar2,
     StateToggleButton,
     TextEdit,
     ToggleSwitch,
+    TokenKeySequenceEdit,
     TokenListView,
     TokenRadioButton,
     TokenCheckBox,
@@ -45,12 +56,40 @@ from darkeye_ui.components import (
     TokenSpinBox,
     TokenTabWidget,
     TokenGroupBox,
+    TokenTableWidget,
+    TransparentWidget,
     VerticalTextLabel,
 )
 from darkeye_ui.layouts import FlowLayout
 
 # 所有内置图标名（来自 resources/icons 内联）
 BUILTIN_ICON_NAMES = tuple(BUILTIN_ICONS.keys())
+
+# CalloutTooltip 演示：悬停按钮显示尖角提示
+class _CalloutDemoBox(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._btn = Button("悬停显示 CalloutTooltip")
+        self._callout = CalloutTooltip()
+        self._timer = QTimer(self)
+        self._timer.setSingleShot(True)
+        self._timer.timeout.connect(self._show)
+        lay = QVBoxLayout(self)
+        lay.addWidget(self._btn)
+        self._btn.installEventFilter(self)
+
+    def _show(self):
+        self._callout.show_for(self._btn, "这是 CalloutTooltip 尖角提示框")
+
+    def eventFilter(self, obj, ev):
+        if obj == self._btn:
+            if ev.type() == QEvent.Type.Enter:
+                self._timer.start(300)
+            elif ev.type() == QEvent.Type.Leave:
+                self._timer.stop()
+                self._callout.hide()
+        return super().eventFilter(obj, ev)
+
 
 # 主题选项（多处复用）
 THEME_OPTIONS = [
@@ -96,13 +135,20 @@ def _make_scrollable_page() -> tuple[QWidget, QVBoxLayout, QVBoxLayout]:
 
 
 def _build_page_buttons(theme_mgr: ThemeManager) -> QWidget:
-    """按钮页：Button、StateToggleButton、IconPushButton。"""
+    """按钮页：Button、ChamferButton、StateToggleButton、IconPushButton、RotateButton、ShakeButton。"""
     page, left, right = _make_scrollable_page()
     left.addWidget(Label("设计系统组件 Demo - 按钮"))
     btn_row = QHBoxLayout()
     btn_row.addWidget(Button("默认按钮"))
     btn_row.addWidget(Button("主要按钮", variant="primary"))
     left.addLayout(btn_row)
+    left.addWidget(Label("斜角按钮 ChamferButton（令牌驱动）"))
+    chamfer_row = QHBoxLayout()
+    chamfer_row.addWidget(ChamferButton(icon_name="settings", theme_manager=theme_mgr))
+    chamfer_row.addWidget(ChamferButton(icon_name="search", theme_manager=theme_mgr))
+    chamfer_row.addWidget(ChamferButton(icon_name="refresh_cw", theme_manager=theme_mgr))
+    chamfer_row.addWidget(ChamferButton(icon_name="copy", theme_manager=theme_mgr))
+    left.addLayout(chamfer_row)
     left.addWidget(Label("状态切换按钮（令牌驱动，随主题变色）"))
     toggle_row = QHBoxLayout()
     toggle_row.addWidget(StateToggleButton(theme_manager=theme_mgr))
@@ -116,13 +162,23 @@ def _build_page_buttons(theme_mgr: ThemeManager) -> QWidget:
         btn.setToolTip(name)
         icon_btn_row.addWidget(btn)
     right.addLayout(icon_btn_row)
+    right.addWidget(Label("旋转按钮 RotateButton（点击图标旋转 180°）"))
+    rotate_row = QHBoxLayout()
+    rotate_row.addWidget(RotateButton(icon_name="refresh_cw", theme_manager=theme_mgr))
+    rotate_row.addWidget(RotateButton(icon_name="settings", theme_manager=theme_mgr))
+    right.addLayout(rotate_row)
+    right.addWidget(Label("晃动按钮 ShakeButton（点击左右晃动）"))
+    shake_row = QHBoxLayout()
+    shake_row.addWidget(ShakeButton(icon_name="trash_2", theme_manager=theme_mgr))
+    shake_row.addWidget(ShakeButton(icon_name="copy", theme_manager=theme_mgr))
+    right.addLayout(shake_row)
     left.addStretch()
     right.addStretch()
     return page
 
 
 def _build_page_text(theme_mgr: ThemeManager) -> QWidget:
-    """文本与输入页：Label、LineEdit、TextEdit、VerticalTextLabel。"""
+    """文本与输入页：Label、LineEdit、PlainTextEdit、TextEdit、CompleterLineEdit、VerticalTextLabel。"""
     page, left, right = _make_scrollable_page()
     left.addWidget(Label("文本与输入"))
     left.addWidget(LineEdit())
@@ -134,6 +190,18 @@ def _build_page_text(theme_mgr: ThemeManager) -> QWidget:
     text_edit.setPlaceholderText("多行输入示例…")
     text_edit.setMinimumHeight(80)
     left.addWidget(text_edit)
+    left.addWidget(Label("纯文本多行 PlainTextEdit"))
+    plain_edit = PlainTextEdit()
+    plain_edit.setPlaceholderText("PlainTextEdit 占位符…")
+    plain_edit.setMinimumHeight(60)
+    left.addWidget(plain_edit)
+    left.addWidget(Label("带补全 CompleterLineEdit（输入字母过滤）"))
+    completer = CompleterLineEdit(
+        loader_func=lambda: ["Apple", "Banana", "Cherry", "Date", "Elderberry", "Fig", "Grape"],
+        theme_manager=theme_mgr,
+    )
+    completer.setPlaceholderText("输入 a/b/c 等触发补全")
+    left.addWidget(completer)
     right.addWidget(Label("Label tone 变体（normal / inverse）"))
     tone_row = QHBoxLayout()
     tone_row.addWidget(Label("普通背景 normal"))
@@ -232,13 +300,17 @@ def _build_page_inputs(theme_mgr: ThemeManager) -> QWidget:
         s.valueChanged.connect(lambda v, n=label_text: print(f"{n}: {v}"))
         slider_layout.addRow(Label(label_text), s)
     left.addWidget(slider_section)
+    right.addWidget(Label("令牌驱动 KeySequenceEdit（快捷键编辑）"))
+    key_seq = TokenKeySequenceEdit(parent)
+    key_seq.setClearButtonEnabled(True)
+    right.addWidget(key_seq)
     left.addStretch()
     right.addStretch()
     return page
 
 
 def _build_page_containers(theme_mgr: ThemeManager) -> QWidget:
-    """标签页分组页：TokenTabWidget、TokenGroupBox。"""
+    """标签页分组页：TokenTabWidget、TokenGroupBox、TokenTableWidget、TransparentWidget。"""
     page, left, right = _make_scrollable_page()
     parent = page
     left.addWidget(Label("令牌驱动 TabWidget（随主题变色）"))
@@ -256,6 +328,26 @@ def _build_page_containers(theme_mgr: ThemeManager) -> QWidget:
     gb_lay.addWidget(TokenRadioButton("模式 A", parent))
     gb_lay.addWidget(TokenRadioButton("模式 B", parent))
     left.addWidget(gb)
+    right.addWidget(Label("令牌驱动 TokenTableWidget"))
+    table = TokenTableWidget(parent, theme_manager=theme_mgr)
+    table.setColumnCount(3)
+    table.setRowCount(4)
+    table.setHorizontalHeaderLabels(["列 A", "列 B", "列 C"])
+    for r in range(4):
+        for c in range(3):
+            table.setItem(r, c, QTableWidgetItem(f"({r},{c})"))
+    table.setMaximumHeight(180)
+    right.addWidget(table)
+    right.addWidget(Label("TransparentWidget（透明容器，透出下层）"))
+    frame = QFrame()
+    frame.setStyleSheet("QFrame { background-color: #e0e0e0; border-radius: 8px; }")
+    frame.setFixedHeight(80)
+    trans_lay = QVBoxLayout(frame)
+    trans_widget = TransparentWidget(frame)
+    trans_lay.addWidget(trans_widget)
+    trans_inner = QVBoxLayout(trans_widget)
+    trans_inner.addWidget(Label("透明容器内的文字，背景透出父级颜色"))
+    right.addWidget(frame)
     left.addStretch()
     right.addStretch()
     return page
@@ -314,6 +406,43 @@ def _build_page_color_icons(
     return page
 
 
+def _build_page_more(theme_mgr: ThemeManager) -> QWidget:
+    """更多组件页：CalloutTooltip、HeartLabel、HeartRatingWidget、OctImage。"""
+    page, left, right = _make_scrollable_page()
+    parent = page
+    left.addWidget(Label("CalloutTooltip（悬停显示尖角提示框）"))
+    left.addWidget(_CalloutDemoBox(parent))
+    left.addWidget(Label("HeartLabel（爱心喜欢/不喜欢）"))
+    heart_row = QHBoxLayout()
+    hl1 = HeartLabel(parent)
+    hl1.clicked.connect(lambda on: print("HeartLabel:", on))
+    heart_row.addWidget(hl1)
+    hl2 = HeartLabel(parent)
+    hl2.set_statue(True)
+    heart_row.addWidget(hl2)
+    left.addLayout(heart_row)
+    left.addWidget(Label("HeartRatingWidget（1-5 颗心打分）"))
+    hr = HeartRatingWidget(parent)
+    hr.rating_changed.connect(lambda v: print("评分:", v))
+    left.addWidget(hr)
+    right.addWidget(Label("OctImage（正八边形图片展示）"))
+    _root = Path(__file__).resolve().parent.parent
+    logo_path = _root / "resources" / "icons" / "logo.png"
+    oct_img = OctImage(
+        image_path=str(logo_path) if logo_path.exists() else None,
+        diameter=120,
+        shadow=True,
+        parent=parent,
+    )
+    right.addWidget(oct_img)
+    right.addWidget(Label("OctImage 无图状态"))
+    oct_empty = OctImage(diameter=80, shadow=False, parent=parent)
+    right.addWidget(oct_empty)
+    left.addStretch()
+    right.addStretch()
+    return page
+
+
 def _build_page_theme(
     theme_mgr: ThemeManager, refresh_callbacks: list,
 ) -> QWidget:
@@ -358,6 +487,7 @@ def main():
         ("toggles", "开关选择", "check"),
         ("inputs", "数值滑块", "list_plus"),
         ("containers", "标签页分组", "layout_panel_left"),
+        ("more", "更多组件", "circle_plus"),
         ("color_icons", "颜色图标", "copy"),
         ("theme", "主题", "refresh_cw"),
     ]
@@ -370,6 +500,7 @@ def main():
     stack.addWidget(_build_page_toggles(theme_mgr))
     stack.addWidget(_build_page_inputs(theme_mgr))
     stack.addWidget(_build_page_containers(theme_mgr))
+    stack.addWidget(_build_page_more(theme_mgr))
     stack.addWidget(_build_page_color_icons(theme_mgr, refresh_callbacks))
     stack.addWidget(_build_page_theme(theme_mgr, refresh_callbacks))
 
