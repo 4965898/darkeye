@@ -1,13 +1,12 @@
 #include "ForceViewOpenGL.h"
 #include "GraphRenderer.h"
+#include "MsdfFontAtlas.h"
+#include "MsdfTextRenderer.h"
 
 #include <QWheelEvent>
 #include <QMouseEvent>
 #include <QEnterEvent>
-#include <QPainter>
-#include <QOpenGLPaintDevice>
 #include <QSurfaceFormat>
-#include <QTransform>
 #include <QVariantMap>
 #include <QHash>
 
@@ -63,11 +62,10 @@ ForceViewOpenGL::ForceViewOpenGL(QWidget* parent)
     QSurfaceFormat fmt;
     fmt.setVersion(3, 3);
     fmt.setProfile(QSurfaceFormat::CoreProfile);
-    fmt.setSamples(4);//MSAA
+    fmt.setSamples(4);
     setFormat(fmt);
     setMinimumSize(200, 150);
     setMouseTracking(true);
-    m_fontHeight = m_fontMetrics.height();
     setupTimers();
 }
 
@@ -75,9 +73,13 @@ ForceViewOpenGL::ForceViewOpenGL(QWidget* parent)
 ForceViewOpenGL::~ForceViewOpenGL()
 {
     makeCurrent();
+    if (m_textRenderer) {
+        m_textRenderer->cleanup();
+    }
     if (m_renderer) {
         m_renderer->cleanup();
     }
+    m_fontAtlas.reset();
     doneCurrent();
 
     stopSimThread();
@@ -268,7 +270,7 @@ void ForceViewOpenGL::setGraph(int nNodes,
     m_lastDimEdges.clear();
     m_lastHighlightEdges.clear();
     updateFactor();
-    initStaticTextCache();
+    rebuildMsdfAtlas();
 
     m_allowWarmup.store(true, std::memory_order_release);
     {
@@ -1007,22 +1009,151 @@ QColor ForceViewOpenGL::mixColor(const QColor& c1, const QColor& c2, float t)
     return QColor(r, g, b, a);
 }
 
-// 功能：构建标签的静态缓存（QStaticText），用于高效绘制与宽度计算
-void ForceViewOpenGL::initStaticTextCache()
+void ForceViewOpenGL::rebuildMsdfAtlas()
 {
-    m_staticTextCache.clear();
+    if (!m_fontAtlas || !m_fontAtlas->isReady()) return;
+    m_fontAtlas->buildForLabels(m_labels);
+    // texture upload deferred to paintGL where GL context is guaranteed current
+    rebuildLabelLayoutCache();
+}
+
+void ForceViewOpenGL::rebuildLabelLayoutCache()
+{
+    m_labelLayoutCache.clear();
+    if (!m_fontAtlas || !m_fontAtlas->isReady()) {
+        m_labelLayoutByIndex.clear();
+        return;
+    }
     for (int i = 0; i < m_labels.size(); ++i) {
         std::string key = m_labels[i].toStdString();
-        if (m_staticTextCache.count(key)) continue;
-        QStaticText st(m_labels[i]);
-        st.prepare(QTransform(), m_font);
-        float w = static_cast<float>(st.size().width());
-        m_staticTextCache[key] = { st, w };
+        if (m_labelLayoutCache.count(key)) continue;
+        const QList<uint> cps = m_labels[i].toUcs4();
+        LabelLayoutEntry entry;
+        entry.totalWidth = 0.0f;
+        float cursorX = 0.0f;
+        uint32_t prev = 0;
+        bool hasPrev = false;
+        for (const uint cpQ : cps) {
+            uint32_t cp = static_cast<uint32_t>(cpQ);
+            const MsdfFontAtlas::GlyphInfo* g = m_fontAtlas->findGlyph(cp);
+            if (!g) continue;
+            if (hasPrev) cursorX += m_fontAtlas->kerning(prev, cp);
+            if (g->drawable) {
+                GlyphQuad q;
+                q.x0 = cursorX + g->planeLeft;
+                q.y0 = g->planeBottom;
+                q.x1 = cursorX + g->planeRight;
+                q.y1 = g->planeTop;
+                q.u0 = g->u0; q.v0 = g->v0;
+                q.u1 = g->u1; q.v1 = g->v1;
+                entry.quads.push_back(q);
+            }
+            cursorX += g->advance;
+            prev = cp;
+            hasPrev = true;
+        }
+        entry.totalWidth = cursorX;
+        m_labelLayoutCache[key] = std::move(entry);
     }
-    m_labelCacheByIndex.resize(m_labels.size());
+    m_labelLayoutByIndex.resize(m_labels.size());
     for (int i = 0; i < m_labels.size(); ++i) {
-        auto it = m_staticTextCache.find(m_labels[i].toStdString());
-        if (it != m_staticTextCache.end()) m_labelCacheByIndex[i] = it->second;
+        auto it = m_labelLayoutCache.find(m_labels[i].toStdString());
+        m_labelLayoutByIndex[i] = (it != m_labelLayoutCache.end()) ? &it->second : nullptr;
+    }
+}
+
+void ForceViewOpenGL::buildTextVertices()
+{
+    m_textVerticesDim.clear();
+    m_textVerticesRest.clear();
+    m_textVerticesHover.clear();
+    if (!m_fontAtlas || !m_fontAtlas->isReady() || !m_physicsState) return;
+
+    const float scale = m_zoom;
+    if (scale <= m_textThresholdOff) return;
+
+    float baseAlpha = 1.0f;
+    if (scale < m_textThresholdShow)
+        baseAlpha = (scale - m_textThresholdOff) / (m_textThresholdShow - m_textThresholdOff);
+
+    const float* pos = m_physicsState->renderPosData();
+    const float dpr = devicePixelRatioF();
+    const float invZoomDpr = 1.0f / (scale * dpr);
+    const float fontSize = m_msdfFontSize;
+    const float descent = static_cast<float>(m_fontAtlas->descender());
+
+    auto emitLabel = [&](int i, const QColor& color, float alpha, float fontScale, std::vector<float>& out) {
+        if (i < 0 || i >= static_cast<int>(m_labelLayoutByIndex.size())) return;
+        const LabelLayoutEntry* layout = m_labelLayoutByIndex[i];
+        if (!layout || layout->quads.empty()) return;
+
+        float nodeX = pos[2 * i];
+        float nodeY = pos[2 * i + 1];
+        float r = (i < m_showRadii.size()) ? m_showRadii[i] : kDefaultNodeRadius;
+        float fs = fontSize * fontScale;
+
+        float labelW = layout->totalWidth * fs;
+        float baseX = nodeX - labelW * 0.5f;
+        // 基线：节点底部 + 向下偏移。descent 为负，-descent*fs 使基线在节点下方；
+        // 再加 fs*0.25 避免 CJK 等字体因度量不准导致“字偏上面”
+        float baseY = nodeY + r - descent * fs + fs * 1.25f;
+
+        // device-space snap for pixel alignment
+        float devX = baseX * scale * dpr;
+        float devY = baseY * scale * dpr;
+        baseX = std::round(devX) * invZoomDpr;
+        baseY = std::round(devY) * invZoomDpr;
+
+        float cr = color.redF(), cg = color.greenF(), cb = color.blueF();
+        for (const GlyphQuad& q : layout->quads) {
+            float x0 = baseX + q.x0 * fs;
+            float y0 = baseY - q.y1 * fs;
+            float x1 = baseX + q.x1 * fs;
+            float y1 = baseY - q.y0 * fs;
+
+            // y0 = glyph top in screen (small Y) → v1 = glyph top in texture
+            // y1 = glyph bottom in screen (large Y) → v0 = glyph bottom in texture
+            // triangle 1: top-left, bottom-left, bottom-right
+            out.push_back(x0); out.push_back(y0);
+            out.push_back(q.u0); out.push_back(q.v1);
+            out.push_back(cr); out.push_back(cg); out.push_back(cb); out.push_back(alpha);
+
+            out.push_back(x0); out.push_back(y1);
+            out.push_back(q.u0); out.push_back(q.v0);
+            out.push_back(cr); out.push_back(cg); out.push_back(cb); out.push_back(alpha);
+
+            out.push_back(x1); out.push_back(y1);
+            out.push_back(q.u1); out.push_back(q.v0);
+            out.push_back(cr); out.push_back(cg); out.push_back(cb); out.push_back(alpha);
+
+            // triangle 2: top-left, bottom-right, top-right
+            out.push_back(x0); out.push_back(y0);
+            out.push_back(q.u0); out.push_back(q.v1);
+            out.push_back(cr); out.push_back(cg); out.push_back(cb); out.push_back(alpha);
+
+            out.push_back(x1); out.push_back(y1);
+            out.push_back(q.u1); out.push_back(q.v0);
+            out.push_back(cr); out.push_back(cg); out.push_back(cb); out.push_back(alpha);
+
+            out.push_back(x1); out.push_back(y0);
+            out.push_back(q.u1); out.push_back(q.v1);
+            out.push_back(cr); out.push_back(cg); out.push_back(cb); out.push_back(alpha);
+        }
+    };
+
+    // 融入背景的文字 → m_textVerticesDim（先画）
+    QColor dimTextColor = mixColor(m_textColor, m_textDimColor, m_hoverGlobal);
+    for (int i : m_groupDim) emitLabel(i, dimTextColor, baseAlpha, 1.0f, m_textVerticesDim);
+
+    // 正常文字 → m_textVerticesRest（后画，压在上层）
+    for (int i : m_groupBase) emitLabel(i, m_textColor, baseAlpha, 1.0f, m_textVerticesRest);
+    if (m_hoverIndex == -1) {
+        // 无当前 hover：过渡阶段 m_groupHover 里的节点按普通字号画在 Rest 里
+        for (int i : m_groupHover) emitLabel(i, m_textColor, baseAlpha, 1.0f, m_textVerticesRest);
+    } else if (m_hoverIndex >= 0 && m_hoverIndex < m_labels.size()) {
+        // 有当前 hover：该节点文字按放大字号单独写入 Hover 缓冲，便于单独调整 screenPxRange
+        float hoverFontScale = 1.0f + m_hoverGlobal * 2.0f;
+        emitLabel(m_hoverIndex, m_textColor, 1.0f, hoverFontScale, m_textVerticesHover);
     }
 }
 
@@ -1044,15 +1175,30 @@ void ForceViewOpenGL::initializeGL()
 {
     initializeOpenGLFunctions();
 
-    glEnable(GL_MULTISAMPLE);//开启多重采样抗锯齿,不开了自己弄shader，setSamples(4)
-    glEnable(GL_BLEND);//开启混合
-    glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);//混合函数
+    glEnable(GL_MULTISAMPLE);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
     glEnable(GL_PROGRAM_POINT_SIZE);
     m_renderer = std::make_unique<GraphRenderer>();
     m_glReady = m_renderer->initialize(this);
     if (!m_glReady) return;
 
-    glClearColor(1.0f, 1.0f, 1.0f, 1.0f);//清屏颜色，全白
+    m_fontAtlas = std::make_unique<MsdfFontAtlas>();
+    MsdfFontAtlas::Config fontCfg;
+    fontCfg.fontPath = QStringLiteral("C:/Windows/Fonts/msyh.ttc");
+    fontCfg.atlasWidth = 2048;
+    fontCfg.atlasHeight = 2048;
+    fontCfg.pxRange = 6.0f;
+    m_fontAtlas->initialize(fontCfg);
+
+    m_textRenderer = std::make_unique<MsdfTextRenderer>();
+    m_textRenderer->initialize(this);
+
+    if (!m_labels.isEmpty()) {
+        rebuildMsdfAtlas();
+    }
+
+    glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
 }
 
 // 功能：视口尺寸变化时更新缓存尺寸并设置 glViewport
@@ -1088,6 +1234,7 @@ void ForceViewOpenGL::paintGL()
 
     glClear(GL_COLOR_BUFFER_BIT);//每帧都清屏
 
+    // 无悬停：整图边线 + 其余节点一批绘制
     if (m_hoverIndex == -1 && m_hoverGlobal <= 0.0f && !m_lineVertsAll.empty()) {
         float color[4] = { m_edgeColor.redF(), m_edgeColor.greenF(), m_edgeColor.blueF(), m_edgeColor.alphaF() };
         if (m_renderer) {
@@ -1098,7 +1245,29 @@ void ForceViewOpenGL::paintGL()
         }
 
         drawNodeBatch(m_nodeInstanceDataRest);
+
+        // 无悬停时文字全在 Rest，一次绘制
+        if (m_zoom > m_textThresholdOff && m_textRenderer && m_fontAtlas && m_fontAtlas->isReady()) {
+            if (m_fontAtlas->generation() != m_lastAtlasGeneration) {
+                m_textRenderer->uploadAtlas(
+                    m_fontAtlas->atlasPixels().data(),
+                    m_fontAtlas->atlasWidth(),
+                    m_fontAtlas->atlasHeight(),
+                    m_fontAtlas->generation());
+                m_lastAtlasGeneration = m_fontAtlas->generation();
+            }
+            buildTextVertices();
+            if (!m_textVerticesRest.empty()) {
+                float dpr = devicePixelRatioF();
+                float screenGlyphSize = m_msdfFontSize * m_zoom * dpr;
+                float atlasGlyphSize = m_fontAtlas->targetInnerPixels();
+                float screenPxRange = m_fontAtlas->pxRange() * screenGlyphSize / atlasGlyphSize;
+                if (screenPxRange < 1.0f) screenPxRange = 1.0f;
+                m_textRenderer->draw(m_textVerticesRest, m_cachedMvp, screenPxRange);
+            }
+        }
     } else {
+        // 有悬停：先画变暗的边与节点，再画融入背景的文字，再画高亮边，最后画其余节点与正常文字
         if (!m_lineVertsDim.empty()) {
             QColor c = mixColor(m_edgeColor, m_edgeDimColor, m_hoverGlobal);
             float color[4] = { c.redF(), c.greenF(), c.blueF(), c.alphaF() };
@@ -1112,6 +1281,27 @@ void ForceViewOpenGL::paintGL()
 
         drawNodeBatch(m_nodeInstanceDataDim);
 
+        // 融入背景的文字（先画，压在 dim 节点之上、高亮边之下）
+        if (m_zoom > m_textThresholdOff && m_textRenderer && m_fontAtlas && m_fontAtlas->isReady()) {
+            if (m_fontAtlas->generation() != m_lastAtlasGeneration) {
+                m_textRenderer->uploadAtlas(
+                    m_fontAtlas->atlasPixels().data(),
+                    m_fontAtlas->atlasWidth(),
+                    m_fontAtlas->atlasHeight(),
+                    m_fontAtlas->generation());
+                m_lastAtlasGeneration = m_fontAtlas->generation();
+            }
+            buildTextVertices();
+            float dpr = devicePixelRatioF();
+            float baseScreenGlyphSize = m_msdfFontSize * m_zoom * dpr;
+            float atlasGlyphSize = m_fontAtlas->targetInnerPixels();
+            float baseScreenPxRange = m_fontAtlas->pxRange() * baseScreenGlyphSize / atlasGlyphSize;
+            if (baseScreenPxRange < 1.0f) baseScreenPxRange = 1.0f;
+            if (!m_textVerticesDim.empty()) {
+                m_textRenderer->draw(m_textVerticesDim, m_cachedMvp, baseScreenPxRange);
+            }
+        }
+
         if (!m_lineVertsHighlight.empty()) {
             QColor c = mixColor(m_edgeColor, m_hoverColor, m_hoverGlobal);
             float color[4] = { c.redF(), c.greenF(), c.blueF(), c.alphaF() };
@@ -1124,101 +1314,34 @@ void ForceViewOpenGL::paintGL()
         }
 
         drawNodeBatch(m_nodeInstanceDataRest);
-    }
 
-    float scale = m_zoom;
-    if (scale > m_textThresholdOff && !m_labelCacheByIndex.empty()) {
-        float dpr = devicePixelRatioF();
-        int deviceW = std::max(1, static_cast<int>(std::lround(m_viewportW * dpr)));
-        int deviceH = std::max(1, static_cast<int>(std::lround(m_viewportH * dpr)));
-        QOpenGLPaintDevice device(deviceW, deviceH);
-        device.setDevicePixelRatio(dpr);
-        QPainter painter(&device);
-        painter.setRenderHint(QPainter::TextAntialiasing, true);//文字抗锯齿常开
-        painter.setFont(m_font);
-        QColor colorText(m_textColor);
-        float factor = 1.0f;
-        if (scale < m_textThresholdShow)
-            factor = (scale - m_textThresholdOff) / (m_textThresholdShow - m_textThresholdOff);
-        int baseAlpha = static_cast<int>(255.0f * factor);
-        const float* pos = m_physicsState->renderPosData();
-        painter.save();
-        painter.scale(scale, scale);
-        float invScaleDpr = 1.0f / (scale * dpr);
+        // 正常文字与 hover 放大文字（后画，压在高亮边与 hover 节点之上）
+        if (m_zoom > m_textThresholdOff && m_textRenderer && m_fontAtlas && m_fontAtlas->isReady()) {
+            float dpr = devicePixelRatioF();
+            float baseScreenGlyphSize = m_msdfFontSize * m_zoom * dpr;
+            float atlasGlyphSize = m_fontAtlas->targetInnerPixels();
+            float baseScreenPxRange = m_fontAtlas->pxRange() * baseScreenGlyphSize / atlasGlyphSize;
+            if (baseScreenPxRange < 1.0f) baseScreenPxRange = 1.0f;
 
-        auto alignToDevice = [&](float xPainter, float yPainter, float& outX, float& outY) {
-            float px = xPainter * scale * dpr;
-            float py = yPainter * scale * dpr;
-            float pxRounded = std::lround(px);
-            float pyRounded = std::lround(py);
-            outX = pxRounded * invScaleDpr;
-            outY = pyRounded * invScaleDpr;
-        };
-
-        auto drawLabel = [&](int i, int alpha, float rScale) {
-            if (i < 0 || i >= (int)m_labelCacheByIndex.size()) return;
-            const auto& entry = m_labelCacheByIndex[i];
-            float w = entry.second;
-            if (w <= 0.0f) return;
-            float x = pos[2*i], y = pos[2*i+1];
-            float r = (i < m_showRadii.size()) ? m_showRadii[i] * rScale : kDefaultNodeRadius;
-            float sx = (x - m_cachedLeft) / (m_cachedRight - m_cachedLeft) * m_viewportW;
-            float sy = (y - m_cachedTop) / (m_cachedBottom - m_cachedTop) * m_viewportH;
-            colorText.setAlpha(alpha);
-            painter.setPen(colorText);
-            float drawX = sx / scale - w / 2.0f;
-            float drawY = sy / scale + r;
-            float alignedX = drawX;
-            float alignedY = drawY;
-            alignToDevice(drawX, drawY, alignedX, alignedY);
-            painter.drawStaticText(QPointF(alignedX, alignedY), entry.first);
-        };
-
-        for (int i : m_groupBase) drawLabel(i, baseAlpha, 1.0f);
-        if (m_hoverIndex == -1) { for (int i : m_groupHover) drawLabel(i, baseAlpha, 1.0f); }
-        float fade = 1.0f - 0.7f * m_hoverGlobal;
-        int alphaDim = static_cast<int>(baseAlpha * fade);
-        for (int i : m_groupDim) drawLabel(i, alphaDim, 1.0f);
-
-        if (m_hoverIndex != -1 && m_hoverIndex < m_labels.size()) {
-            int i = m_hoverIndex;
-            float x = pos[2*i], y = pos[2*i+1];
-            float r = (i < m_showRadii.size()) ? m_showRadii[i] : kDefaultNodeRadius;
-            float sx = (x - m_cachedLeft) / (m_cachedRight - m_cachedLeft) * m_viewportW;
-            float sy = (y - m_cachedTop) / (m_cachedBottom - m_cachedTop) * m_viewportH;
-            QString text = m_labels[i];
-            if (m_cachedHoverLabelIndex != i || m_cachedHoverLabelScale != scale || m_cachedHoverLabelT != m_hoverGlobal) {
-                m_cachedHoverLabelIndex = i;
-                m_cachedHoverLabelScale = scale;
-                m_cachedHoverLabelT = m_hoverGlobal;
-                QFont font(m_font);
-                float baseSize = m_font.pointSizeF();
-                if (baseSize <= 0) baseSize = static_cast<float>(m_font.pointSize());
-                float targetSize = baseSize * (1.0f + m_hoverGlobal * 2.0f);
-                font.setPointSizeF(targetSize);
-                QFontMetrics fm(font);
-                m_cachedHoverLabelFont = font;
-                m_cachedHoverLabelAdvance = fm.horizontalAdvance(text);
-                m_cachedHoverLabelRectTop = fm.boundingRect(text).top();
+            if (!m_textVerticesRest.empty()) {
+                m_textRenderer->draw(m_textVerticesRest, m_cachedMvp, baseScreenPxRange);
             }
-            painter.setPen(m_textColor);
-            painter.setFont(m_cachedHoverLabelFont);
-            float offsetY = m_fontHeight * (0.2f * m_hoverGlobal + 1.0f);
-            float yBase = sy / scale + r - m_cachedHoverLabelRectTop + offsetY;
-            float drawX = sx / scale - m_cachedHoverLabelAdvance / 2.0f;
-            float drawY = yBase;
-            float alignedX = drawX;
-            float alignedY = drawY;
-            alignToDevice(drawX, drawY, alignedX, alignedY);//文字对齐到设备像素
-            painter.drawText(QPointF(alignedX, alignedY), text);
+
+            if (!m_textVerticesHover.empty()) {
+                float hoverScale = 1.0f + m_hoverGlobal * 2.0f;
+                float hoverGlyphSize = baseScreenGlyphSize * hoverScale;
+                float hoverScreenPxRange = m_fontAtlas->pxRange() * hoverGlyphSize / atlasGlyphSize;
+                if (hoverScreenPxRange < 1.0f) hoverScreenPxRange = 1.0f;
+                m_textRenderer->draw(m_textVerticesHover, m_cachedMvp, hoverScreenPxRange);
+            }
         }
-        painter.restore();
-        painter.end();
     }
 
+    // 本帧 paintGL 耗时（毫秒），通知外部
     float elapsed = static_cast<float>((nowSec() - paintStart) * 1000.0);
     emit paintTimeUpdated(elapsed);
 
+    // 每秒统计一次 FPS 并发出信号
     ++m_frameCount;
     double now = nowSec();
     if (now - m_lastFpsTime >= 1.0) {
@@ -1453,8 +1576,7 @@ void ForceViewOpenGL::add_node_runtime(const QString& nodeId, float x, float y,
     // 更新显示半径
     updateFactor();
 
-    // 更新标签缓存
-    initStaticTextCache();
+    rebuildMsdfAtlas();
 
     // 同步渲染位置
     m_physicsState->syncDragPosFromPos();
@@ -1530,8 +1652,7 @@ void ForceViewOpenGL::remove_node_runtime(const QString& nodeId)
     // 更新显示半径
     updateFactor();
 
-    // 更新标签缓存
-    initStaticTextCache();
+    rebuildMsdfAtlas();
 
     // 重启仿真以应用变化
     if (m_simulation) {
@@ -1787,7 +1908,7 @@ void ForceViewOpenGL::apply_diff_runtime(const QVariantList& diffList)
     if (m_hoverIndex >= 0) updateNeighborMaskForHover(m_hoverIndex);
 
     updateFactor();
-    initStaticTextCache();
+    rebuildMsdfAtlas();
     m_physicsState->syncDragPosFromPos();
 
     if (m_simulation) {

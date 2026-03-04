@@ -1,30 +1,41 @@
 #include <QApplication>
+#include <QMainWindow>
+#include <QWidget>
+#include <QHBoxLayout>
+#include <QVBoxLayout>
+#include <QGroupBox>
+#include <QRadioButton>
+#include <QButtonGroup>
 #include <QVector>
 #include <QStringList>
 #include <QDebug>
+#include <QLabel>
 #include <cstdlib>
 #include <cmath>
-
 
 #include "ForceViewOpenGL.h"
 
 /**
- * Standalone test: creates a ForceView (or ForceViewOpenGL with --opengl) with a random graph.
+ * Standalone test: creates a ForceViewOpenGL with a random graph.
+ * Two radio buttons allow switching between two pre-generated graphs.
  */
 
-static void generateRandomGraph(int nNodes, int avgDegree,
+static void generateRandomGraph(int nNodes, int avgDegree, unsigned int seed,
                                 QVector<int>& edges,
                                 QVector<float>& pos,
                                 QStringList& id,
                                 QStringList& labels,
-                                QVector<float>& radii)
+                                QVector<float>& radii,
+                                QVector<QColor>& nodeColors)
 {
+    std::srand(static_cast<unsigned int>(seed));
     // Random initial positions in a circle
     float scale = std::sqrt(static_cast<float>(nNodes)) * 25.0f + 150.0f;
     pos.resize(2 * nNodes);
     id.resize(nNodes);
     labels.resize(nNodes);
     radii.resize(nNodes);
+    nodeColors.resize(nNodes);
 
     for (int i = 0; i < nNodes; ++i) {
         float angle = static_cast<float>(i) / nNodes * 6.2831853f;
@@ -34,6 +45,7 @@ static void generateRandomGraph(int nNodes, int avgDegree,
         id[i] = QString("ID%1").arg(i);
         labels[i] = QString("N%1").arg(i);
         radii[i]  = 4.0f + static_cast<float>(std::rand() % 7);  // 4..10
+        nodeColors[i] = QColor(std::rand() % 256, std::rand() % 256, std::rand() % 256);
     }
 
     // Generate random edges (Poisson-distributed connections per node, matching graph.py)
@@ -58,34 +70,106 @@ int main(int argc, char* argv[])
 {
     QApplication app(argc, argv);
 
-    //bool useOpenGL = (argc > 1 && QString::fromUtf8(argv[1]) == QStringLiteral("--opengl"));
-    bool useOpenGL = true;
-    // Generate a nodenum-node random graph
-    QVector<int>   edges;
-    QVector<float> pos;
-    QStringList    ids;
-    QStringList    labels;
-    QVector<float> radii;
-    int nodenum = 1900;
-    generateRandomGraph(nodenum, 1, edges, pos, ids, labels, radii);
+    // Pre-generate two graph datasets
+    QVector<int>   edges1, edges2;
+    QVector<float> pos1, pos2;
+    QStringList    ids1, ids2;
+    QStringList    labels1, labels2;
+    QVector<float> radii1, radii2;
+    QVector<QColor> nodeColors1, nodeColors2;
 
-    QVector<QColor> nodeColors(nodenum);
-    for (int i = 0; i < nodenum; ++i)
-        nodeColors[i] = QColor(std::rand() % 256, std::rand() % 256, std::rand() % 256);
-        //nodeColors[i] = QColor("#5C5C5C");
+    generateRandomGraph(500, 2, 42u, edges1, pos1, ids1, labels1, radii1, nodeColors1);
+    generateRandomGraph(1900, 1, 123u, edges2, pos2, ids2, labels2, radii2, nodeColors2);
 
+    // Main window
+    QMainWindow mainWin;
+    mainWin.setWindowTitle("ForceView OpenGL Test");
+    mainWin.resize(1100, 700);
 
-    ForceViewOpenGL view;
-    view.setWindowTitle("ForceView OpenGL Test");
-    view.resize(1000, 700);
-    view.setGraph(nodenum, edges, pos, ids, labels, radii, nodeColors);
-    QObject::connect(&view, &ForceViewOpenGL::nodeLeftClicked, [](const QString& nodeId) { qDebug() << "Left-clicked node: id[" << nodeId << "]"; });
-    QObject::connect(&view, &ForceViewOpenGL::nodeHovered, [](const QString& nodeId) { if (!nodeId.isEmpty()) qDebug() << "Hovered node: id:" << nodeId; });
-    QObject::connect(&view, &ForceViewOpenGL::fpsUpdated, [](float fps) { qDebug() << "FPS:" << fps; });
-    view.show();
-    return app.exec();
+    QWidget* central = new QWidget(&mainWin);
+    QHBoxLayout* mainLayout = new QHBoxLayout(central);
+    mainLayout->setContentsMargins(4, 4, 4, 4);
+    mainLayout->setSpacing(8);
 
-    
-    
+    ForceViewOpenGL* view = new ForceViewOpenGL(central);
+    view->setMinimumSize(400, 300);
+    mainLayout->addWidget(view, 1);
+
+    // Right panel: switch graph
+    QWidget* panel = new QWidget(central);
+    QVBoxLayout* panelLayout = new QVBoxLayout(panel);
+    panelLayout->setContentsMargins(0, 0, 0, 0);
+
+    QGroupBox* groupBox = new QGroupBox("切换图", panel);
+    QVBoxLayout* groupLayout = new QVBoxLayout(groupBox);
+
+    QRadioButton* rb1 = new QRadioButton("图1 (500节点)", groupBox);
+    QRadioButton* rb2 = new QRadioButton("图2 (1900节点)", groupBox);
+    rb1->setChecked(true);
+
+    QButtonGroup* btnGroup = new QButtonGroup(central);
+    btnGroup->addButton(rb1, 0);
+    btnGroup->addButton(rb2, 1);
+
+    groupLayout->addWidget(rb1);
+    groupLayout->addWidget(rb2);
+    panelLayout->addWidget(groupBox);
+
+    // 性能信息面板：展示 tick / paint 耗时与 FPS
+    QGroupBox* perfGroup = new QGroupBox("性能 (ms / FPS)", panel);
+    QVBoxLayout* perfLayout = new QVBoxLayout(perfGroup);
+    QLabel* tickLabel  = new QLabel("Tick: -- ms", perfGroup);
+    QLabel* paintLabel = new QLabel("Paint: -- ms", perfGroup);
+    QLabel* fpsLabel   = new QLabel("FPS: --", perfGroup);
+    perfLayout->addWidget(tickLabel);
+    perfLayout->addWidget(paintLabel);
+    perfLayout->addWidget(fpsLabel);
+    perfLayout->addStretch();
+    panelLayout->addWidget(perfGroup);
+
+    panelLayout->addStretch();
+    mainLayout->addWidget(panel, 0);
+
+    mainWin.setCentralWidget(central);
+
+    // Apply graph based on selected radio button
+    auto applyGraph = [view, &edges1, &pos1, &ids1, &labels1, &radii1, &nodeColors1,
+                       &edges2, &pos2, &ids2, &labels2, &radii2, &nodeColors2](int id) {
+        if (id == 0) {
+            view->setGraph(500, edges1, pos1, ids1, labels1, radii1, nodeColors1);
+        } else {
+            view->setGraph(1900, edges2, pos2, ids2, labels2, radii2, nodeColors2);
+        }
+    };
+
+    QObject::connect(btnGroup, &QButtonGroup::idClicked, applyGraph);
+    applyGraph(0);  // Default: graph 1
+
+    QObject::connect(view, &ForceViewOpenGL::nodeLeftClicked,
+                     [](const QString& nodeId) { qDebug() << "Left-clicked node: id[" << nodeId << "]"; });
+    QObject::connect(view, &ForceViewOpenGL::nodeHovered,
+                     [](const QString& nodeId) { if (!nodeId.isEmpty()) qDebug() << "Hovered node: id:" << nodeId; });
+
+    // 将 FPS、paint / tick 耗时显示在右侧性能面板（使用标签作为上下文对象，保证跨线程安全）
+    QObject::connect(view, &ForceViewOpenGL::fpsUpdated,
+                     fpsLabel,
+                     [fpsLabel](float fps) {
+                         fpsLabel->setText(QString("FPS: %1").arg(fps, 0, 'f', 1));
+                         qDebug() << "FPS:" << fps;
+                     });
+    QObject::connect(view, &ForceViewOpenGL::paintTimeUpdated,
+                     paintLabel,
+                     [paintLabel](float ms) {
+                         paintLabel->setText(QString("Paint: %1 ms").arg(ms, 0, 'f', 2));
+                         qDebug() << "Paint time (ms):" << ms;
+                     });
+    QObject::connect(view, &ForceViewOpenGL::tickTimeUpdated,
+                     tickLabel,
+                     [tickLabel](float ms) {
+                         tickLabel->setText(QString("Tick: %1 ms").arg(ms, 0, 'f', 2));
+                         qDebug() << "Tick time (ms):" << ms;
+                     });
+
+    mainWin.show();
     return app.exec();
 }

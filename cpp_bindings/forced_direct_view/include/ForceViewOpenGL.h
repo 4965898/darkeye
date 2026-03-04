@@ -12,16 +12,13 @@
 #include <QStringList>
 #include <QColor>
 #include <QRectF>
-#include <QFont>
-#include <QFontMetrics>
-#include <QStaticText>
-#include <QPair>
 
 #include <memory>
 #include <vector>
 #include <thread>
 #include <atomic>
 #include <mutex>
+#include <string>
 #include <unordered_map>
 #include <QVariant>
 
@@ -30,6 +27,8 @@
 #include "Forces.h"
 
 class GraphRenderer;
+class MsdfFontAtlas;
+class MsdfTextRenderer;
 
 #ifdef BINDINGS_BUILD
 #  define FORCEVIEW_OPENGL_EXPORT Q_DECL_EXPORT
@@ -249,12 +248,13 @@ private:
 
     int m_neighborDepth = 2;  // 邻居深度，1-5
 
-    QColor m_edgeColor      = QColor("#D5D5D5");
-    QColor m_edgeDimColor   = QColor("#F7F7F7");
-    QColor m_baseColor      = QColor("#5C5C5C");
-    QColor m_dimColor       = QColor("#DEDEDE");
-    QColor m_hoverColor     = QColor("#8F6AEE");
-    QColor m_textColor      = QColor("#5C5C5C");
+    QColor m_edgeColor      = QColor("#D5D5D5");//基础边颜色
+    QColor m_edgeDimColor   = QColor("#F7F7F7");//融入背景的边颜色
+    QColor m_baseColor      = QColor("#5C5C5C");//基础节点颜色
+    QColor m_dimColor       = QColor("#F7F7F7");//融入背景的节点颜色
+    QColor m_hoverColor     = QColor("#8F6AEE");//悬浮高亮颜色
+    QColor m_textColor      = QColor("#5C5C5C");//基础文本颜色
+    QColor m_textDimColor   = QColor("#F7F7F7");//文字融入背景色（与 m_edgeDimColor 一致）
 
     std::vector<uint8_t> m_neighborMask;
     std::vector<uint8_t> m_lastNeighborMask;
@@ -308,21 +308,28 @@ private:
 
     float m_lineHalfWidthScene = 0.5f;
 
-    // ---- Text (QPainter overlay) ----
-    QFont m_font{ QStringLiteral("Microsoft YaHei"), 5 };
-    QFontMetrics m_fontMetrics{ m_font };
-    int m_fontHeight = 0;
-    std::unordered_map<std::string, QPair<QStaticText, float>> m_staticTextCache;
-    std::vector<QPair<QStaticText, float>> m_labelCacheByIndex;
+    // ---- MSDF Text ----
+    struct GlyphQuad {
+        float x0, y0, x1, y1; // local position (em-normalized, origin at text left-baseline)
+        float u0, v0, u1, v1; // atlas UV
+    };
+    struct LabelLayoutEntry {
+        float totalWidth; // em-normalized total width (with kerning)
+        std::vector<GlyphQuad> quads;
+    };
+    std::unique_ptr<MsdfFontAtlas> m_fontAtlas;
+    std::unique_ptr<MsdfTextRenderer> m_textRenderer;
+    float m_msdfFontSize = 8.0f;
+    int m_lastAtlasGeneration = -1;
+    std::unordered_map<std::string, LabelLayoutEntry> m_labelLayoutCache;
+    std::vector<const LabelLayoutEntry*> m_labelLayoutByIndex;
+    std::vector<float> m_textVerticesDim;    // 融入背景的文字（先画）
+    std::vector<float> m_textVerticesRest;   // 正常文字（后画，压在上层）
+    std::vector<float> m_textVerticesHover;  // 悬停放大文字（单独绘制以匹配缩放的 pxRange）
 
-    int   m_cachedHoverLabelIndex   = -1;
-    float m_cachedHoverLabelScale   = 0.0f;
-    float m_cachedHoverLabelT       = -1.0f;
-    QFont m_cachedHoverLabelFont;
-    int   m_cachedHoverLabelAdvance = 0;
-    int   m_cachedHoverLabelRectTop = 0;
-
-    void initStaticTextCache();
+    void rebuildMsdfAtlas();
+    void rebuildLabelLayoutCache();
+    void buildTextVertices();
 
     // ---- OpenGL ----
     static constexpr float kPointSpriteMaxRadiusPixels = 12.0f;

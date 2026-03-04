@@ -77,6 +77,26 @@ endforeach()
 find_package(OpenMP REQUIRED COMPONENTS CXX)
 
 # =============================================
+# MSDF text rendering dependencies
+# =============================================
+set(MSDFGEN_USE_VCPKG OFF CACHE BOOL "" FORCE)
+set(MSDFGEN_BUILD_STANDALONE OFF CACHE BOOL "" FORCE)
+set(MSDFGEN_USE_SKIA OFF CACHE BOOL "" FORCE)
+set(MSDFGEN_DISABLE_SVG ON CACHE BOOL "" FORCE)
+set(MSDFGEN_DISABLE_PNG ON CACHE BOOL "" FORCE)
+set(MSDFGEN_DYNAMIC_RUNTIME ON CACHE BOOL "" FORCE)
+
+set(SKIP_INSTALL_ALL TRUE)
+add_subdirectory(3rdparty/freetype)
+if(NOT TARGET Freetype::Freetype)
+    add_library(Freetype::Freetype ALIAS freetype)
+endif()
+set_target_properties(freetype PROPERTIES
+    MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL"
+)
+add_subdirectory(3rdparty/msdfgen)
+
+# =============================================
 # Project 1: Shared library (forceviewlib.dll)
 # =============================================
 set(${forceview_library}_sources
@@ -84,11 +104,15 @@ set(${forceview_library}_sources
     src/Simulation.cpp
     src/ForceViewOpenGL.cpp
     src/GraphRenderer.cpp
+    src/MsdfFontAtlas.cpp
+    src/MsdfTextRenderer.cpp
     include/Forces.h
     include/Simulation.h
     include/ForceViewOpenGL.h
     include/GraphRenderer.h
     include/PhysicsState.h
+    include/MsdfFontAtlas.h
+    include/MsdfTextRenderer.h
 )
 
 add_library(${forceview_library} SHARED ${${forceview_library}_sources})
@@ -100,6 +124,9 @@ target_include_directories(${forceview_library} PUBLIC
 target_link_libraries(${forceview_library}
     PUBLIC Qt6::Widgets Qt6::OpenGLWidgets Qt6::OpenGL
     PRIVATE OpenMP::OpenMP_CXX
+            msdfgen::msdfgen-core
+            msdfgen::msdfgen-ext
+            Freetype::Freetype
 )
 
 # =============================================
