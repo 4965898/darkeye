@@ -52,6 +52,7 @@ class ChamferButton(QAbstractButton):
         hoverable: bool = True,
         theme_manager: Optional["ThemeManager"] = None,
         menu_id: Optional[str] = None,
+        use_native_tooltip: bool = True,
         parent: Optional[QWidget] = None,
     ):
         super().__init__(parent)
@@ -77,7 +78,8 @@ class ChamferButton(QAbstractButton):
                 pass
         self._theme_manager = theme_manager
 
-        self.setToolTip(text)
+        if use_native_tooltip:
+            self.setToolTip(text)
         self.setFixedSize(out_size, out_size)
         self.setMouseTracking(True)
 

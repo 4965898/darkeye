@@ -1,5 +1,6 @@
 # ui/components - 设计系统组件库
 from .button import Button
+from .callout_tooltip import CalloutTooltip
 from .chamfer_button import ChamferButton
 from .clickable_slider import ClickableSlider
 from .color_picker import ColorPicker
@@ -10,6 +11,7 @@ from .heart_rating_widget import HeartRatingWidget
 from .icon_push_button import IconPushButton
 from .rotate_button import RotateButton
 from .shake_button import ShakeButton
+from .sidebar2 import Sidebar2
 from .input import LineEdit, PlainTextEdit, TextEdit
 from .label import Label
 from .oct_image import OctImage
@@ -36,6 +38,7 @@ from .radar_chart_widget import RadarChartWidget
 
 __all__ = [
     "Button",
+    "CalloutTooltip",
     "ChamferButton",
     "ClickableSlider",
     "ColorPicker",
@@ -46,6 +49,7 @@ __all__ = [
     "IconPushButton",
     "RotateButton",
     "ShakeButton",
+    "Sidebar2",
     "Label",
     "LineEdit",
     "PlainTextEdit",
