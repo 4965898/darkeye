@@ -1,5 +1,6 @@
 # ui/components - 设计系统组件库
 from .button import Button
+from .callout_tooltip import CalloutTooltip
 from .chamfer_button import ChamferButton
 from .clickable_slider import ClickableSlider
 from .color_picker import ColorPicker
@@ -29,6 +30,7 @@ from .vertical_text_label import VerticalTextLabel
 
 __all__ = [
     "Button",
+    "CalloutTooltip",
     "ChamferButton",
     "ClickableSlider",
     "ColorPicker",

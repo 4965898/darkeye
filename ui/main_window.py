@@ -69,7 +69,6 @@ class MainWindow(QMainWindow):
             ("setting", "设置", "settings"),
             ("help", "帮助", "circle_question_mark"),
             ("bell", "通知", "bell"),
-            ("green_mode", "绿色模式", "sprout"),
         ]
         self.sidebar = Sidebar2(menu_defs=menu_defs)#侧边栏的按钮在这里改
 
@@ -286,11 +285,6 @@ class MainWindow(QMainWindow):
 
         if menu_id == "forward":
             Router.instance().forward()
-            return
-        if menu_id == "green_mode":
-            self.open=not self.open
-            #global_signals.green_mode_changed.emit(self.open)
-            Router.instance().push("workspace_demo")
             return
         route_name = self._menu_to_route.get(menu_id)
         if route_name:

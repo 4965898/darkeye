@@ -1,10 +1,10 @@
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QEvent, QObject, Qt, QTimer, Signal
 from PySide6.QtGui import QBrush, QColor, QPainter, QPainterPath, QPen
 from PySide6.QtWidgets import QVBoxLayout, QWidget
 
 from config import ICONS_PATH
 from app_context import get_theme_manager
-from darkeye_ui.components import ChamferButton
+from darkeye_ui.components import CalloutTooltip, ChamferButton
 from darkeye_ui.design.icon import BUILTIN_ICONS
 
 
@@ -44,6 +44,12 @@ class Sidebar2(QWidget):
 
         self._buttons: dict[str, ChamferButton] = {}
         self._current_id: str | None = None
+        self._callout_tooltip = CalloutTooltip()
+        self._tooltip_timer = QTimer(self)
+        self._tooltip_timer.setSingleShot(True)
+        self._tooltip_timer.timeout.connect(self._show_callout_tooltip)
+        self._hovered_btn: ChamferButton | None = None
+        self._hovered_text: str = ""
 
         # 背景：用 paintEvent 绘制八边形（直倒角），不用圆角
         self.setFixedWidth(72)
@@ -66,11 +72,14 @@ class Sidebar2(QWidget):
                 out_size=40,
                 chamfer_ratio=0.5,
                 menu_id=mid,
+                use_native_tooltip=False,
                 parent=self,
             )
             btn.clicked.connect(lambda _=False, m=mid: self._on_button_clicked(m))
+            btn.installEventFilter(self)
             layout.addWidget(btn, alignment=Qt.AlignmentFlag.AlignHCenter)
             self._buttons[mid] = btn
+        self._btn_to_text = {self._buttons[mid]: text for mid, text, _ in self.menu_defs}
         layout.addStretch(1)
 
         # 默认选中第一个
@@ -80,10 +89,29 @@ class Sidebar2(QWidget):
                 self._current_id = first_id
                 self._buttons[first_id].set_selected(True)
 
-        # 令牌驱动：背景色随主题切换
+        # 令牌驱动：背景色随主题切换；callout tooltip 随主题刷新
         theme_mgr = get_theme_manager()
         if theme_mgr is not None:
             theme_mgr.themeChanged.connect(self.update)
+            theme_mgr.themeChanged.connect(self._callout_tooltip.update)
+
+    def eventFilter(self, obj: QObject, event: QEvent) -> bool:
+        if event.type() == QEvent.Type.Enter:
+            if obj in self._btn_to_text:
+                self._tooltip_timer.stop()
+                self._hovered_btn = obj
+                self._hovered_text = self._btn_to_text[obj]
+                self._tooltip_timer.start(300)
+        elif event.type() == QEvent.Type.Leave:
+            self._tooltip_timer.stop()
+            self._hovered_btn = None
+            self._hovered_text = ""
+            self._callout_tooltip.hide()
+        return super().eventFilter(obj, event)
+
+    def _show_callout_tooltip(self) -> None:
+        if self._hovered_btn is not None and self._hovered_text:
+            self._callout_tooltip.show_for(self._hovered_btn, self._hovered_text)
 
     def paintEvent(self, event) -> None:  # type: ignore[override]
         """绘制侧边栏整体背景为八边形（直倒角），上下留白 20px，左右各 5px。"""
