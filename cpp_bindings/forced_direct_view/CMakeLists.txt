@@ -104,6 +104,11 @@ set(${forceview_library}_sources
     src/QuadTree.cpp
     src/Simulation.cpp
     src/ForceViewOpenGL.cpp
+    src/ForceViewOpenGL_Simulation.cpp
+    src/ForceViewOpenGL_Geometry.cpp
+    src/ForceViewOpenGL_Text.cpp
+    src/ForceViewOpenGL_Input.cpp
+    src/ForceViewOpenGL_Runtime.cpp
     src/GraphRenderer.cpp
     src/MsdfFontAtlas.cpp
     src/MsdfTextRenderer.cpp
