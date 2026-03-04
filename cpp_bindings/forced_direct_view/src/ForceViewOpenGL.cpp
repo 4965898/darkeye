@@ -1076,9 +1076,9 @@ void ForceViewOpenGL::startMsdfAtlasBuildAsync()
         {
             std::lock_guard<std::mutex> lock(m_msdfAtlasMutex);
             m_msdfAtlasResult = std::move(result);
+            m_msdfAtlasThreadRunning.store(false, std::memory_order_release);
             m_msdfAtlasResultReady = true;
         }
-        m_msdfAtlasThreadRunning.store(false, std::memory_order_release);
     });
 }
 

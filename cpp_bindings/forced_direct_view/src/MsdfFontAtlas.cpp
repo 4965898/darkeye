@@ -87,7 +87,7 @@ bool MsdfFontAtlas::applyAtlasData(AtlasData&& data)
     m_atlasPixels = std::move(data.pixels);
     m_glyphs = std::move(data.glyphs);
     m_kerningCache.clear();
-    // å§£å¿”î‚¼æ´æ—‚æ•¤é‚æ¿æµ˜é—†å—˜æ¤‚é–«æŽ‘î–ƒ generationé”›å±¼ç©¶æµœåº¡î˜»é–®ã„¦î—…å¨´å¬ªå½‰é–?
+    // 每次应用新图集时递增 generation，便于外部检测变化
     m_generation += 1;
     m_ascender = data.ascender;
     m_descender = data.descender;
@@ -168,7 +168,7 @@ bool MsdfFontAtlas::buildForLabels(const QStringList& labels, QString* errorMess
     // 使用新的 atlas 数据更新当前实例
     // generation 使用递增策略，便于外部检测变化
     data.generation = m_generation + 1;
-    return applyAtlasData(data);
+    return applyAtlasData(std::move(data));
 }
 
 bool MsdfFontAtlas::buildAtlasData(const QStringList& labels, AtlasData& out, QString* errorMessage)

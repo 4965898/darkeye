@@ -46,6 +46,10 @@ public:
 
     MsdfFontAtlas() = default;
     ~MsdfFontAtlas();
+    MsdfFontAtlas(const MsdfFontAtlas&) = delete;
+    MsdfFontAtlas& operator=(const MsdfFontAtlas&) = delete;
+    MsdfFontAtlas(MsdfFontAtlas&&) = delete;
+    MsdfFontAtlas& operator=(MsdfFontAtlas&&) = delete;
 
     bool initialize(const Config& config, QString* errorMessage = nullptr);
     bool buildForLabels(const QStringList& labels, QString* errorMessage = nullptr);
