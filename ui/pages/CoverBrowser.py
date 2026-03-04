@@ -6,7 +6,7 @@ from PySide6.QtGui import QPixmap, QPainter, QLinearGradient, QColor,QIcon
 from PySide6.QtCore import Qt, QPointF, QPropertyAnimation, QEasingCurve,QParallelAnimationGroup,QSize,Signal,QTimer
 from config import WORKCOVER_PATH,ICONS_PATH
 
-from ..basic.FlowLayout import FlowLayout
+from darkeye_ui.layouts import FlowLayout
 
 
 #渐变层纯绘图层
@@ -47,6 +47,7 @@ class GradientOverlay(QWidget):
         grad_right.setColorAt(1, QColor(0, 0, 0, 0))    # 中间透明
         painter.setBrush(grad_right)
         painter.drawRect(window_width-0.1*self._scaled_width,0,window_width,window_height)
+        painter.end()
 
 #信息层
 class InfoOverlay(QWidget):
@@ -415,9 +416,9 @@ class CoverBrowser(QWidget):
 
     def update_actress(self):
         '''更新女优的信息'''
-        from core.database.query import findActressFromWorkID
+        from core.database.query import get_actress_from_work_id
         work_id = self.works[self.current_index]["work_id"]
-        self.info_overlay.update_actress_buttons(findActressFromWorkID(work_id))
+        self.info_overlay.update_actress_buttons(get_actress_from_work_id(work_id))
         #根据这个id去找女优
 
     def update_tag(self):

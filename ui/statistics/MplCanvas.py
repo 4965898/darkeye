@@ -8,7 +8,7 @@ from matplotlib import rcParams
 rcParams['font.family'] = 'SimHei'        # 设置全局字体为黑体
 rcParams['axes.unicode_minus'] = False    # 解决负号显示为方块的问题
 import numpy as np
-from core.database.query import getActressByPlane,getActressBodyData
+from core.database.query import get_actress_by_plane, get_actress_body_data
 
 
 def weighted_percentile(data:list, weights:list, percentile:float):
@@ -129,8 +129,8 @@ class MplCanvas(FigureCanvas):
 
     def plotWorkReleaseYear(self,scope):
         '''绘制作品发行年份分布直方图'''
-        from core.database.query import fetch_workReleaseByYear_by_scope
-        data = fetch_workReleaseByYear_by_scope(scope)
+        from core.database.query import fetch_work_release_by_year_by_scope
+        data = fetch_work_release_by_year_by_scope(scope)
         logging.debug(f"发行年份数据：{data}")
         # 分离年份和数量
         years = [item[0] for item in data]      # ['2000', '2001', ...]
@@ -158,8 +158,8 @@ class MplCanvas(FigureCanvas):
 
     def plotActressDebutYear(self,scope):
         '''女优出道年份的分布直方图'''
-        from core.database.query import fetch_actressDebutByYear_by_scope
-        data = fetch_actressDebutByYear_by_scope(scope)
+        from core.database.query import fetch_actress_debut_by_year_by_scope
+        data = fetch_actress_debut_by_year_by_scope(scope)
         logging.debug(f"女优出道年份统计：{data}")
         # 分离年份和数量
         years = [item[0] for item in data]      # ['2000', '2001', ...]
@@ -188,7 +188,7 @@ class MplCanvas(FigureCanvas):
     def Draw3DsizeDis(self):
         '''画女优的3维的散点图，颜色代表罩杯'''
         #这个现在有问题后面再改
-        bodyData=getActressBodyData()
+        bodyData=get_actress_body_data()
         cup_colors = {
     # 使用蓝紫渐变到橙红的完整色系，确保15个级别都有良好区分度
     'A': '#F7FBFF',  # 极淡蓝色（几乎白）
@@ -418,7 +418,7 @@ class MplCanvas(FigureCanvas):
 
     #最喜欢的女优
     def draw_mostlikeActress(self):
-        tuple_list=getActressByPlane()
+        tuple_list=get_actress_by_plane()
         actress=[item[0] for item in tuple_list]
         num = [item[1] for item in tuple_list]
         actress.reverse()

@@ -248,6 +248,15 @@ void ForceViewOpenGL::setArrowEnabled(bool enabled)
     update();
 }
 
+// 功能：设置背景颜色（OpenGL 清屏颜色）
+void ForceViewOpenGL::setBackgroundColor(const QColor& color)
+{
+    if (!color.isValid()) return;
+    m_backgroundColor = color;
+    requestRenderActivity();
+    update();
+}
+
 void ForceViewOpenGL::setEdgeColor(const QColor& c) { m_edgeColor = c; requestRenderActivity(); update(); }
 QColor ForceViewOpenGL::edgeColor() const { return m_edgeColor; }
 void ForceViewOpenGL::setEdgeDimColor(const QColor& c) { m_edgeDimColor = c; requestRenderActivity(); update(); }

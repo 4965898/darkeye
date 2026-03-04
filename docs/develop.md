@@ -51,7 +51,7 @@
 ### 3.1 技术架构 (Architecture)
 - **UI Framework**: PySide6 (Qt for Python) - 复杂交互可用 QGraphicsView；关系图 ForceView 当前由 C++ OpenGL 实现（`cpp_bindings/forced_direct_view`），Qt 侧为 `ForceDirectedViewWidget` 容器与 `ForceViewSettingsPanel`；书架与卡片流使用 `ShelfWidget`、`ShelfVirtualizedView` 等。
 - **Backend**: FastAPI (Local Server) - 作为本地微服务，处理浏览器插件请求、爬虫任务调度和后台数据处理。
-- **Database**: SQLite + SQLAlchemy - 轻量级、单文件 (`public.db`, `private.db`)，便于备份和迁移。
+- **Database**: SQLite + sqlite3 - 轻量级、单文件 (`public.db`, `private.db`)，便于备份和迁移。数据层采用 `get_connection` 获取连接，**不引入 ORM 与 Repository 中间层**；UI 直接调用 `core.database.query/insert/update/delete` 进行读写。
 - **Crawler**: 模块化爬虫系统 (`core/crawler`) - 支持 JavBus, JavDB, Minnano, Fanza 等多源数据抓取与清洗。
 
 ### 3.2 目录结构说明
@@ -59,7 +59,7 @@
 - `config.py`: 路径与配置（`settings.ini`、QSettings），公共/私有数据库路径、资源路径、窗口状态等。
 - `core/`: 核心业务逻辑
   - `crawler/`: 爬虫管理（CrawlerManager）、多源抓取与清洗。
-  - `database/`: 连接管理（`QSqlDatabaseManager` + sqlite3 `get_connection`）、init/migrations、query/insert/update/delete、`repositories/`（Work / Actress / Actor / Tag）、model。
+  - `database/`: 连接管理（sqlite3 `get_connection`）、init/migrations、query/insert/update/delete、model。无 ORM，无 Repository 中间层。
   - `graph/`: 关系图：`graph_manager.py`（单例，维护总图、增量信号）、`graph_session.py`（会话与过滤）、`ForceDirectedViewWidget.py`（与 C++ OpenGL 视图协作）、`graph_filter.py`、`graph.py`（图生成）、`async_image_loader.py`、`ForceViewSettingsPanel.py`。
   - `recommendation/`: 推荐逻辑（如随机推荐）。
   - `schema/`, `cv/`, `utils/`: 数据模型、图像、日志/性能等工具。
@@ -93,8 +93,8 @@
   - 坚持 CJK 竖排美学，针对高分屏进行适配。
   - 样式与逻辑分离，统一管理颜色和字体配置。
 - **数据层规范**：
-  - 部分实体已采用 Repository（`core/database/repositories/`：Work、Actress、Actor、Tag），其余仍为 query/insert/update/delete 中的过程式函数；逐步迁移到 Repository，旧接口可保留为 deprecated。
-  - 引入实体模型 (Domain Models) 替代字典传递；统一连接策略：Qt 绑定用 `QSqlDatabaseManager`，爬虫/服务端/批量用 sqlite3 `get_connection`。
+  - **架构决策**：数据层采用 sqlite3 + `get_connection`，UI 直接调用 `core.database.query/insert/update/delete`，不引入 ORM 与 Repository 中间层。详见 `docs/data-layer.md`。
+  - 统一连接策略：全部使用 `core.database.connection.get_connection`；写操作完成后由调用方负责 emit 对应的 `global_signals.*_changed` 信号。
 
 ### 3.4 单体 + 插件架构 (Monolith + Plugins)
 
@@ -107,7 +107,7 @@
 | 模块 | 说明 |
 |------|------|
 | **启动与配置** | `main.py` 启动流程、`config.py` 路径与 QSettings、OpenGL 预热 |
-| **数据层** | `core/database/`：连接、init/migrations、repositories（Work/Actress/Actor/Tag）、model |
+| **数据层** | `core/database/`：连接、init/migrations、query/insert/update/delete、model（详见 `docs/data-layer.md`） |
 | **基础 UI** | `main_window.py`、Router、侧栏、状态栏、基础控件（`ui/basic/`） |
 | **核心页面** | 首页/仪表盘、作品管理、女优/男优列表与详情、基本设置、标签管理 |
 | **控制器** | `GlobalSignalBus`、`ShortcutRegistry`、`StatusManager`、`TaskManager` |
@@ -128,7 +128,7 @@
 
 #### 3.4.3 插件与核心的交互
 
-- 核心提供**事件总线**（`GlobalSignalBus`）和**数据访问接口**（repositories），插件通过订阅信号或调用接口与核心通信。
+- 核心提供**事件总线**（`GlobalSignalBus`）和**数据访问接口**（`core.database.query/insert/update/delete`），插件通过订阅信号或调用接口与核心通信。
 - 插件通过**注册机制**向 Router 注册页面、向侧栏注册菜单项。
 - 插件独立打包，核心启动时从配置目录扫描并加载已启用的插件。
 
@@ -137,7 +137,7 @@
 ## 4. 路线图与里程碑 (Roadmap)
 
 ### Phase 1: 策展人更新 (The Curator Update) - *Current Focus*
-- [ ] **无限卡片流首页**：当前首页为 `CoverBrowser` + 随机推荐，仪表盘为 `DashboardPage`；书架有 `ShelfDemoPage` / `ShelfWidget` / `ShelfVirtualizedView`，可继续向高性能水平滚动卡片流演进。
+- [ ] **无限卡片流首页**：当前首页为 `CoverBrowser` + 随机推荐，仪表盘为 `DashboardPage`；书架直接使用 `ShelfWidget` / `ShelfVirtualizedView`，可继续向高性能水平滚动卡片流演进。
 - [ ] **CJK 竖排 UI**：在卡片详情和部分标题中实现竖排排版。
 - [ ] **Inbox 模式重构**：改造手动录入流程，引入“待处理”队列；插件抓取数据经 ServerBridge 由主窗口处理。
 

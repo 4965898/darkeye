@@ -4,6 +4,10 @@
 
 ---
 
+> **⚠️ 架构决策更新（当前已采纳）**：项目已明确采用 **UI 直接 SQL 读写、无中间层** 模式。以下建议中涉及 **Service 层、Repository 迁移、UI 通过 Service 访问数据、依赖注入** 的部分**不再采纳**，仅作历史参考。当前有效建议见 `docs/修改意见.md`。
+
+---
+
 ## 一、现状概览
 
 ### 当前架构分层
@@ -27,40 +31,36 @@ main.py (入口)
 
 ### 1. 数据层：Query 巨型模块 + 双连接体系（高优先级）
 
+> ~~**已不采纳**：Repository 迁移、Service 层引入。当前采用 UI 直连 query/insert/update/delete。~~
+
 **现状**：
 - `core/database/query.py` 超过 2000 行，被 30+ 文件直接引用
-- 存在两套连接：`QSqlDatabaseManager`（Qt）与 `get_connection`（sqlite3）
+- 已统一为 sqlite3 `get_connection`（原 QSqlDatabaseManager 已移除）
 - 仅 `WorkRepository` 采用 Repository 模式，其余为分散的 procedural 函数
 
 **建议**：
 1. **统一连接策略**
-   - 明确分工：Qt UI 绑定用 `QSqlDatabaseManager`，爬虫/服务器/批量任务用 sqlite3 `get_connection`
+   - 全部使用 sqlite3 `get_connection`
    - 在文档中写明适用场景，避免混用
 
-2. **按实体拆分 Repository**
-   - `WorkRepository`（已有）
-   - `ActressRepository`、`ActorRepository`、`TagRepository`、`MasturbationRepository` 等
-   - 逐步将 `query.py` 中函数迁移到对应 Repository，保留旧函数为 deprecated wrapper
+2. ~~**按实体拆分 Repository**~~（已不采纳）
 
-3. **引入 Service 层**
-   - 创建 `core/services/`：如 `WorkService`、`ActressService`
-   - 封装跨实体的业务（如「添加作品并关联女优、标签」），供 UI 和爬虫调用
-   - 减少 UI 直接操作多表逻辑
+3. ~~**引入 Service 层**~~（已不采纳）
 
 ---
 
 ### 2. UI 与数据层耦合（高优先级）
+
+> ~~**已不采纳**：依赖注入 IWorkService、IActressService。当前接受 UI 直连数据库。~~
 
 **现状**：
 - 页面、组件、Router 直接 import 并调用 `core.database.*`
 - 难以做单元测试和 UI 层与数据层解耦
 
 **建议**：
-1. **依赖注入**
-   - 为页面/ViewModel 注入 `IWorkService`、`IActressService` 等接口
-   - 在 `main.py` 或启动模块中统一构造并注入实现类
+1. ~~**依赖注入**~~（已不采纳）
 
-2. **避免 Router 持有业务逻辑**
+2. **避免 Router 持有业务逻辑**（仍建议采纳）
    - `router.py` 中 `_handle_work_route` 调用了 `get_actor_allname`，属于数据访问
    - 将「根据 actor_id 获取显示名并填充到页面」这类逻辑移至 WorkPage 或 ViewModel
    - Router 只负责 `push(route_name, **params)` 与切换页面
@@ -159,7 +159,7 @@ main.py (入口)
 
 **现状**：
 - `server/app.py` 的 `check_existence` 直接用 sqlite3 连接
-- 其他模块混用 `QSqlDatabaseManager` 与 `get_connection`
+- 其他模块统一使用 `get_connection`
 
 **建议**：
 1. **Server 使用 sqlite3**
@@ -167,8 +167,8 @@ main.py (入口)
    - 明确约定：只读接口用只读连接，避免锁冲突
 
 2. **抽离共享查询**
-   - 将 `check_existence` 的逻辑迁移到 `WorkRepository` 或 `WorkService`
-   - Server 通过 `WorkService.check_exists(serials)` 调用，保持单一数据入口
+   - 将 `check_existence` 的逻辑迁移到 `core.database.query` 模块
+   - Server 直接 import 调用，保持与 UI 一致的数据访问方式
 
 ---
 
@@ -222,11 +222,13 @@ main.py (入口)
 
 ## 三、推荐实施顺序
 
+> 以下表格中涉及 Repository、Service 的项**已不采纳**。当前有效实施顺序见 `docs/修改意见.md`。
+
 | 阶段 | 内容 | 预期收益 |
 |------|------|----------|
-| **P0** | 统一数据连接策略，拆分 query.py 到 Repository | 降低耦合，便于后续重构 |
+| ~~**P0**~~ | ~~拆分 query.py 到 Repository~~（已不采纳） | - |
 | **P0** | CrawlerManager / DataUpdate 职责拆分 | 爬虫与持久化解耦，逻辑更清晰 |
-| **P1** | 引入 Service 层，UI 通过 Service 访问数据 | 可测试性提升，Router 瘦身 |
+| ~~**P1**~~ | ~~引入 Service 层，UI 通过 Service 访问数据~~（已不采纳） | - |
 | **P1** | MainWindow 职责拆分，页面 Lazy 加载 | 启动更快，结构更清晰 |
 | **P2** | 收敛 global_signals，规范事件流 | 便于维护和排错 |
 | **P2** | 统一模型与 Schema | 减少重复定义和转换错误 |
@@ -235,6 +237,8 @@ main.py (入口)
 ---
 
 ## 四、架构演进目标示意
+
+> ~~以下为原拟议目标态，其中 Service/Repository 层、UI 不直接 import core.database 等**已不采纳**。当前架构见 `docs/data-layer.md`。~~
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -268,7 +272,7 @@ main.py (入口)
 └─────────────────────────┬───────────────────────────────────┘
                           │
 ┌─────────────────────────▼───────────────────────────────────┐
-│  Database (QSqlDatabaseManager / get_connection)            │
+│  Database (get_connection)                                  │
 └─────────────────────────────────────────────────────────────┘
 ```
 

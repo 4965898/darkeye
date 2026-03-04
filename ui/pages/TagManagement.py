@@ -1,19 +1,23 @@
 
-from PySide6.QtWidgets import  QVBoxLayout, QLabel,QWidget,QHBoxLayout,QLineEdit,QTextEdit,QPushButton,QComboBox,QFormLayout,QLayout,QGroupBox,QTableView,QSizePolicy,QDialog
+from PySide6.QtWidgets import  QVBoxLayout,QWidget,QHBoxLayout,QLineEdit,QFormLayout,QLayout,QSizePolicy
 from PySide6.QtCore import Qt,QObject,Signal,Property,Slot,SignalInstance
-from PySide6.QtSql import QSqlRelation,QSqlRelationalTableModel,QSqlTableModel,QSqlRelationalDelegate,QSqlQueryModel,QSqlQuery,QSqlDatabase
 
 from ui.widgets.selectors.TagSelector5 import TagSelector5
-from ..widgets.text.CompleterLineEdit import CompleterLineEdit
-from core.database.query import get_tag_name,get_tag_type_dict,get_unique_tag_type
-from ..basic.ColorPicker import ColorPicker
+
+from core.database.query import get_tag_type_dict,get_unique_tag_type
+from darkeye_ui.components.color_picker import ColorPicker
 import logging
-from ui.base import LazyWidget
+from darkeye_ui import LazyWidget
 from controller.MessageService import MessageBoxService,IMessageService
 from ui.widgets.text.VerticalTagLabel2 import VerticalTagLabel,VShowTagLabel
 from ui.basic import EditableTableView
 from ui.dialogs import TagTypeModifyDialog
 from controller.GlobalSignalBus import global_signals
+from darkeye_ui.components.label import Label
+from darkeye_ui.components.button import Button
+from darkeye_ui.components.token_group_box import TokenGroupBox
+from darkeye_ui.components.input import LineEdit
+from darkeye_ui.components.combo_box import ComboBox
 
 class SignalTagView(QWidget):
     '''展示标签的容器'''
@@ -27,7 +31,6 @@ class SignalTagView(QWidget):
         self.setStyleSheet("""
             #SignalTagView {
                 border-radius: 12px;
-                background-color: white;
                 border: 3px dashed #cccccc;
             }
         """)
@@ -80,7 +83,8 @@ class ViewModel(QObject):
     def set_tag_id(self,value:int):
         if self.model._tag_id != value:
             self.model._tag_id = value
-            self.tag_id_changed.emit(value)
+            if value is not None:
+                self.tag_id_changed.emit(value)
 
     tag_id=Property(int,get_tag_id,set_tag_id,notify=tag_id_changed)
 
@@ -95,6 +99,8 @@ class ViewModel(QObject):
     def get_tag_type_id(self) -> int:
         return self.model._tag_type_id
     def set_tag_type_id(self, value: int):
+        if value is None:
+            return
         clean_value = value
         if self.model._tag_type_id != clean_value:
             self.model._tag_type_id = clean_value
@@ -131,7 +137,8 @@ class ViewModel(QObject):
     def set_tag_redirect_tag_id(self, value: int | None):
         if self.model._tag_redirect_tag_id != value:
             self.model._tag_redirect_tag_id = value
-            self.tag_redirect_tag_id.emit(value)
+            if value is not None:
+                self.tag_redirect_tag_id.emit(value)
 
     # Corrected Property declaration
     tag_redirect_tag_id = Property(int, get_tag_redirect_tag_id, set_tag_redirect_tag_id, notify=tag_redirect_tag_id)
@@ -231,16 +238,15 @@ class ViewModel(QObject):
         self.set_tag_detail("")
         self.set_tag_id(None)
         self.set_tag_redirect_tag_id(None)
-        self.set_tag_type_id(self.find_tag_type_id_by_value("默认分类"))
+        default_type_id = self.find_tag_type_id_by_value("默认分类") or next(iter(self.tag_type_map), None)
+        if default_type_id is not None:
+            self.set_tag_type_id(default_type_id)
         self.set_tag_alias([])
         
     def find_tag_type_id_by_value(self,target_value):
         """根据值查找第一个对应的键"""
         return next((key for key, value in self.tag_type_map.items() if value == target_value), None)
     
-
-
-
 
 class TagManagement(LazyWidget):
     '''tag 管理的page'''
@@ -258,7 +264,7 @@ class TagManagement(LazyWidget):
         self.leftwidget.setMaximumWidth(400)
         leftlayout=QVBoxLayout(self.leftwidget)
 
-        #self.tag_show=SignalTagView()
+
         self.tag_liveshow=SignalTagView()
 
         self.taglabel=None#默认的展示的
@@ -266,48 +272,48 @@ class TagManagement(LazyWidget):
 
         self.alias_view=EditableTableView()
 
-        show_group = QGroupBox("标签展示")
+        show_group = TokenGroupBox("标签展示")
         layout0=QHBoxLayout(show_group)
         #layout0.addWidget(self.tag_show)
         layout0.addWidget(self.tag_liveshow)
 
-        self.tag_name=QLineEdit()
-        self.tag_type=QComboBox()
+        self.tag_name=LineEdit()
+        self.tag_type=ComboBox()
         self.tag_type.addItems(get_unique_tag_type())
 
 
         self.color=ColorPicker()
         self.color.setMaximumHeight(40)
-        self.detail=QLineEdit()
-        self.btn_commit=QPushButton("提交")
-        self.btn_delete=QPushButton("删除")
+        self.detail=LineEdit()
+        self.btn_commit=Button("提交")
+        self.btn_delete=Button("删除")
 
-        self.btn_print=QPushButton("打印Model")
+        self.btn_print=Button("打印Model")
         
-        detail_group = QGroupBox("标签详情")
+        detail_group = TokenGroupBox("标签详情")
         formlayout=QFormLayout(detail_group)
-        formlayout.addRow("标签名字",self.tag_name)
-        formlayout.addRow("标签类型",self.tag_type)
-        formlayout.addRow("颜色",self.color)
-        formlayout.addRow("细节",self.detail)
+        formlayout.addRow(Label("标签名字"),self.tag_name)
+        formlayout.addRow(Label("标签类型"),self.tag_type)
+        formlayout.addRow(Label("颜色"),self.color)
+        formlayout.addRow(Label("细节"),self.detail)
         #formlayout.addRow("打印",self.btn_print)
-        formlayout.addRow("重定向",self.alias_view)
+        formlayout.addRow(Label("重定向"),self.alias_view)
         
 
-        self.m_group = QGroupBox("多选操作")
+        self.m_group = TokenGroupBox("多选操作")
         self.m_group.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         vlayout=QVBoxLayout(self.m_group)
 
         self.m_color=ColorPicker()
         self.m_color.setMaximumHeight(40)
-        self.btn_change=QPushButton("批量改变标签颜色")
+        self.btn_change=Button("批量改变标签颜色")
 
 
-        self.btn_tag_type=QPushButton("修改标签类型")
+        self.btn_tag_type=Button("修改标签类型")
 
-        color_group=QGroupBox("改多个标签颜色")
+        color_group=TokenGroupBox("改多个标签颜色")
         color_group.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Minimum)
-        self.btn_redirect=QPushButton("标签重定向(只在选择两个标签生效)")
+        self.btn_redirect=Button("标签重定向(只在选择两个标签生效)")
         self.btn_redirect.setToolTip("将选择器中第一个标签重定向到第二个标签，此时第一个标签将成为第二个标签的别名")
         
         vlayout1=QVBoxLayout(color_group)
@@ -359,7 +365,7 @@ class TagManagement(LazyWidget):
 
         # model-UI
         self.vm.tag_color_changed.connect(self.colorpick_model_to_ui)
-        self.vm.tag_type_id_changed.connect(lambda key:self.tag_type.setCurrentText(self.vm.tag_type_map.get(key)))
+        self.vm.tag_type_id_changed.connect(lambda key:self.tag_type.setCurrentText(self.vm.tag_type_map.get(key) or ""))
 
         bindings_map2 = {
             "tag_name": self.tag_name,
@@ -399,7 +405,7 @@ class TagManagement(LazyWidget):
     def createlivetag(self):
         '''创建一个实时的跟着动的tag'''
         if not self.livetaglabel:
-            self.livetaglabel = VShowTagLabel(self.vm.get_tag_id(),self.vm.get_tag_name(),self.vm.get_tag_color(),self.vm.get_tag_detail())
+            self.livetaglabel = VShowTagLabel(self.vm.get_tag_id() or -1,self.vm.get_tag_name(),self.vm.get_tag_color(),self.vm.get_tag_detail())
             self.tag_liveshow.mainlayout.addWidget(self.livetaglabel)
     
     @Slot(str)

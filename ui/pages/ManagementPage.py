@@ -1,8 +1,8 @@
-from PySide6.QtWidgets import QHBoxLayout, QWidget,QVBoxLayout,QToolButton,QFileDialog,QLabel,QSizePolicy,QTabWidget
+from PySide6.QtWidgets import QHBoxLayout, QWidget,QVBoxLayout,QToolButton,QSizePolicy
 from PySide6.QtGui import QIcon
 from PySide6.QtCore import Qt,Slot,QThreadPool
 from pathlib import Path
-from config import ICONS_PATH,DATABASE,DATABASE_BACKUP_PATH,PRIVATE_DATABASE,PRIVATE_DATABASE_BACKUP_PATH
+from config import ICONS_PATH
 from ui.pages.TagManagement import TagManagement
 from ui.pages.SearchTable import SearchTable
 from .AddWorkTabPage3 import AddWorkTabPage3
@@ -12,6 +12,7 @@ from controller.MessageService import MessageBoxService
 from .StudioManagementPage import StudioManagementPage
 from .ManagementTable import ManagementTable
 from .RecycleBinPage import RecycleBinPage
+from darkeye_ui.components.token_tab_widget import TokenTabWidget
 
 class ManagementPage(QWidget):
     '''管理面板，里面嵌套了其他很多的功能'''
@@ -30,7 +31,7 @@ class ManagementPage(QWidget):
 
         # 主内容区域
         #tabwidget
-        self.tab_widget=QTabWidget()
+        self.tab_widget=TokenTabWidget()
         #self.tab_widget.setMovable(True)
         self.worktab=AddWorkTabPage3()
         self.searchtable=SearchTable()
@@ -48,6 +49,26 @@ class ManagementPage(QWidget):
         self.tab_widget.addTab(self.searchtable,"汇总查询表")
         self.tab_widget.addTab(self.g_management,"综合管理")
         self.tab_widget.addTab(self.rubbish,"回收站")
+
+    def load_with_params(self, serial_number=None, work_id=None, **kwargs):
+        """
+        根据路由参数加载管理页（如切换到添加/修改作品 tab 并预填番号）
+        业务状态由页面自身管理，Router 只传参。
+        """
+        if serial_number is None and work_id is not None:
+            from core.database.query import get_workinfo_by_workid
+            try:
+                info = get_workinfo_by_workid(work_id)
+                if info:
+                    serial_number = info.get("serial_number")
+            except Exception:
+                pass
+        if serial_number is None:
+            return
+        self.tab_widget.setCurrentWidget(self.worktab)
+        if hasattr(self.worktab, "viewmodel"):
+            self.worktab.viewmodel.set_serial_number(serial_number)
+            self.worktab.viewmodel._load_from_db()
 
     #工具栏
     def create_toolbar(self):

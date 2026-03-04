@@ -82,6 +82,7 @@ public:
     void setArrowScale(float f);
     void setArrowEnabled(bool enabled);
     void setNeighborDepth(int depth);  // 1-5*** End Patch】} ***!
+    void setBackgroundColor(const QColor& color);
 
     // 边颜色
     void setEdgeColor(const QColor& c);
@@ -268,6 +269,7 @@ private:
 
     int m_neighborDepth = 2;  // 邻居深度，1-5
 
+
     QColor m_edgeColor      = QColor("#D5D5D5");//基础边颜色
     QColor m_edgeDimColor   = QColor("#F7F7F7");//融入背景的边颜色
     QColor m_baseColor      = QColor("#5C5C5C");//基础节点颜色
@@ -275,6 +277,8 @@ private:
     QColor m_hoverColor     = QColor("#8F6AEE");//悬浮高亮颜色
     QColor m_textColor      = QColor("#5C5C5C");//基础文本颜色
     QColor m_textDimColor   = QColor("#F7F7F7");//文字融入背景色（与 m_edgeDimColor 一致）
+    QColor m_backgroundColor = QColor(255, 255, 255);//背景颜色
+
 
     std::vector<uint8_t> m_neighborMask;
     std::vector<uint8_t> m_lastNeighborMask;

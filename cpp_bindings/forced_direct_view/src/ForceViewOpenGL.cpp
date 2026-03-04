@@ -173,9 +173,12 @@ void ForceViewOpenGL::simLoop()
     }
 }
 
-// =====================================================================
-// View helpers
-// =====================================================================
+
+
+
+
+
+// 功能：计算所有节点的包围矩形（带 10% 边距），用于自动缩放/居中
 
 QRectF ForceViewOpenGL::getContentRect() const
 {
@@ -274,6 +277,7 @@ void ForceViewOpenGL::initializeGL()
     m_glReady = m_renderer->initialize(this);
     if (!m_glReady) return;
 
+
     m_fontAtlas = std::make_unique<MsdfFontAtlas>();
     MsdfFontAtlas::Config fontCfg;
     fontCfg.fontPath = QStringLiteral("C:/Windows/Fonts/msyh.ttc");
@@ -289,7 +293,10 @@ void ForceViewOpenGL::initializeGL()
         startMsdfAtlasBuildAsync();
     }
 
-    glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+
+    glClearColor(m_backgroundColor.redF(), m_backgroundColor.greenF(),
+                 m_backgroundColor.blueF(), m_backgroundColor.alphaF());
+
 }
 
 void ForceViewOpenGL::resizeGL(int w, int h)
@@ -305,6 +312,8 @@ void ForceViewOpenGL::resizeGL(int w, int h)
 void ForceViewOpenGL::paintGL()
 {
     if (!m_glReady || !m_physicsState) {
+        glClearColor(m_backgroundColor.redF(), m_backgroundColor.greenF(),
+                    m_backgroundColor.blueF(), m_backgroundColor.alphaF());
         glClear(GL_COLOR_BUFFER_BIT);
         return;
     }
@@ -320,7 +329,11 @@ void ForceViewOpenGL::paintGL()
         m_renderer->drawNodes(data, m_cachedUsePointSprite, m_scenePerPixel, m_cachedMvp);
     };
 
-    glClear(GL_COLOR_BUFFER_BIT);
+
+    glClearColor(m_backgroundColor.redF(), m_backgroundColor.greenF(),
+                 m_backgroundColor.blueF(), m_backgroundColor.alphaF());
+    glClear(GL_COLOR_BUFFER_BIT);//每帧都清屏
+
 
     if (m_hoverIndex == -1 && m_hoverGlobal <= 0.0f && !m_lineVertsAll.empty()) {
         float color[4] = { m_edgeColor.redF(), m_edgeColor.greenF(), m_edgeColor.blueF(), m_edgeColor.alphaF() };
