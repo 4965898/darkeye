@@ -17,6 +17,7 @@ class ColorPicker(QLabel):
     ShapeCircle = "circle"
 
     colorChanged = Signal(str)
+    colorConfirmed = Signal(str)
 
     def __init__(self, color: QColor = None, parent=None, *, show_text: bool = True, shape: str = ShapeRectangle):
         super().__init__(parent)
@@ -177,5 +178,6 @@ class ColorPicker(QLabel):
                 hex_color = self._color_wheel.getHexColor()
                 if hex_color:
                     self._update_color(QColor(hex_color))
+                    self.colorConfirmed.emit(hex_color)
                 return True
         return super().eventFilter(obj, event)

@@ -455,15 +455,51 @@ def _build_page_theme(
     idx = next(i for i, (tid, _) in enumerate(THEME_OPTIONS) if tid == theme_mgr.current())
     theme_combo.setCurrentIndex(idx)
 
+    # 主色选择器（仅亮色/暗色主题可调，不持久化）
+    primary_color_row = QWidget()
+    primary_color_layout = QHBoxLayout(primary_color_row)
+    primary_color_layout.setContentsMargins(0, 0, 0, 0)
+    primary_color_layout.addWidget(Label("主色（仅亮色/暗色主题可调）"))
+    initial_primary = theme_mgr.custom_primary() or theme_mgr.tokens().color_primary
+    color_picker = ColorPicker(QColor(initial_primary), shape=ColorPicker.ShapeCircle)
+    primary_color_layout.addWidget(color_picker)
+
+    def update_primary_picker_state():
+        tid = theme_mgr.current()
+        is_light_or_dark = tid in (ThemeId.LIGHT, ThemeId.DARK)
+        primary_color_row.setEnabled(is_light_or_dark)
+        if not is_light_or_dark:
+            theme_mgr.set_custom_primary(None)
+        else:
+            color_picker.blockSignals(True)
+            color_picker.set_color(theme_mgr.custom_primary() or theme_mgr.tokens().color_primary)
+            color_picker.blockSignals(False)
+
     def on_theme_changed(index: int):
         app = QApplication.instance()
+        tid = THEME_OPTIONS[index][0]
+        if tid not in (ThemeId.LIGHT, ThemeId.DARK):
+            theme_mgr.set_custom_primary(None)
         if app:
-            theme_mgr.set_theme(app, THEME_OPTIONS[index][0])
+            theme_mgr.set_theme(app, tid)
+        update_primary_picker_state()
         for cb in refresh_callbacks:
             cb()
 
-    theme_combo.currentIndexChanged.connect(on_theme_changed)
+    def on_primary_color_changed(hex_color: str):
+        theme_mgr.set_custom_primary(hex_color)
+        app = QApplication.instance()
+        if app:
+            theme_mgr.set_theme(app, theme_mgr.current())
+        for cb in refresh_callbacks:
+            cb()
+
+    theme_combo.currentIndexChanged[int].connect(on_theme_changed)
+    color_picker.colorConfirmed.connect(on_primary_color_changed)
+    update_primary_picker_state()
+
     left.addWidget(theme_combo)
+    left.addWidget(primary_color_row)
     left.addWidget(Label("切换上方主题可预览设计令牌在各组件上的效果。"))
     left.addStretch()
     right.addStretch()
