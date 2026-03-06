@@ -7,6 +7,7 @@ View3D {
     id: view3d
     anchors.fill: parent
     camera: orbitCamera
+    property int hoveredDelegateIndex: -1
 
     environment: SceneEnvironment {
         clearColor: "#1a1a2e"
@@ -77,10 +78,14 @@ View3D {
         // 复制多份 Dvd.qml：model 为份数，每份间距 dvdSpacing
         // 每份贴图来自 dvdTextureSources[index]，未指定则用 maps/0.png
         Repeater3D {
+            id: dvdRepeater
             model: dvdCount
             delegate: Node {
                 property string tex: (dvdTextureSources && index < dvdTextureSources.length)
                     ? dvdTextureSources[index] : "maps/0.png"
+                x: index * dvdSpacing
+                z: view3d.hoveredDelegateIndex === index ? 0.8 : 0
+                Behavior on z { NumberAnimation { duration: 120 } }
                 Loader3D {
                     id: dvdLoader
                     source: dvdQmlUrl
@@ -89,10 +94,12 @@ View3D {
                         if (status === Loader3D.Error) console.warn("Dvd.qml load error")
                     }
                     onItemChanged: {
-                        if (item && typeof item.textureSource !== "undefined") item.textureSource = tex
+                        if (item) {
+                            if (typeof item.textureSource !== "undefined") item.textureSource = tex
+                            if (typeof item.delegateIndex !== "undefined") item.delegateIndex = index
+                        }
                     }
                 }
-                x: index * dvdSpacing
                 onTexChanged: {
                     if (dvdLoader.item && typeof dvdLoader.item.textureSource !== "undefined")
                         dvdLoader.item.textureSource = tex
@@ -120,6 +127,28 @@ View3D {
         anchors.fill: parent
         origin: orbitOrigin
         camera: orbitCamera
+    }
+
+    MouseArea {
+        anchors.fill: parent
+        hoverEnabled: true
+        propagateComposedEvents: true
+        onPositionChanged: function(mouse) {
+            var result = view3d.pick(mouse.x, mouse.y)
+            if (result && result.objectHit) {
+                var hitParent = result.objectHit.parent
+                if (hitParent && typeof hitParent.delegateIndex !== "undefined" && hitParent.delegateIndex >= 0)
+                    view3d.hoveredDelegateIndex = hitParent.delegateIndex
+                else
+                    view3d.hoveredDelegateIndex = -1
+            } else {
+                view3d.hoveredDelegateIndex = -1
+            }
+            mouse.accepted = false
+        }
+        onPressed: function(mouse) { mouse.accepted = false }
+        onReleased: function(mouse) { mouse.accepted = false }
+        onExited: view3d.hoveredDelegateIndex = -1
     }
 
     DebugView {

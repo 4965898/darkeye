@@ -2,64 +2,43 @@ import QtQuick
 import QtQuick3D
 
 Node {
-    id: rOOT
+        id: rOOT
     /** 贴图路径，可动态更换；支持相对路径（相对 Dvd.qml 所在目录）或 file:// 绝对路径 */
     property string textureSource: "maps/0.png"
-
-    Model {
-        id: cube_006
-        x: 0.134917
-        y: 0.0950568
-        z: -0.000185236
-        source: "meshes/cube_006.mesh"
-
-        PrincipledMaterial {
-            id: pic_001_material
-            baseColorMap: Texture {
-                source: rOOT.textureSource
-                tilingModeHorizontal: Texture.Repeat
-                tilingModeVertical: Texture.Repeat
-            }
-            opacityChannel: Material.A
-            metalness: 0
-            roughness: 0.5
-            cullMode: Material.NoCulling
+    /** 由 dvd_scene 注入，用于 hover 判断 */
+    property int delegateIndex: -1
+Model {
+    
+    id: cube_002
+    x: 0.436592
+    y: 0.0950568
+    z: -0.0676852
+    source: "meshes/cube_002.mesh"
+    pickable: true
+    PrincipledMaterial {
+        id: pic_material
+        baseColorMap: Texture {
+            source: rOOT.textureSource
+            tilingModeHorizontal: Texture.Repeat
+            tilingModeVertical: Texture.Repeat
         }
-
-        PrincipledMaterial {
-            id: trans_material
-            baseColor: "#b2cccccc"
-            metalness: 0
-            roughness: 0.5
-            cullMode: Material.NoCulling
-            alphaMode: PrincipledMaterial.Blend
-        }
-        materials: [
-            pic_001_material,
-            trans_material
-        ]
+        opacityChannel: Material.A
+        metalness: 0
+        roughness: 0.08
+        cullMode: Material.NoCulling
     }
 
-    Model {
-        id: cube_007
-        x: 0.148917
-        y: 0.0950568
-        z: -0.000185236
-        source: "meshes/cube_007.mesh"
-        materials: [
-            pic_001_material,
-            trans_material
-        ]
+    PrincipledMaterial {
+        id: trans_material
+        baseColor: "#b294c1cc"
+        metalness: 0
+        roughness: 0.3
+        cullMode: Material.NoCulling
+        alphaMode: PrincipledMaterial.Blend
     }
-
-    Model {
-        id: cube_008
-        x: 0.141917
-        y: 0.0950568
-        z: -0.0676852
-        source: "meshes/cube_008.mesh"
-        materials: [
-            pic_001_material
-        ]
-    }
+    materials: [
+        pic_material,
+        trans_material
+    ]
+}
 }
