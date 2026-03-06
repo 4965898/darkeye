@@ -3,6 +3,7 @@ __pycache__/
 *.py[codz]
 *$py.class
 
+
 # C extensions
 *.so
 
@@ -106,3 +107,5 @@ compile_commands.json
 **/moc_*.cpp
 **/moc_*.h
 **/qrc_*.cpp
+
+*.mesh

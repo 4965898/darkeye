@@ -6,6 +6,7 @@ shiboken6-generator==6.10.1
 
 numpy
 matplotlib
+opencv-python-headless
 bs4
 requests
 pyinstaller
