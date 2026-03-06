@@ -41,6 +41,12 @@ View3D {
             position: Qt.vector3d(0, 0, cameraDistance)
             clipNear: 0.001
             clipFar: 100000
+
+            // 镜头前方占位：相机局部 -Z 为朝向，position (0,0,-d) 即镜头前 d 单位
+            Node {
+                id: cameraFront
+                position: Qt.vector3d(0, 0, -(typeof selectedDvdDistance !== "undefined" ? selectedDvdDistance : 1.5))
+            }
         }
     }
 
@@ -87,32 +93,51 @@ View3D {
             delegate: Node {
                 property string tex: (dvdTextureSources && index < dvdTextureSources.length)
                     ? dvdTextureSources[index] : "maps/0.png"
-                x: index * dvdSpacing
-                z: view3d.selectedDelegateIndex === index ? 1.5
-                    : (view3d.hoveredDelegateIndex === index ? 0.5 : 0)
-                eulerRotation.y: view3d.selectedDelegateIndex === index ? -90 : 0
+                property bool selected: view3d.selectedDelegateIndex === index
+                x: selected ? cameraFront.scenePosition.x : (index * dvdSpacing)
+                y: selected ? cameraFront.scenePosition.y : 0
+                z: selected ? cameraFront.scenePosition.z : (view3d.hoveredDelegateIndex === index ? 0.5 : 0)
                 // 以 DVD 几何中心为旋转轴，避免旋转时“飞走”
                 pivot: Qt.vector3d(-0.00979297 * modelScale, 5.68405e-05 * modelScale, -0.0676852 * modelScale)
+                Behavior on x { NumberAnimation { duration: 350; easing.type: Easing.OutCubic } }
+                Behavior on y { NumberAnimation { duration: 350; easing.type: Easing.OutCubic } }
                 Behavior on z { NumberAnimation { duration: 350; easing.type: Easing.OutCubic } }
-                Behavior on eulerRotation.y { NumberAnimation { duration: 350; easing.type: Easing.OutCubic } }
-                Loader3D {
-                    id: dvdLoader
-                    source: dvdQmlUrl
-                    scale: Qt.vector3d(modelScale, modelScale, modelScale)
-                    onStatusChanged: {
-                        if (status === Loader3D.Error) console.warn("Dvd.qml load error")
-                    }
-                    onItemChanged: {
-                        if (item) {
-                            if (typeof item.textureSource !== "undefined") item.textureSource = tex
-                            if (typeof item.delegateIndex !== "undefined") item.delegateIndex = index
-                        }
-                    }
+
+                // 选中时用 LookAtNode 使封面正对镜头（垂直于视线）；未选中时 spine 视图
+                LookAtNode {
+                    id: lookAtNode
+                    target: selected ? orbitCamera : null
+                    // target 为 null 时复位到 spine 视图
                     Binding {
-                        target: dvdLoader.item
-                        property: "expanded"
-                        value: view3d.expandedDelegateIndex === index
-                        when: dvdLoader.item && typeof dvdLoader.item.expanded !== "undefined"
+                        target: lookAtNode
+                        property: "eulerRotation"
+                        value: Qt.vector3d(0, 0, 0)
+                        when: !selected
+                    }
+                    Node {
+                        // 选中时 -90 显示封面，未选中时 0 显示 spine
+                        eulerRotation.y: selected ? 90 : 0
+                        Behavior on eulerRotation.y { NumberAnimation { duration: 350; easing.type: Easing.OutCubic } }
+                        Loader3D {
+                            id: dvdLoader
+                            source: dvdQmlUrl
+                            scale: Qt.vector3d(modelScale, modelScale, modelScale)
+                            onStatusChanged: {
+                                if (status === Loader3D.Error) console.warn("Dvd.qml load error")
+                            }
+                            onItemChanged: {
+                                if (item) {
+                                    if (typeof item.textureSource !== "undefined") item.textureSource = tex
+                                    if (typeof item.delegateIndex !== "undefined") item.delegateIndex = index
+                                }
+                            }
+                            Binding {
+                                target: dvdLoader.item
+                                property: "expanded"
+                                value: view3d.expandedDelegateIndex === index
+                                when: dvdLoader.item && typeof dvdLoader.item.expanded !== "undefined"
+                            }
+                        }
                     }
                 }
                 onTexChanged: {

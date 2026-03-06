@@ -46,7 +46,7 @@ def main() -> None:
     ctx.setContextProperty("modelScale", model_scale)
     ctx.setContextProperty("dvdQmlUrl", dvd_qml_url)
     ctx.setContextProperty("dvdCount", dvd_count)
-    ctx.setContextProperty("dvdSpacing", 0.15)
+    ctx.setContextProperty("dvdSpacing", 0.14)
     # 每份 DVD 的贴图：优先用 resources/public/workcovers 下的图片
 
     workcover_images = sorted(p for p in WORKCOVER_PATH.iterdir() if p.suffix.lower() in _IMG_SUFFIXES) if WORKCOVER_PATH.exists() else []
@@ -57,6 +57,8 @@ def main() -> None:
     ctx.setContextProperty("dvdTextureSources", texture_urls)
     # 相机距离：小模型用较小值（50），大模型可改为 400
     ctx.setContextProperty("cameraDistance", 10)
+    # 选中 DVD 距相机距离，用于“移到镜头前”效果
+    ctx.setContextProperty("selectedDvdDistance", 2.8)
 
     # 默认开启 wireframe，确认模型几何后改为 False
     ctx.setContextProperty("showWireframe", False)
