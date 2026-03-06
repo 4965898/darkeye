@@ -25,8 +25,6 @@ def path_to_file_url(path: Path) -> str:
 def main() -> None:
     app = QApplication(sys.argv)
 
-    model_scale = int(sys.argv[1]) if len(sys.argv) > 1 else 10
-
     dvd_dir = Path(__file__).resolve().parent
     dvd_qml_path = dvd_dir / "Dvd.qml"
     if not dvd_qml_path.exists():
@@ -34,7 +32,6 @@ def main() -> None:
         sys.exit(1)
     dvd_qml_url = path_to_file_url(dvd_qml_path)
     print(f"使用 Dvd.qml 模型: {dvd_qml_path}")
-    print(f"缩放: {model_scale} (可传参数调整，如 python -m core.dvd.demo_dvd 1)")
 
     window = QMainWindow()
     window.setWindowTitle("Qt Quick 3D - DVD 模型")
@@ -43,10 +40,10 @@ def main() -> None:
     quick_widget = QQuickWidget()
     ctx = quick_widget.rootContext()
     ctx.setContextProperty("modelUrl", "")  # 不使用外部 glb
-    ctx.setContextProperty("modelScale", model_scale)
+    ctx.setContextProperty("modelScale", 1)
     ctx.setContextProperty("dvdQmlUrl", dvd_qml_url)
     ctx.setContextProperty("dvdCount", dvd_count)
-    ctx.setContextProperty("dvdSpacing", 0.14)
+    ctx.setContextProperty("dvdSpacing", 0.014)
     # 每份 DVD 的贴图：优先用 resources/public/workcovers 下的图片
 
     workcover_images = sorted(p for p in WORKCOVER_PATH.iterdir() if p.suffix.lower() in _IMG_SUFFIXES) if WORKCOVER_PATH.exists() else []
@@ -55,10 +52,8 @@ def main() -> None:
     else:
         texture_urls = ["maps/0.png", "maps/1.png", "maps/0.png"]
     ctx.setContextProperty("dvdTextureSources", texture_urls)
-    # 相机距离：小模型用较小值（50），大模型可改为 400
-    ctx.setContextProperty("cameraDistance", 10)
-    # 选中 DVD 距相机距离，用于“移到镜头前”效果
-    ctx.setContextProperty("selectedDvdDistance", 2.8)
+    ctx.setContextProperty("cameraDistance", 0.35)
+    ctx.setContextProperty("selectedDvdDistance", 0.28)
 
     # 默认开启 wireframe，确认模型几何后改为 False
     ctx.setContextProperty("showWireframe", False)

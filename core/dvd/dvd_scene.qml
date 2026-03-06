@@ -15,14 +15,18 @@ View3D {
 
     environment: SceneEnvironment {
         clearColor: "#1a1a2e"
-        backgroundMode: SceneEnvironment.Color
+        backgroundMode: SceneEnvironment.SkyBox
+        lightProbe: Texture {
+            source: "lebombo_2k.hdr"
+        }
+        probeOrientation: Qt.vector3d(0, 155, 0)  // 欧拉角 (x,y,z) 度，改 y 可水平旋转
         antialiasingMode: SceneEnvironment.MSAA
         antialiasingQuality: SceneEnvironment.High
         tonemapMode: SceneEnvironment.TonemapModeFilmic
         aoEnabled: true
-        aoStrength: 0.4
-        aoDistance: 50
-        aoSoftness: 20
+        aoStrength: 0.18
+        aoDistance: 1.5
+        aoSoftness: 15
         aoSampleRate: 2
         debugSettings: DebugSettings {
             wireframeEnabled: showWireframe
@@ -33,14 +37,15 @@ View3D {
     Node {
         id: orbitOrigin
         position: Qt.vector3d(0, 0, 0)
-        eulerRotation.x: -35
-        eulerRotation.y: 45
+        eulerRotation.x: -5
+        eulerRotation.y: 0
 
         PerspectiveCamera {
             id: orbitCamera
             position: Qt.vector3d(0, 0, cameraDistance)
             clipNear: 0.001
             clipFar: 100000
+            fieldOfView: 60
 
             // 镜头前方占位：相机局部 -Z 为朝向，position (0,0,-d) 即镜头前 d 单位
             Node {
@@ -57,7 +62,7 @@ View3D {
         eulerRotation.y: -50
         color: Qt.rgba(1.0, 0.96, 0.92, 1.0)
         ambientColor: Qt.rgba(0.2, 0.2, 0.22, 1.0)
-        brightness: 1.8
+        brightness: 5
         castsShadow: true
         shadowMapQuality: Light.ShadowMapQualityHigh
         shadowMapFar: 500
@@ -85,6 +90,15 @@ View3D {
     Node {
         id: sceneRoot
 
+        // 场景环境：书架等静态模型
+        Loader3D {
+            id: envirLoader
+            source: Qt.resolvedUrl("Envir.qml")
+            onStatusChanged: {
+                if (status === Loader3D.Error) console.warn("Envir.qml load error:", errorString)
+            }
+        }
+
         // 复制多份 Dvd.qml：model 为份数，每份间距 dvdSpacing
         // 每份贴图来自 dvdTextureSources[index]，未指定则用 maps/0.png
         Repeater3D {
@@ -96,7 +110,7 @@ View3D {
                 property bool selected: view3d.selectedDelegateIndex === index
                 x: selected ? cameraFront.scenePosition.x : (index * dvdSpacing)
                 y: selected ? cameraFront.scenePosition.y : 0
-                z: selected ? cameraFront.scenePosition.z : (view3d.hoveredDelegateIndex === index ? 0.5 : 0)
+                z: selected ? cameraFront.scenePosition.z : (view3d.hoveredDelegateIndex === index ? 0.05 : 0)
                 // 以 DVD 几何中心为旋转轴，避免旋转时“飞走”
                 pivot: Qt.vector3d(-0.00979297 * modelScale, 5.68405e-05 * modelScale, -0.0676852 * modelScale)
                 Behavior on x { NumberAnimation { duration: 350; easing.type: Easing.OutCubic } }
