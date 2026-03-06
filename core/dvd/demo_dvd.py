@@ -22,6 +22,24 @@ def path_to_file_url(path: Path) -> str:
     return QUrl.fromLocalFile(str(path.resolve())).toString()
 
 
+class work:
+    '''弄一个数据类'''
+    def __init__(self,work_id,serial_number,cover_url) -> None:
+        self.work_id=work_id
+        self.serial_number=serial_number
+        self.cover_url=cover_url
+        self.actress_list=[]
+        self.actor_list=[]
+        self.tag_list=[]
+        self.release_date=[]
+        self.director=[]
+        self.maker=None
+        self.title=""
+        self.story=""
+
+        
+
+
 def main() -> None:
     app = QApplication(sys.argv)
 
@@ -43,7 +61,7 @@ def main() -> None:
     ctx.setContextProperty("modelScale", 1)
     ctx.setContextProperty("dvdQmlUrl", dvd_qml_url)
     ctx.setContextProperty("dvdCount", dvd_count)
-    ctx.setContextProperty("dvdSpacing", 0.014)
+    ctx.setContextProperty("dvdSpacing", 0.0145)
     # 每份 DVD 的贴图：优先用 resources/public/workcovers 下的图片
 
     workcover_images = sorted(p for p in WORKCOVER_PATH.iterdir() if p.suffix.lower() in _IMG_SUFFIXES) if WORKCOVER_PATH.exists() else []

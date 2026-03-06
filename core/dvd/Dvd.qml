@@ -9,9 +9,13 @@ Node {
     property int delegateIndex: -1
     /** 展开状态：横着时再次点击触发展开，back 不动，spine 沿 back 轴转 -90°，front 沿 spine 转后再沿自身轴转 -90° */
     property bool expanded: false
+    /** 点击 CD 盘面时发射 */
+    signal cdClicked()
 
     Model {
         id: cD
+        objectName: "cD"
+        pickable: true
         eulerRotation.x: 90
         eulerRotation.y: 90
 

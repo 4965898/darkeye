@@ -8,10 +8,14 @@ View3D {
     id: view3d
     anchors.fill: parent
     camera: orbitCamera
+    property real cameraX: 0.2  // 滚轮控制，范围 [0, 1.4]
+    property real orbitRotationX: -5   // 俯仰，范围 [-10, 10]
+    property real orbitRotationY: 0    // 偏航，范围 [-20, 20]
     property int hoveredDelegateIndex: -1
     property int selectedDelegateIndex: -1
     property int expandedDelegateIndex: -1
     property int pressedDelegateIndex: -1
+    property var pressedObjectHit: null  // 按下时拾取到的 3D 对象，用于区分 CD 点击
 
     environment: SceneEnvironment {
         clearColor: "#1a1a2e"
@@ -33,16 +37,16 @@ View3D {
         }
     }
 
-    // 轨道控制器要求：相机在 (0,0,z)，仅改 z 才能正确缩放；用 orbitOrigin 旋转实现俯视角度
+    // 相机位置固定 (cameraX, 0, cameraDistance)，旋转只改变可视角度（朝向），不改变位置
     Node {
         id: orbitOrigin
         position: Qt.vector3d(0, 0, 0)
-        eulerRotation.x: -5
-        eulerRotation.y: 0
 
         PerspectiveCamera {
             id: orbitCamera
-            position: Qt.vector3d(0, 0, cameraDistance)
+            position: Qt.vector3d(cameraX, 0, cameraDistance)
+            eulerRotation.x: view3d.orbitRotationX
+            eulerRotation.y: view3d.orbitRotationY
             clipNear: 0.001
             clipFar: 100000
             fieldOfView: 60
@@ -91,6 +95,7 @@ View3D {
         id: sceneRoot
 
         // 场景环境：书架等静态模型
+        /*
         Loader3D {
             id: envirLoader
             source: Qt.resolvedUrl("Envir.qml")
@@ -98,6 +103,7 @@ View3D {
                 if (status === Loader3D.Error) console.warn("Envir.qml load error:", errorString)
             }
         }
+        */
 
         // 复制多份 Dvd.qml：model 为份数，每份间距 dvdSpacing
         // 每份贴图来自 dvdTextureSources[index]，未指定则用 maps/0.png
@@ -143,6 +149,11 @@ View3D {
                                 if (item) {
                                     if (typeof item.textureSource !== "undefined") item.textureSource = tex
                                     if (typeof item.delegateIndex !== "undefined") item.delegateIndex = index
+                                    if (typeof item.cdClicked !== "undefined") {
+                                        item.cdClicked.connect(function() {
+                                            console.log("[Dvd] cdClicked 信号，index:", index)
+                                        })
+                                    }
                                 }
                             }
                             Binding {
@@ -177,12 +188,7 @@ View3D {
 
     }
 
-    OrbitCameraController {
-        anchors.fill: parent
-        origin: orbitOrigin
-        camera: orbitCamera
-        acceptedButtons: Qt.RightButton
-    }
+    // 右键仅控制方向，由下方 MouseArea 实现，俯仰 ±10°、偏航 ±20°
 
     function findDelegateIndex(obj) {
         var n = obj
@@ -197,9 +203,32 @@ View3D {
     MouseArea {
         z: 1
         anchors.fill: parent
+        acceptedButtons: Qt.LeftButton | Qt.RightButton
         hoverEnabled: true
         propagateComposedEvents: true
+        property real _lastMouseX: 0
+        property real _lastMouseY: 0
+        property bool _rightDragging: false
+        property real _rotSensitivity: 0.15  // 像素转角度
+
+        // 滚轮仅控制相机 x 位置 [0, 1.4]，不控制缩放
+        onWheel: function(wheel) {
+            var step = 0.05
+            var delta = wheel.angleDelta.y > 0 ? step : -step
+            view3d.cameraX = Math.max(0.1, Math.min(1.3, view3d.cameraX + delta))
+            wheel.accepted = true
+        }
         onPositionChanged: function(mouse) {
+            if (_rightDragging) {
+                var dx = mouse.x - _lastMouseX
+                var dy = mouse.y - _lastMouseY
+                _lastMouseX = mouse.x
+                _lastMouseY = mouse.y
+                view3d.orbitRotationY = Math.max(-20, Math.min(20, view3d.orbitRotationY + dx * _rotSensitivity))
+                view3d.orbitRotationX = Math.max(-10, Math.min(10, view3d.orbitRotationX - dy * _rotSensitivity))
+                mouse.accepted = true
+                return
+            }
             var result = view3d.pick(mouse.x, mouse.y)
             if (result && result.objectHit) {
                 view3d.hoveredDelegateIndex = view3d.findDelegateIndex(result.objectHit)
@@ -209,6 +238,13 @@ View3D {
             mouse.accepted = false
         }
         onPressed: function(mouse) {
+            if (mouse.button === Qt.RightButton) {
+                _rightDragging = true
+                _lastMouseX = mouse.x
+                _lastMouseY = mouse.y
+                mouse.accepted = true
+                return
+            }
             if (mouse.button !== Qt.LeftButton) {
                 mouse.accepted = false
                 return
@@ -216,38 +252,51 @@ View3D {
             var result = view3d.pick(mouse.x, mouse.y)
             if (result && result.objectHit) {
                 view3d.pressedDelegateIndex = view3d.findDelegateIndex(result.objectHit)
+                view3d.pressedObjectHit = result.objectHit
             } else {
                 view3d.pressedDelegateIndex = -1
+                view3d.pressedObjectHit = null
             }
             mouse.accepted = true
         }
         onReleased: function(mouse) {
+            if (mouse.button === Qt.RightButton) {
+                _rightDragging = false
+                mouse.accepted = true
+                return
+            }
             if (mouse.button !== Qt.LeftButton) {
                 mouse.accepted = false
                 return
             }
             if (view3d.pressedDelegateIndex >= 0) {
                 var idx = view3d.pressedDelegateIndex
-                if (view3d.selectedDelegateIndex === idx) {
-                    // 横着状态下再次点击：切换展开/收起
-                    view3d.expandedDelegateIndex = (view3d.expandedDelegateIndex === idx) ? -1 : idx
+                var hitCd = view3d.pressedObjectHit && view3d.pressedObjectHit.objectName === "cD"
+                if (hitCd) {
+                    // 点击 CD 盘面：仅发射信号，不改变选中/展开状态
+                    var root = view3d.pressedObjectHit.parent
+                    if (root && typeof root.cdClicked !== "undefined")
+                        root.cdClicked()
                 } else {
-                    view3d.selectedDelegateIndex = idx
-                    view3d.expandedDelegateIndex = -1
+                    if (view3d.selectedDelegateIndex === idx) {
+                        // 横着状态下再次点击：切换展开/收起
+                        view3d.expandedDelegateIndex = (view3d.expandedDelegateIndex === idx) ? -1 : idx
+                    } else {
+                        view3d.selectedDelegateIndex = idx
+                        view3d.expandedDelegateIndex = -1
+                    }
                 }
             } else {
                 view3d.selectedDelegateIndex = -1
                 view3d.expandedDelegateIndex = -1
             }
             view3d.pressedDelegateIndex = -1
+            view3d.pressedObjectHit = null
             mouse.accepted = true
         }
-        onExited: view3d.hoveredDelegateIndex = -1
-    }
-
-    DebugView {
-        source: view3d
-        anchors.right: parent.right
-        anchors.top: parent.top
+        onExited: {
+            view3d.hoveredDelegateIndex = -1
+            _rightDragging = false
+        }
     }
 }
