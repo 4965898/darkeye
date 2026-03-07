@@ -170,7 +170,7 @@ void ManyBodyForce::apply(float alpha)
     const int N = m_state->nNodes;
     if (N < 2) return;
 
-    if (N < 1000) {
+    if (N < kBarnesHutThreshold) {
         applyBlock(alpha, 256);
     } else {
         applyBarnesHut(alpha);
@@ -227,7 +227,7 @@ void ManyBodyForce::applyBlock(float alpha, int block)
     }
 }
 
-// Parallel kernel for N >= 2000
+// Parallel kernel (currently not selected by default policy)
 void ManyBodyForce::applyParallel(float alpha)
 {
     const int    N        = m_state->nNodes;
@@ -315,7 +315,7 @@ void CollisionForce::apply(float alpha)
     const int N = m_state->nNodes;
     if (N < 2) return;
 
-    if (N < 1000) {
+    if (N < kGridThreshold) {
         applyBruteForce(alpha);
     } else {
         applyGrid(alpha);   // O(N) uniform grid; use applyParallel(alpha) for brute-force

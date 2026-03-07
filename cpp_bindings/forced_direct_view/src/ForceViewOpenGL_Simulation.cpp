@@ -42,12 +42,31 @@ void ForceViewOpenGL::setGraph(int nNodes,
     m_physicsState->init(nNodes, edgeVec);
 
 
-    const float L = std::sqrt(static_cast<float>(nNodes)) * kInitialLayoutScaleFactor + kInitialLayoutBaseOffset;
-    std::mt19937 rng(static_cast<unsigned>(std::chrono::steady_clock::now().time_since_epoch().count()));
-    std::uniform_real_distribution<float> dist(-L, L);
-    for (int i = 0; i < nNodes; ++i) {
-        m_physicsState->pos[2 * i]     = dist(rng);
-        m_physicsState->pos[2 * i + 1] = dist(rng);
+    bool useInputPos = (pos.size() >= 2 * nNodes);
+    if (useInputPos) {
+        for (int i = 0; i < nNodes; ++i) {
+            const float x = pos[2 * i];
+            const float y = pos[2 * i + 1];
+            if (!std::isfinite(x) || !std::isfinite(y)) {
+                useInputPos = false;
+                break;
+            }
+        }
+    }
+
+    if (useInputPos) {
+        for (int i = 0; i < nNodes; ++i) {
+            m_physicsState->pos[2 * i]     = pos[2 * i];
+            m_physicsState->pos[2 * i + 1] = pos[2 * i + 1];
+        }
+    } else {
+        const float L = std::sqrt(static_cast<float>(nNodes)) * kInitialLayoutScaleFactor + kInitialLayoutBaseOffset;
+        std::mt19937 rng(static_cast<unsigned>(std::chrono::steady_clock::now().time_since_epoch().count()));
+        std::uniform_real_distribution<float> dist(-L, L);
+        for (int i = 0; i < nNodes; ++i) {
+            m_physicsState->pos[2 * i]     = dist(rng);
+            m_physicsState->pos[2 * i + 1] = dist(rng);
+        }
     }
     m_physicsState->syncRenderPosFromPos();
     m_physicsState->syncDragPosFromPos();

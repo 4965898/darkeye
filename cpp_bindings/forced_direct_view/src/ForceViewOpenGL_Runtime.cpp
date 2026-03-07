@@ -5,6 +5,8 @@
 #include <QVariantMap>
 #include <QVariantList>
 #include <QHash>
+#include <QMetaObject>
+#include <QThread>
 
 #include <chrono>
 #include <random>
@@ -35,6 +37,13 @@ void ForceViewOpenGL::add_node_runtime(const QString& nodeId, float x, float y,
                                          const QString& label, float radius,
                                          const QColor& color)
 {
+    if (QThread::currentThread() != thread()) {
+        QMetaObject::invokeMethod(this, [this, nodeId, x, y, label, radius, color]() {
+            add_node_runtime(nodeId, x, y, label, radius, color);
+        }, Qt::QueuedConnection);
+        return;
+    }
+
     if (!m_physicsState) return;
 
     std::lock_guard<std::mutex> lock(m_simMutex);
@@ -74,6 +83,13 @@ void ForceViewOpenGL::add_node_runtime(const QString& nodeId, float x, float y,
 
 void ForceViewOpenGL::remove_node_runtime(const QString& nodeId)
 {
+    if (QThread::currentThread() != thread()) {
+        QMetaObject::invokeMethod(this, [this, nodeId]() {
+            remove_node_runtime(nodeId);
+        }, Qt::QueuedConnection);
+        return;
+    }
+
     if (!m_physicsState) return;
 
     std::lock_guard<std::mutex> lock(m_simMutex);
@@ -126,6 +142,13 @@ void ForceViewOpenGL::remove_node_runtime(const QString& nodeId)
 
 void ForceViewOpenGL::add_edge_runtime(const QString& uNodeId, const QString& vNodeId)
 {
+    if (QThread::currentThread() != thread()) {
+        QMetaObject::invokeMethod(this, [this, uNodeId, vNodeId]() {
+            add_edge_runtime(uNodeId, vNodeId);
+        }, Qt::QueuedConnection);
+        return;
+    }
+
     if (!m_physicsState) return;
 
     std::lock_guard<std::mutex> lock(m_simMutex);
@@ -156,6 +179,13 @@ void ForceViewOpenGL::add_edge_runtime(const QString& uNodeId, const QString& vN
 
 void ForceViewOpenGL::remove_edge_runtime(const QString& uNodeId, const QString& vNodeId)
 {
+    if (QThread::currentThread() != thread()) {
+        QMetaObject::invokeMethod(this, [this, uNodeId, vNodeId]() {
+            remove_edge_runtime(uNodeId, vNodeId);
+        }, Qt::QueuedConnection);
+        return;
+    }
+
     if (!m_physicsState) return;
 
     std::lock_guard<std::mutex> lock(m_simMutex);
@@ -191,6 +221,13 @@ void ForceViewOpenGL::remove_edge_runtime(const QString& uNodeId, const QString&
 
 void ForceViewOpenGL::apply_diff_runtime(const QVariantList& diffList)
 {
+    if (QThread::currentThread() != thread()) {
+        QMetaObject::invokeMethod(this, [this, diffList]() {
+            apply_diff_runtime(diffList);
+        }, Qt::QueuedConnection);
+        return;
+    }
+
     if (!m_physicsState) return;
     if (diffList.isEmpty()) return;
 
