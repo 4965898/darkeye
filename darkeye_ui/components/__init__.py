@@ -35,6 +35,7 @@ from .modern_scroll_menu import ModernScrollMenu
 from .calendar_heatmap import CalendarHeatmap
 from .lazy_scroll_area import LazyScrollArea
 from .radar_chart_widget import RadarChartWidget
+from .circular_loading import CircularLoading
 
 __all__ = [
     "Button",
@@ -75,4 +76,5 @@ __all__ = [
     "CalendarHeatmap",
     "LazyScrollArea",
     "RadarChartWidget",
+    "CircularLoading",
 ]

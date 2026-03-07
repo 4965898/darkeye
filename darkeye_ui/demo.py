@@ -31,6 +31,7 @@ from darkeye_ui.components import (
     Button,
     CalloutTooltip,
     ChamferButton,
+    CircularLoading,
     ClickableSlider,
     ColorPicker,
     ComboBox,
@@ -425,6 +426,11 @@ def _build_page_more(theme_mgr: ThemeManager) -> QWidget:
     hr = HeartRatingWidget(parent)
     hr.rating_changed.connect(lambda v: print("评分:", v))
     left.addWidget(hr)
+    left.addWidget(Label("圆形加载指示器 CircularLoading（令牌驱动，随主题变色）"))
+    loading_row = QHBoxLayout()
+    for sz in (24, 32, 40):
+        loading_row.addWidget(CircularLoading(size=sz, theme_manager=theme_mgr))
+    left.addLayout(loading_row)
     right.addWidget(Label("OctImage（正八边形图片展示）"))
     _root = Path(__file__).resolve().parent.parent
     logo_path = _root / "resources" / "icons" / "logo.png"
