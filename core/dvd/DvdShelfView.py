@@ -8,7 +8,7 @@ from PySide6.QtGui import QCursor, QColor
 from PySide6.QtWidgets import QMenu, QVBoxLayout, QWidget, QSizePolicy
 from PySide6.QtQuickWidgets import QQuickWidget
 
-from config import get_video_path, MESHES_PATH, MAPS_PATH, HDR_PATH
+from config import get_video_path, MESHES_PATH, MAPS_PATH, HDR_PATH, WORKCOVER_PATH
 from controller.MessageService import MessageBoxService
 from core.database.query import (
     get_workinfo_by_workid,
@@ -22,7 +22,20 @@ from core.database.insert import insert_liked_work
 from core.database.delete import delete_favorite_work
 from core.database.update import mark_delete
 from utils.utils import find_video, play_video, get_text_color_from_background
-from core.dvd.demo_dvd import cover_url_to_texture_url, path_to_file_url
+
+
+def path_to_file_url(path: Path) -> str:
+    """将本地路径转为 QML 可用的 file:// URL。"""
+    return QUrl.fromLocalFile(str(path.resolve())).toString()
+
+
+def cover_url_to_texture_url(image_url: str | None) -> str:
+    """将 image_url（相对路径或空）转为 QML 可用的 file:// 贴图 URL。"""
+    if image_url:
+        full_path = WORKCOVER_PATH / image_url
+        if full_path.exists():
+            return path_to_file_url(full_path)
+    return path_to_file_url(MAPS_PATH / "0.png")
 
 
 VISIBLE_MARGIN = 30  # 相机 x 对应 DVD 位置前后各 30 本为可见范围
@@ -273,7 +286,9 @@ class DvdBridge(QObject):
 
 
 class DvdShelfView(QWidget):
-    """3D DVD 书架视图，虚拟化加载，由 3D 场景内相机位置决定可见范围。"""
+    """3D DVD 书架视图，虚拟化加载，由 3D 场景内相机位置决定可见范围。
+    一次性接受完成的work_id列表，只是在渲染上是按可见窗口加载，现在是ID预加载加窗口虚拟化
+    """
 
     def __init__(self, parent: QWidget | None = None, min_height: int = 600) -> None:
         super().__init__(parent)

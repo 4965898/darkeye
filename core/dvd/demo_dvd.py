@@ -14,21 +14,7 @@ from PySide6.QtCore import QUrl
 
 from config import MESHES_PATH, MAPS_PATH
 from core.database.query import get_works_for_dvd, get_work_ids_with_cover
-
-
-def path_to_file_url(path: Path) -> str:
-    """将本地路径转为 QML 可用的 file:// URL。"""
-    return QUrl.fromLocalFile(str(path.resolve())).toString()
-
-
-def cover_url_to_texture_url(image_url: str | None) -> str:
-    """将 image_url（相对路径或空）转为 QML 可用的 file:// 贴图 URL。"""
-    if image_url:
-        from config import WORKCOVER_PATH
-        full_path = WORKCOVER_PATH / image_url
-        if full_path.exists():
-            return path_to_file_url(full_path)
-    return path_to_file_url(MAPS_PATH / "0.png")
+from core.dvd.DvdShelfView import cover_url_to_texture_url, path_to_file_url
 
 
 class work:

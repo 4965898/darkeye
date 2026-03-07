@@ -108,4 +108,3 @@ compile_commands.json
 **/moc_*.h
 **/qrc_*.cpp
 
-*.mesh
