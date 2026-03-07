@@ -8,7 +8,7 @@ from PySide6.QtGui import QCursor, QColor
 from PySide6.QtWidgets import QMenu, QVBoxLayout, QWidget, QSizePolicy
 from PySide6.QtQuickWidgets import QQuickWidget
 
-from config import get_video_path
+from config import get_video_path, MESHES_PATH, MAPS_PATH, HDR_PATH
 from controller.MessageService import MessageBoxService
 from core.database.query import (
     get_workinfo_by_workid,
@@ -319,7 +319,18 @@ class DvdShelfView(QWidget):
         ctx.setContextProperty("selectedDvdDistance", 0.28)
         ctx.setContextProperty("showWireframe", False)
         ctx.setContextProperty("dvdBridge", self._bridge)
-
+        ctx.setContextProperty(
+            "meshesPath",
+            QUrl.fromLocalFile(str(MESHES_PATH)).toString().rstrip("/") + "/",
+        )
+        ctx.setContextProperty(
+            "mapsPath",
+            QUrl.fromLocalFile(str(MAPS_PATH)).toString().rstrip("/") + "/",
+        )
+        ctx.setContextProperty(
+            "hdrPath",
+            QUrl.fromLocalFile(str(HDR_PATH)).toString().rstrip("/") + "/",
+        )
         self._quick_widget.setSource(QUrl.fromLocalFile(str(qml_path)))
         self._update_timer.timeout.connect(self._apply_pending_camera_update)
 

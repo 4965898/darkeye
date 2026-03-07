@@ -81,6 +81,9 @@ ICONS_PATH = get_PATH("Paths/Icons","resources/icons/")#软件图标的地址
 TEMP_PATH=get_PATH("Paths/Temp","resources/temp/")#存一些临时文件，包括图片等等
 LOG_FILE=get_PATH("Paths/LogFile","log/app.log")#log文件的位置
 QSS_PATH=get_PATH("Paths/QSS","styles/")#qss文件的位置
+MESHES_PATH=get_PATH("Paths/Meshes","resources/meshes/")#DVD 模型 mesh 文件目录
+MAPS_PATH=get_PATH("Paths/Maps","resources/maps/")#DVD 贴图目录
+HDR_PATH=get_PATH("Paths/Hdr","resources/hdr/")#HDR 环境图目录
 
 def get_video_path()->list[Path]:
     '''获得视频地址，这个是用户自己填的绝对路径,可以有多个

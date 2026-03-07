@@ -12,6 +12,7 @@ from PySide6.QtWidgets import QApplication, QMainWindow
 from PySide6.QtQuickWidgets import QQuickWidget
 from PySide6.QtCore import QUrl
 
+from config import MESHES_PATH, MAPS_PATH
 from core.database.query import get_works_for_dvd, get_work_ids_with_cover
 
 
@@ -27,8 +28,7 @@ def cover_url_to_texture_url(image_url: str | None) -> str:
         full_path = WORKCOVER_PATH / image_url
         if full_path.exists():
             return path_to_file_url(full_path)
-    dvd_dir = Path(__file__).resolve().parent
-    return path_to_file_url(dvd_dir / "maps" / "0.png")
+    return path_to_file_url(MAPS_PATH / "0.png")
 
 
 class work:
@@ -100,6 +100,14 @@ def main(work_ids: list[int] | None = None) -> None:
 
     # 默认开启 wireframe，确认模型几何后改为 False
     ctx.setContextProperty("showWireframe", False)
+    ctx.setContextProperty(
+        "meshesPath",
+        QUrl.fromLocalFile(str(MESHES_PATH)).toString().rstrip("/") + "/",
+    )
+    ctx.setContextProperty(
+        "mapsPath",
+        QUrl.fromLocalFile(str(MAPS_PATH)).toString().rstrip("/") + "/",
+    )
     quick_widget.setResizeMode(QQuickWidget.SizeRootObjectToView)
 
     qml_dir = Path(__file__).resolve().parent

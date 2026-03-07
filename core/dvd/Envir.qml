@@ -10,7 +10,7 @@ Node {
         id: shelf_001
         scale.x: 0.824632
         scale.z: 0.0984435
-        source: "meshes/shelf_001.mesh"
+        source: (typeof meshesPath !== "undefined" ? meshesPath : "meshes/") + "shelf_001.mesh"
 
         PrincipledMaterial {
             id: material_001_material
@@ -28,7 +28,7 @@ Node {
         id: shelf_003
         scale.x: 0.824632
         scale.z: 0.0984435
-        source: "meshes/shelf_003.mesh"
+        source: (typeof meshesPath !== "undefined" ? meshesPath : "meshes/") + "shelf_003.mesh"
         materials: [
             material_001_material
         ]
@@ -38,7 +38,7 @@ Node {
         id: shelf_002
         scale.x: 0.824632
         scale.z: 0.0984435
-        source: "meshes/shelf_002.mesh"
+        source: (typeof meshesPath !== "undefined" ? meshesPath : "meshes/") + "shelf_002.mesh"
         materials: [
             material_001_material
         ]

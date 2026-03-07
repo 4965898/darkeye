@@ -4,7 +4,7 @@ import QtQuick3D
 Node {
     id: rOOT
     /** 贴图路径，可动态更换；支持相对路径（相对 Dvd.qml 所在目录）或 file:// 绝对路径 */
-    property string textureSource: "maps/0.png"
+    property string textureSource: (typeof mapsPath !== "undefined" ? mapsPath : "maps/") + "0.png"
     /** 由 dvd_scene 注入，用于 hover 判断 */
     property int delegateIndex: -1
     /** 展开状态：横着时再次点击触发展开，back 不动，spine 沿 back 轴转 -90°，front 沿 spine 转后再沿自身轴转 -90° */
@@ -23,7 +23,7 @@ Node {
         eulerRotation.x: 90
         eulerRotation.y: 90
 
-        source: "meshes/cD.mesh"
+        source: (typeof meshesPath !== "undefined" ? meshesPath : "meshes/") + "cD.mesh"
 
         PrincipledMaterial {
             id: transparent_material
@@ -75,7 +75,7 @@ Node {
     // back 不动
     Model {
         id: back
-        source: "meshes/back.mesh"
+        source: (typeof meshesPath !== "undefined" ? meshesPath : "meshes/") + "back.mesh"
         pickable: true
         materials: [pic_material, trans_material]
     }
@@ -94,7 +94,7 @@ Node {
             id: spine
             x:0.006707
             z:0.000293
-            source: "meshes/spine.mesh"
+            source: (typeof meshesPath !== "undefined" ? meshesPath : "meshes/") + "spine.mesh"
             pickable: true
             materials: [pic_material, trans_material]
         }
@@ -121,7 +121,7 @@ Node {
                 id: front
             x:-0.006707
             z:0.000293
-                source: "meshes/front.mesh"
+                source: (typeof meshesPath !== "undefined" ? meshesPath : "meshes/") + "front.mesh"
                 pickable: true
                 materials: [pic_material, trans_material]
             }

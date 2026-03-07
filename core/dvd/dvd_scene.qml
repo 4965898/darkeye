@@ -36,7 +36,7 @@ View3D {
         clearColor: "#1a1a2e"
         backgroundMode: SceneEnvironment.SkyBox
         lightProbe: Texture {
-            source: "lebombo_2k.hdr"//fireplace_2k,lebombo_2k
+            source: (typeof hdrPath !== "undefined" ? hdrPath : "/") + "lebombo_2k.hdr"//fireplace_2k,lebombo_2k
         }
         probeOrientation: Qt.vector3d(0, 155, 0)
         antialiasingMode: SceneEnvironment.MSAA
@@ -116,17 +116,6 @@ View3D {
         id: sceneRoot
 
 
-        // 备用环境模型（当前关闭）。
-        /*
-        Loader3D {
-            id: envirLoader
-            source: Qt.resolvedUrl("Envir.qml")
-            onStatusChanged: {
-                if (status === Loader3D.Error) console.warn("Envir.qml load error:", errorString)
-            }
-        }
-        */
-
 
 
 
@@ -139,7 +128,7 @@ View3D {
                 property int virtualIndex: (typeof dvdVisibleStart !== "undefined" ? dvdVisibleStart : 0) + index
                 // 每个 DVD 的封面纹理；缺失时回退默认贴图。
                 property string tex: (dvdTextureSources && index < dvdTextureSources.length)
-                    ? dvdTextureSources[index] : "maps/0.png"
+                    ? dvdTextureSources[index] : ((typeof mapsPath !== "undefined" ? mapsPath : "maps/") + "0.png")
                 property bool selected: view3d.selectedDelegateIndex === index
                 property bool hovered: view3d.hoveredDelegateIndex === index
                 // 选中时移动到镜头前，未选中按书架间距排布。
