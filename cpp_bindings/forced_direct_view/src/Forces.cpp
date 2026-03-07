@@ -170,7 +170,7 @@ void ManyBodyForce::apply(float alpha)
     const int N = m_state->nNodes;
     if (N < 2) return;
 
-    if (N < 1000) {
+    if (N < kBarnesHutThreshold) {
         applyBlock(alpha, 256);
     } else {
         applyBarnesHut(alpha);
@@ -189,7 +189,9 @@ void ManyBodyForce::applyBlock(float alpha, int block)
 
     for (int i0 = 0; i0 < N; i0 += block) {
         int i1 = std::min(i0 + block, N);
-        for (int j0 = 0; j0 < N; j0 += block) {
+        // Iterate upper-triangular block pairs only. Each unordered node pair
+        // must be processed exactly once because this kernel writes to both i and j.
+        for (int j0 = i0; j0 < N; j0 += block) {
             int j1 = std::min(j0 + block, N);
             for (int i = i0; i < i1; ++i) {
                 float xi = pos[2 * i];
@@ -227,7 +229,7 @@ void ManyBodyForce::applyBlock(float alpha, int block)
     }
 }
 
-// Parallel kernel for N >= 2000
+// Parallel kernel (currently not selected by default policy)
 void ManyBodyForce::applyParallel(float alpha)
 {
     const int    N        = m_state->nNodes;
@@ -315,7 +317,7 @@ void CollisionForce::apply(float alpha)
     const int N = m_state->nNodes;
     if (N < 2) return;
 
-    if (N < 1000) {
+    if (N < kGridThreshold) {
         applyBruteForce(alpha);
     } else {
         applyGrid(alpha);   // O(N) uniform grid; use applyParallel(alpha) for brute-force
