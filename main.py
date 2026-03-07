@@ -102,6 +102,10 @@ def _run_main_app():
         app = QApplication(sys.argv)
     profiler.checkpoint("创建应用")
 
+    # 强制 Qt Quick 使用 OpenGL，与 QOpenGLWidget 兼容（否则 Windows 默认 D3D11 会冲突）
+    from PySide6.QtQuick import QQuickWindow, QSGRendererInterface
+    QQuickWindow.setGraphicsApi(QSGRendererInterface.GraphicsApi.OpenGL)
+
     splash = None
     if show_splash:
         # 启动画面用 PNG 避免 SVG 解析耗时

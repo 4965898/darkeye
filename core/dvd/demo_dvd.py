@@ -12,9 +12,7 @@ from PySide6.QtWidgets import QApplication, QMainWindow
 from PySide6.QtQuickWidgets import QQuickWidget
 from PySide6.QtCore import QUrl
 
-from config import WORKCOVER_PATH
-
-_IMG_SUFFIXES = {".png", ".jpg", ".jpeg", ".webp"}
+from core.database.query import get_works_for_dvd, get_work_ids_with_cover
 
 
 def path_to_file_url(path: Path) -> str:
@@ -22,25 +20,49 @@ def path_to_file_url(path: Path) -> str:
     return QUrl.fromLocalFile(str(path.resolve())).toString()
 
 
+def cover_url_to_texture_url(image_url: str | None) -> str:
+    """将 image_url（相对路径或空）转为 QML 可用的 file:// 贴图 URL。"""
+    if image_url:
+        from config import WORKCOVER_PATH
+        full_path = WORKCOVER_PATH / image_url
+        if full_path.exists():
+            return path_to_file_url(full_path)
+    dvd_dir = Path(__file__).resolve().parent
+    return path_to_file_url(dvd_dir / "maps" / "0.png")
+
+
 class work:
     '''弄一个数据类'''
-    def __init__(self,work_id,serial_number,cover_url) -> None:
-        self.work_id=work_id
-        self.serial_number=serial_number
-        self.cover_url=cover_url
-        self.actress_list=[]
-        self.actor_list=[]
-        self.tag_list=[]
-        self.release_date=[]
-        self.director=[]
-        self.maker=None
-        self.title=""
-        self.story=""
+    def __init__(self, work_id, serial_number, cover_url) -> None:
+        self.work_id = work_id
+        self.serial_number = serial_number
+        self.cover_url = cover_url
+        self.actress_list = []
+        self.actor_list = []
+        self.tag_list = []
+        self.release_date = []
+        self.director = []
+        self.maker = None
+        self.title = ""
+        self.story = ""
 
-        
+    @classmethod
+    def from_dict(cls, d: dict) -> "work":
+        """从 get_works_for_dvd 返回的 dict 构建 work 实例"""
+        return cls(
+            work_id=d.get("work_id"),
+            serial_number=d.get("serial_number") or "",
+            cover_url=d.get("image_url"),
+        )
 
 
-def main() -> None:
+def _works_to_texture_urls(work_ids: list[int]) -> list[str]:
+    """根据 work_ids 查询封面并转为贴图 URL 列表。"""
+    works_data = get_works_for_dvd(work_ids)
+    return [cover_url_to_texture_url(d.get("image_url")) for d in works_data]
+
+
+def main(work_ids: list[int] | None = None) -> None:
     app = QApplication(sys.argv)
 
     dvd_dir = Path(__file__).resolve().parent
@@ -51,10 +73,18 @@ def main() -> None:
     dvd_qml_url = path_to_file_url(dvd_qml_path)
     print(f"使用 Dvd.qml 模型: {dvd_qml_path}")
 
+    if work_ids is None:
+        work_ids = get_work_ids_with_cover(100)
+    if not work_ids:
+        work_ids = []  # 无数据时用占位
+    texture_urls = _works_to_texture_urls(work_ids) if work_ids else []
+    dvd_count = len(texture_urls) if texture_urls else 1
+    if not texture_urls:
+        texture_urls = [cover_url_to_texture_url(None)]
+
     window = QMainWindow()
     window.setWindowTitle("Qt Quick 3D - DVD 模型")
     window.resize(800, 600)
-    dvd_count = 100
     quick_widget = QQuickWidget()
     ctx = quick_widget.rootContext()
     ctx.setContextProperty("modelUrl", "")  # 不使用外部 glb
@@ -62,14 +92,9 @@ def main() -> None:
     ctx.setContextProperty("dvdQmlUrl", dvd_qml_url)
     ctx.setContextProperty("dvdCount", dvd_count)
     ctx.setContextProperty("dvdSpacing", 0.0145)
-    # 每份 DVD 的贴图：优先用 resources/public/workcovers 下的图片
-
-    workcover_images = sorted(p for p in WORKCOVER_PATH.iterdir() if p.suffix.lower() in _IMG_SUFFIXES) if WORKCOVER_PATH.exists() else []
-    if workcover_images:
-        texture_urls = [path_to_file_url(workcover_images[i % len(workcover_images)]) for i in range(dvd_count)]
-    else:
-        texture_urls = ["maps/0.png", "maps/1.png", "maps/0.png"]
     ctx.setContextProperty("dvdTextureSources", texture_urls)
+    ctx.setContextProperty("dvdVisibleStart", 0)
+    ctx.setContextProperty("dvdShelfLength", max(0, dvd_count - 1) * 0.0145)
     ctx.setContextProperty("cameraDistance", 0.35)
     ctx.setContextProperty("selectedDvdDistance", 0.28)
 

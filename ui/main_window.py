@@ -128,8 +128,8 @@ class MainWindow(QMainWindow):
             return ForceDirectPage()
             
         def create_shelf():
-            from ui.widgets.ShelfWidget import ShelfWidget
-            return ShelfWidget()
+            from ui.pages.ShelfPage import ShelfPage
+            return ShelfPage()
 
         def create_workspace_demo():
             from ui.pages.WorkspaceDemoPage import WorkspaceDemoPage

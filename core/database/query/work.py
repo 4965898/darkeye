@@ -143,6 +143,31 @@ def get_actressid_by_workid(work_id: int) -> list:
         return [row[0] for row in cursor.fetchall()]
 
 
+def get_works_for_dvd(work_ids: list[int]) -> list[dict]:
+    '''批量查询 work_id、serial_number、image_url，供 DVD 场景使用，保持输入顺序'''
+    if not work_ids:
+        return []
+    placeholders = ",".join("?" for _ in work_ids)
+    query = f'''
+    SELECT
+        work_id,
+        serial_number,
+        image_url
+    FROM work
+    WHERE work_id IN ({placeholders})
+    '''
+    try:
+        with get_connection(DATABASE, True) as conn:
+            cursor = conn.cursor()
+            cursor.execute(query, work_ids)
+            rows = cursor.fetchall()
+            by_id = {r[0]: {"work_id": r[0], "serial_number": r[1], "image_url": r[2]} for r in rows}
+            return [by_id[w] for w in work_ids if w in by_id]
+    except sqlite3.Error as e:
+        logging.info(f"get_works_for_dvd 查询时数据库错误: {e}")
+        return []
+
+
 def get_cover_image_url(work_id: int) -> str | None:
     '''根据work_id查找对应的封面图片的地址'''
     query = '''

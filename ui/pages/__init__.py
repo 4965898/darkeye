@@ -21,3 +21,4 @@ from .ModifyActressPage import ModifyActressPage
 from .ModifyActorPage import ModifyActorPage
 from .SettingPage import SettingPage
 # from .ForceDirectPage import ForceDirectPage # Imported explicitly by MainWindow
+from .ShelfPage import ShelfPage

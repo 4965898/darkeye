@@ -9,6 +9,10 @@ Node {
     property int delegateIndex: -1
     /** 展开状态：横着时再次点击触发展开，back 不动，spine 沿 back 轴转 -90°，front 沿 spine 转后再沿自身轴转 -90° */
     property bool expanded: false
+    // Expose the spine center anchor for scene-level action overlay projection.
+    property var actionAnchorNode: spineActionAnchor
+    // Expose the front center anchor for scene-level title/story overlay projection.
+    property var frontInfoAnchorNode: frontInfoAnchor
     /** 点击 CD 盘面时发射 */
     signal cdClicked()
 
@@ -95,6 +99,14 @@ Node {
             materials: [pic_material, trans_material]
         }
 
+        Node {
+            id: spineActionAnchor
+            // Use the spine mesh center as action buttons anchor.
+            x: spine.x
+            y: 0
+            z: spine.z
+        }
+
         // front 在 spine 转的基础上沿自身轴转 -90°
         Node {
             id: frontNode
@@ -112,6 +124,14 @@ Node {
                 source: "meshes/front.mesh"
                 pickable: true
                 materials: [pic_material, trans_material]
+            }
+
+            Node {
+                id: frontInfoAnchor
+                // Use the front mesh center as title/story anchor.
+                x: front.x
+                y: 0 //这个是控制info的上下的
+                z: front.z-0.07 
             }
         }
     }
