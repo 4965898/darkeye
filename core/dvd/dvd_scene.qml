@@ -1,4 +1,4 @@
-﻿import QtQuick
+import QtQuick
 import QtCore
 import QtQuick3D
 import QtQuick3D.AssetUtils
@@ -25,6 +25,23 @@ View3D {
     property var actionAnchorByIndex: ({})
     // 展开态 title/story 的 front 面锚点映射，key=delegate index。
     property var frontInfoAnchorByIndex: ({})
+
+    // 完全展开后的 delegate 索引（开盒动画 350ms 完成后才 >= 0；折叠时立即 -1）。
+    property int fullyExpandedDelegateIndex: -1
+    readonly property int _expandAnimMs: 350
+    Timer {
+        id: fullyExpandedTimer
+        interval: view3d._expandAnimMs
+        onTriggered: view3d.fullyExpandedDelegateIndex = view3d.expandedDelegateIndex
+    }
+    onExpandedDelegateIndexChanged: {
+        if (view3d.expandedDelegateIndex >= 0)
+            fullyExpandedTimer.start()
+        else {
+            fullyExpandedTimer.stop()
+            view3d.fullyExpandedDelegateIndex = -1
+        }
+    }
 
     // 将可见窗口内索引映射回全量列表索引。
     function expandedVirtualIndexFor(delegateIndex) {
@@ -130,37 +147,103 @@ View3D {
                 property string tex: (dvdTextureSources && index < dvdTextureSources.length)
                     ? dvdTextureSources[index] : ((typeof mapsPath !== "undefined" ? mapsPath : "maps/") + "0.png")
                 property bool selected: view3d.selectedDelegateIndex === index
-                property bool hovered: view3d.hoveredDelegateIndex === index
-                // 选中时移动到镜头前，未选中按书架间距排布。
-                x: selected ? cameraFront.scenePosition.x : (virtualIndex * dvdSpacing)
-                y: selected ? cameraFront.scenePosition.y : 0
-                z: selected ? cameraFront.scenePosition.z : (hovered ? 0.05 : 0)
+                // Selected item ignores hover to avoid z-jitter during animation.
+                property bool hovered: !selected && view3d.hoveredDelegateIndex === index
+                property real _phase2YawTarget: 90
+                property bool _phase2YawLocked: false
+                property real selectionProgress: selected ? 1 : 0
+                Behavior on selectionProgress { NumberAnimation { duration: 500; easing.type: Easing.OutCubic } }
+
+                readonly property real _shelfX: virtualIndex * dvdSpacing
+                readonly property real _shelfZ: hovered ? 0.03 : 0
+                readonly property real _pullOutZ: (typeof dvdPullOutDistance !== "undefined" ? dvdPullOutDistance : 0.14)
+                readonly property real _phase1Factor: Math.min(1, selectionProgress * 2)
+                readonly property real _phase2Factor: Math.max(0, selectionProgress * 2 - 1)
+
+                onSelectedChanged: {
+                    if (!selected)
+                        return
+                }
+
+                onSelectionProgressChanged: {
+                    if (!selected && selectionProgress <= 0.001) {
+                        _phase2YawLocked = false
+                        _phase2YawTarget = 90
+                        return
+                    }
+                    if (!selected || _phase2YawLocked || _phase2Factor <= 0)
+                        return
+                    // Pick the equivalent front-facing target angle nearest to current start yaw.
+                    var startYaw = -lookAtNode._yawContinuous
+                    var k = Math.round((startYaw - 90) / 360)
+                    _phase2YawTarget = 90 + 360 * k
+                    _phase2YawLocked = true
+                }
+
+                // Phase-1: z only pull-out. Phase-2: move to camera front.
+                x: _shelfX + (cameraFront.scenePosition.x - _shelfX) * _phase2Factor
+                y: cameraFront.scenePosition.y * _phase2Factor
+                z: _shelfZ + _pullOutZ * _phase1Factor
+                    + (cameraFront.scenePosition.z - _shelfZ - _pullOutZ) * _phase2Factor
 
                 // 旋转中心，避免旋转时出现“飘移”。
-                pivot: Qt.vector3d(-0.00979297 * modelScale, 5.68405e-05 * modelScale, -0.0676852 * modelScale)
+                pivot: Qt.vector3d(0, 0, 0)
 
                 // 选中/悬停位移动画。
-                Behavior on x { enabled: selected; NumberAnimation { duration: 350; easing.type: Easing.OutCubic } }
-                Behavior on y { enabled: selected; NumberAnimation { duration: 350; easing.type: Easing.OutCubic } }
-                Behavior on z { enabled: selected || hovered; NumberAnimation { duration: 350; easing.type: Easing.OutCubic } }
+                Behavior on z { enabled: selectionProgress <= 0.001; NumberAnimation { duration: 250; easing.type: Easing.OutCubic } }
 
 
                 // 选中时让 DVD 面向相机；未选中恢复书架朝向。
                 LookAtNode {
                     id: lookAtNode
-                    target: selected ? orbitCamera : null
+                    target: selectionProgress > 0 ? orbitCamera : null
+                    property bool _yawTrackReady: false
+                    property real _yawRawPrev: 0
+                    property real _yawContinuous: 0
+
+                    function _normalizeDelta(deg) {
+                        var d = deg
+                        while (d > 180) d -= 360
+                        while (d < -180) d += 360
+                        return d
+                    }
+
+                    onTargetChanged: {
+                        if (target) {
+                            _yawRawPrev = eulerRotation.y
+                            _yawContinuous = eulerRotation.y
+                            _yawTrackReady = true
+                        } else {
+                            _yawTrackReady = false
+                            _yawRawPrev = 0
+                            _yawContinuous = 0
+                        }
+                    }
+
+                    onEulerRotationChanged: {
+                        if (!_yawTrackReady)
+                            return
+                        var rawYaw = eulerRotation.y
+                        var delta = _normalizeDelta(rawYaw - _yawRawPrev)
+                        _yawContinuous += delta
+                        _yawRawPrev = rawYaw
+                    }
 
                     Binding {
                         target: lookAtNode
                         property: "eulerRotation"
                         value: Qt.vector3d(0, 0, 0)
-                        when: !selected
+                        when: selectionProgress <= 0
                     }
                     Node {
-
-                        // 选中时切到封面视角。
-                        eulerRotation.y: selected ? 90 : 0
-                        Behavior on eulerRotation.y { NumberAnimation { duration: 350; easing.type: Easing.OutCubic } }
+                        // Rotate around spine axis.
+                        pivot: Qt.vector3d(-0.006707, 0, -0.000293)
+                        eulerRotation: selectionProgress > 0
+                            ? Qt.vector3d(
+                                -lookAtNode.eulerRotation.x * (1 - _phase2Factor),
+                                -lookAtNode._yawContinuous * (1 - _phase2Factor) + (_phase2YawTarget * _phase2Factor),
+                                -lookAtNode.eulerRotation.z * (1 - _phase2Factor))
+                            : Qt.vector3d(0, 0, 0)
                         Loader3D {
                             id: dvdLoader
                             source: dvdQmlUrl
@@ -281,14 +364,15 @@ View3D {
                 var dy = mouse.y - _lastMouseY
                 _lastMouseX = mouse.x
                 _lastMouseY = mouse.y
-                view3d.orbitRotationY = Math.max(-20, Math.min(20, view3d.orbitRotationY - dx * _rotSensitivity))
+                view3d.orbitRotationY = Math.max(-15, Math.min(15, view3d.orbitRotationY - dx * _rotSensitivity))
                 view3d.orbitRotationX = Math.max(-10, Math.min(10, view3d.orbitRotationX - dy * _rotSensitivity))
                 mouse.accepted = true
                 return
             }
             var result = view3d.pick(mouse.x, mouse.y)
             if (result && result.objectHit) {
-                view3d.hoveredDelegateIndex = view3d.findDelegateIndex(result.objectHit)
+                var hoveredIdx = view3d.findDelegateIndex(result.objectHit)
+                view3d.hoveredDelegateIndex = (hoveredIdx === view3d.selectedDelegateIndex) ? -1 : hoveredIdx
             } else {
                 view3d.hoveredDelegateIndex = -1
             }
@@ -360,17 +444,17 @@ View3D {
     }
 
 
-    // front 面信息层：title/story 的 2D 投影，仅展开后显示。
+    // front 面信息层：title/story 的 2D 投影，仅完全展开后显示。
     Item {
         id: workInfoOverlay
         z: 2
         readonly property real _overlayWidth: (typeof workInfoOverlayWidth !== "undefined")
             ? workInfoOverlayWidth
-            : Math.min(360, Math.max(240, view3d.width * 0.35))
+            : Math.min(600, Math.max(240, view3d.height * 0.5))
         width: _overlayWidth
         height: contentColumn.implicitHeight + 24
-        property var expandedAnchor: (view3d.expandedDelegateIndex >= 0)
-            ? view3d.frontInfoAnchorByIndex[view3d.expandedDelegateIndex]
+        property var expandedAnchor: (view3d.fullyExpandedDelegateIndex >= 0)
+            ? view3d.frontInfoAnchorByIndex[view3d.fullyExpandedDelegateIndex]
             : null
         property point projectedPoint: {
             if (!expandedAnchor)
@@ -383,25 +467,26 @@ View3D {
         }
         x: projectedPoint.x - width * 0.5
         y: projectedPoint.y - height * 0.5
-        visible: view3d.expandedDelegateIndex >= 0
+        visible: view3d.fullyExpandedDelegateIndex >= 0
             && expandedAnchor
             && isFinite(projectedPoint.x)
             && isFinite(projectedPoint.y)
 
-        property int expandedVirtualIndex: view3d.expandedDelegateIndex >= 0
-            ? view3d.expandedVirtualIndexFor(view3d.expandedDelegateIndex)
+        property int expandedVirtualIndex: view3d.fullyExpandedDelegateIndex >= 0
+            ? view3d.expandedVirtualIndexFor(view3d.fullyExpandedDelegateIndex)
             : -1
 
-        // 展示状态变化/展开索引变化时，向 Python 请求当前 work 的 title/story。
-        onVisibleChanged: {
-            if (typeof dvdBridge !== "undefined" && dvdBridge)
-                dvdBridge.refreshExpandedWorkMeta(visible ? expandedVirtualIndex : -1)
-        }
+        // 展开时立即请求数据（动画期间加载）；完全展开后再次请求以兜底；折叠时传 -1。
         Connections {
             target: view3d
             function onExpandedDelegateIndexChanged() {
                 if (typeof dvdBridge !== "undefined" && dvdBridge)
-                    dvdBridge.refreshExpandedWorkMeta(workInfoOverlay.expandedVirtualIndex)
+                    dvdBridge.refreshExpandedWorkMeta(view3d.expandedDelegateIndex >= 0
+                        ? view3d.expandedVirtualIndexFor(view3d.expandedDelegateIndex) : -1)
+            }
+            function onFullyExpandedDelegateIndexChanged() {
+                if (typeof dvdBridge !== "undefined" && dvdBridge && view3d.fullyExpandedDelegateIndex >= 0)
+                    dvdBridge.refreshExpandedWorkMeta(view3d.expandedVirtualIndexFor(view3d.fullyExpandedDelegateIndex))
             }
         }
 
@@ -442,15 +527,34 @@ View3D {
                 text: (typeof dvdBridge !== "undefined" && dvdBridge && dvdBridge.expandedWorkStory)
                     ? dvdBridge.expandedWorkStory : ""
             }
-            Text {
+            Row {
                 width: parent.width
-                color: "#a0a8b8"
-                font.pixelSize: 12
-                wrapMode: Text.NoWrap
-                elide: Text.ElideRight
-                visible: text !== ""
-                text: (typeof dvdBridge !== "undefined" && dvdBridge && dvdBridge.expandedWorkCode)
-                    ? ("番号: " + dvdBridge.expandedWorkCode) : ""
+                visible: typeof dvdBridge !== "undefined" && dvdBridge && dvdBridge.expandedWorkCode
+                spacing: 4
+                Text {
+                    color: "#a0a8b8"
+                    font.pixelSize: 12
+                    text: "番号: "
+                }
+                MouseArea {
+                    width: codeText.implicitWidth
+                    height: codeText.implicitHeight
+                    cursorShape: Qt.PointingHandCursor
+                    hoverEnabled: true
+                    onClicked: {
+                        if (typeof dvdBridge !== "undefined" && dvdBridge && dvdBridge.expandedWorkCode)
+                            dvdBridge.copyToClipboard(dvdBridge.expandedWorkCode)
+                    }
+                    Text {
+                        id: codeText
+                        color: hovered ? "#e8ecf5" : "#e8ecf5"
+                        font.pixelSize: 12
+                        font.underline: hovered
+                        text: (typeof dvdBridge !== "undefined" && dvdBridge && dvdBridge.expandedWorkCode)
+                            ? dvdBridge.expandedWorkCode : ""
+                        property bool hovered: parent.containsMouse
+                    }
+                }
             }
             Text {
                 width: parent.width
@@ -472,7 +576,7 @@ View3D {
                 Text {
                     text: "作品标签"
                     color: "#a0a8b8"
-                    font.pixelSize: 11
+                    font.pixelSize: 12
                 }
                 Flow {
                     width: parent.width
@@ -488,7 +592,7 @@ View3D {
                                 id: tagLabel
                                 anchors.centerIn: parent
                                 text: modelData ? modelData.tag_name : ""
-                                font.pixelSize: 11
+                                font.pixelSize: 12
                                 color: (modelData && modelData.text_color) ? modelData.text_color : "#333333"
                             }
                             MouseArea {
@@ -514,7 +618,7 @@ View3D {
                 Text {
                     text: "女优"
                     color: "#a0a8b8"
-                    font.pixelSize: 11
+                    font.pixelSize: 12
                 }
                 Flow {
                     width: parent.width
@@ -530,7 +634,7 @@ View3D {
                                 id: actressLabel
                                 anchors.centerIn: parent
                                 text: modelData ? modelData.actress_name : ""
-                                font.pixelSize: 11
+                                font.pixelSize: 12
                                 color: "#333333"
                             }
                             MouseArea {
@@ -555,7 +659,7 @@ View3D {
                 Text {
                     text: "男优"
                     color: "#a0a8b8"
-                    font.pixelSize: 11
+                    font.pixelSize: 12
                 }
                 Flow {
                     width: parent.width
@@ -571,7 +675,7 @@ View3D {
                                 id: actorLabel
                                 anchors.centerIn: parent
                                 text: modelData ? modelData.actor_name : ""
-                                font.pixelSize: 11
+                                font.pixelSize: 12
                                 color: "#333333"
                             }
                             MouseArea {
@@ -657,14 +761,14 @@ View3D {
         }
     }
 
-    // spine 中心操作层：爱心、编辑、删除按钮的 2D 投影。
+    // spine 中心操作层：爱心、编辑、删除按钮的 2D 投影，仅完全展开后显示。
     Item {
         id: actionOverlay
         z: 2
         width: 48
         height: actionColumn.height
-        property var expandedAnchor: (view3d.expandedDelegateIndex >= 0)
-            ? view3d.actionAnchorByIndex[view3d.expandedDelegateIndex]
+        property var expandedAnchor: (view3d.fullyExpandedDelegateIndex >= 0)
+            ? view3d.actionAnchorByIndex[view3d.fullyExpandedDelegateIndex]
             : null
         property point projectedPoint: {
             if (!expandedAnchor)
@@ -679,26 +783,25 @@ View3D {
         }
         x: projectedPoint.x - width * 0.5
         y: projectedPoint.y - height * 0.5
-        visible: view3d.expandedDelegateIndex >= 0
+        visible: view3d.fullyExpandedDelegateIndex >= 0
             && expandedAnchor
             && isFinite(projectedPoint.x)
             && isFinite(projectedPoint.y)
 
-        property int expandedVirtualIndex: view3d.expandedDelegateIndex >= 0
-            ? view3d.expandedVirtualIndexFor(view3d.expandedDelegateIndex)
+        property int expandedVirtualIndex: view3d.fullyExpandedDelegateIndex >= 0
+            ? view3d.expandedVirtualIndexFor(view3d.fullyExpandedDelegateIndex)
             : -1
 
-        // 展示状态变化/展开索引变化时，刷新收藏状态。
-        onVisibleChanged: {
-            if (visible && typeof dvdBridge !== "undefined" && dvdBridge)
-                dvdBridge.refreshExpandedFavoriteState(expandedVirtualIndex)
-        }
+        // 展开时立即请求收藏状态；完全展开后再次请求以兜底，确保爱心显示正确。
         Connections {
             target: view3d
             function onExpandedDelegateIndexChanged() {
-                if (actionOverlay.visible && view3d.expandedDelegateIndex >= 0
-                    && typeof dvdBridge !== "undefined" && dvdBridge)
-                    dvdBridge.refreshExpandedFavoriteState(actionOverlay.expandedVirtualIndex)
+                if (view3d.expandedDelegateIndex >= 0 && typeof dvdBridge !== "undefined" && dvdBridge)
+                    dvdBridge.refreshExpandedFavoriteState(view3d.expandedVirtualIndexFor(view3d.expandedDelegateIndex))
+            }
+            function onFullyExpandedDelegateIndexChanged() {
+                if (view3d.fullyExpandedDelegateIndex >= 0 && typeof dvdBridge !== "undefined" && dvdBridge)
+                    dvdBridge.refreshExpandedFavoriteState(view3d.expandedVirtualIndexFor(view3d.fullyExpandedDelegateIndex))
             }
         }
 

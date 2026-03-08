@@ -5,7 +5,7 @@ from pathlib import Path
 
 from PySide6.QtCore import Property, QObject, QUrl, Signal, Slot, QTimer
 from PySide6.QtGui import QCursor, QColor
-from PySide6.QtWidgets import QMenu, QVBoxLayout, QWidget, QSizePolicy
+from PySide6.QtWidgets import QApplication, QMenu, QVBoxLayout, QWidget, QSizePolicy
 from PySide6.QtQuickWidgets import QQuickWidget
 
 from config import get_video_path, MESHES_PATH, MAPS_PATH, HDR_PATH, WORKCOVER_PATH
@@ -39,8 +39,8 @@ def cover_url_to_texture_url(image_url: str | None) -> str:
 
 
 VISIBLE_MARGIN = 30  # 相机 x 对应 DVD 位置前后各 30 本为可见范围
-HYSTERESIS = 20  # 滞后：相机需移出当前范围此距离才触发更新，减少频繁重建导致的回弹
-MAX_RANGE = 100  # 可见范围最大 item 数，超出时从远端收缩
+HYSTERESIS = 30  # 滞后：相机需移出当前范围此距离才触发更新，减少频繁重建导致的回弹
+MAX_RANGE = 60  # 可见范围最大 item 数，超出时从远端收缩
 WINDOW_RANGE = min(MAX_RANGE, VISIBLE_MARGIN * 2 + 1)
 MAX_SHIFT_PER_UPDATE = 10  # 单次最多平移 10 个索引，避免一次性大幅跳动
 UPDATE_INTERVAL_MS = 16  # 约 60FPS：滚动时节流刷新而非停止后防抖
@@ -240,6 +240,12 @@ class DvdBridge(QObject):
     def setCameraX(self, v: float) -> None:
         self._set_camera_x(v)
 
+    @Slot(str)
+    def copyToClipboard(self, text: str) -> None:
+        """将文本复制到系统剪贴板。"""
+        if text:
+            QApplication.clipboard().setText(text)
+
     @Slot(int)
     def onCdClicked(self, virtual_index: int) -> None:
         self._view.show_video_menu_for_index(virtual_index)
@@ -330,8 +336,8 @@ class DvdShelfView(QWidget):
         ctx.setContextProperty("dvdVisibleStart", 0)
         ctx.setContextProperty("dvdShelfLength", 0.0)
         ctx.setContextProperty("dvdSpacing", DVD_SPACING)
-        ctx.setContextProperty("cameraDistance", 0.35)
-        ctx.setContextProperty("selectedDvdDistance", 0.28)
+        ctx.setContextProperty("cameraDistance", 0.3)
+        ctx.setContextProperty("selectedDvdDistance", 0.2)
         ctx.setContextProperty("showWireframe", False)
         ctx.setContextProperty("dvdBridge", self._bridge)
         ctx.setContextProperty(
