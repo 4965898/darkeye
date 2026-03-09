@@ -87,11 +87,13 @@ class MainWindow(QMainWindow):
         
         # 1. 定义工厂函数
         def create_home():
-            from ui.pages.CoverBrowser import CoverBrowser
-            from core.recommendation.Recommend import randomRec
-            return CoverBrowser(randomRec())
+            #from ui.pages.CoverBrowser import CoverBrowser
+            #from core.recommendation.Recommend import randomRec
+            #return CoverBrowser(randomRec())
+            from ui.pages.HomePage import HomePage
+            return HomePage()
 
-        def create_dashboard():
+        def create_test_page():
             from ui.pages.DashboardPage import DashboardPage
             return DashboardPage()
 
@@ -162,8 +164,8 @@ class MainWindow(QMainWindow):
         # 2. 注册路由 (route_name, factory, menu_id)
         # 侧边栏主菜单页面
         # 保留旧首页作为隐藏入口，新的 Dashboard 绑定到侧边栏的“首页”按钮
-        self.router.register("home", create_home, None)
-        self.router.register("dashboard", create_dashboard, "home")
+        self.router.register("home", create_home, "home")
+        self.router.register("test_page", create_test_page, None)
         self.router.register("database", create_management, "database")
         self.router.register("chart", create_statistics, "chart")
         self.router.register("mutiwork", create_work, "work") # 作品列表
@@ -185,7 +187,7 @@ class MainWindow(QMainWindow):
         
         # 3. 建立菜单到路由的映射 (供 Sidebar 点击使用)
         self._menu_to_route = {
-            "home": "dashboard",
+            "home": "home",
             "database": "database",
             "chart": "chart",
             "work": "mutiwork",
@@ -207,7 +209,7 @@ class MainWindow(QMainWindow):
     2. 全局资源独占 ：页面内部持有了必须全局唯一的资源（比如绑定了某个特定的 WebSocket 连接、硬件端口），绝对不允许被实例化两次。
         '''
         # 延后到 show 之后再加载首页，主窗口先显示框架，缩短“主窗口显示完成”耗时
-        QTimer.singleShot(0, lambda: self.router.push("dashboard"))
+        QTimer.singleShot(0, lambda: self.router.push("home"))
 
 
     def signal_connect(self) -> None:

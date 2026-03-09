@@ -453,7 +453,7 @@ HAVING COUNT(DISTINCT wtr2.tag_id) = ?
         if not count:
             query +=f"{order} LIMIT ? OFFSET ?"#最后拼这个
             params.extend([page_size, offset])
-        #logging.debug(f"WorkPageExecute SQL\n{query}")
+        logging.debug(f"WorkPageExecute SQL\n{query}")
         #logging.debug(f"{params}")
 
         with sqlite3.connect(f"file:{DATABASE}?mode=ro",uri=True) as conn:

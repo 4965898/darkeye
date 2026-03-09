@@ -8,6 +8,7 @@ from PySide6.QtCore import Qt,Slot, QThreadPool, QRunnable, Signal, QObject
 from core.database.query import get_record_count_in_days,get_top_actress_by_masturbation_count
 import logging
 from ui.widgets import ActressCard
+from ui.widgets.StatsOverviewCards import StatsOverviewCards
 from ui.basic.Effect import ShadowEffectMixin
 from darkeye_ui import LazyWidget
 from ui.statistics import SwitchHeapMap
@@ -50,7 +51,10 @@ class PersonalDataPage(LazyWidget):
         logging.info("----------个人数据界面----------")
         mainlayout = QVBoxLayout(self)
         mainlayout.setContentsMargins(0, 10, 0, 0)
-        
+
+        # 顶部统计卡片（数据库概览）
+        mainlayout.addWidget(StatsOverviewCards())
+
         self.hlayout=QHBoxLayout()
         
         most_like_actress30=MostLikeActress(30)
