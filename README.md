@@ -1,7 +1,7 @@
 
 
 # DarkEye - 在暗黑界睁开一只眼
-一个使用PySide6 GUI开发，sqlite数据存储的暗黑影片数据存储与分析软件。
+一个暗黑影片收藏软件，专注沉浸式采集与拟物化收藏。使用PySide6，qtquick3D做GUI，sqlite数据存储，firefox爬虫，C++加速力导向图。集采集，收藏，分析于一体的软件。
 
 ![Python](https://img.shields.io/badge/Python-3.14-blue.svg)
 ![License](https://img.shields.io/github/license/de4321/darkeye)
@@ -83,7 +83,11 @@ python main.py
 
 
 # 使用
-打开就知道了
+装好浏览器插件，启动软件，然后上javdb,点击收录开始采集
+
+如果本地有片，可以在设置->视频里添加片的位置，然后在管理->批量操作->查找本地视频并录入添加，爬虫会慢慢启动爬取。速度很慢设置了20s一次。
+
+快捷键w手动添加番号
 
 
 
