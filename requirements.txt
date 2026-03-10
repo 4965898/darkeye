@@ -5,23 +5,27 @@ shiboken6==6.10.1
 shiboken6-generator==6.10.1
 
 numpy
+uvicorn[standard]
+fastapi
+pydantic
+anyio
+pyinstaller
+nuitka==2.8.9
+pytest
+psutil
+
 matplotlib
+networkx
 opencv-python-headless
 bs4
 requests
-pyinstaller
-pydantic
-fastapi
-anyio
-psutil
-networkx
-uvicorn[standard]
+
 googletrans
-PySide6-QtAds==4.5.0#这个很重要，这个绑定要求shiboken6==6.10.1
-pytest
 wordcloud
-scipy
-PySideSix-Frameless-Window
+
+#PySideSix-Frameless-Window
+# 这个很重要，这个绑定要求shiboken6==6.10.1
+#PySide6-QtAds==4.5.0
 
 # Documentation
 mkdocs

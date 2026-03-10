@@ -563,24 +563,14 @@ class MplCanvas(FigureCanvas):
 
         x_original = np.array(continuous_dates)
 
+        # 4. 使用简单移动平均进行平滑，避免依赖 scipy
+        window = max(1, min(30, len(y_data) // 10 or 1))  # 自适应窗口大小
+        kernel = np.ones(window) / window
+        y_smooth = np.convolve(y_data, kernel, mode='same')
 
-        from scipy.interpolate import UnivariateSpline
+        x_smooth_dates = continuous_dates
 
-        # 4. 平滑插值（生成更多点，让曲线圆滑）
-        n_points = len(x_data)
-        spl = UnivariateSpline(x_data, y_data, k=5, s = n_points**2)  # 样条插值，s 控制平滑程度
-
-
-        # 3. 生成密集的点用于绘图（让曲线超级圆滑）
-        x_smooth = np.linspace(0, len(continuous_dates)-1, len(continuous_dates) * 10)  # 每段插值 20 个点
-        y_smooth = spl(x_smooth)
-
-        # 对应的平滑日期（用于横轴）
-        x_smooth_dates = np.interp(x_smooth, np.arange(len(x_original)), 
-                                [d.timestamp() for d in x_original])
-        x_smooth_dates = [datetime.fromtimestamp(ts) for ts in x_smooth_dates]
-
-        # 5. 绘图（平滑曲线，无点）
+        # 5. 绘图（平滑曲线）
         self.fig.clf()
         self.ax = self.fig.add_subplot(111)
         self.ax.plot(x_smooth_dates, y_smooth, linewidth=2, color='steelblue')

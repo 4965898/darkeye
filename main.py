@@ -81,6 +81,10 @@ def _run_main_app():
     # 仅导入必要的 GUI 启动组件（测量导入时间）
     profiler.measure_import("PySide6.QtWidgets")
     profiler.measure_import("PySide6.QtGui")
+    import os
+    os.environ["QSG_RHI_BACKEND"] = "opengl"   # 必须尽早，放在导入/创建 Quick 相关对象之前
+    #强制 Qt Quick 使用 OpenGL，与 QOpenGLWidget 兼容（否则 Windows 默认 D3D11 会冲突）
+
     from PySide6.QtWidgets import QApplication, QDialog, QSplashScreen
     from PySide6.QtGui import QPixmap, QSurfaceFormat
     from PySide6.QtCore import Qt, QTimer
@@ -106,9 +110,13 @@ def _run_main_app():
         app = QApplication(sys.argv)
     profiler.checkpoint("创建应用")
 
-    # 强制 Qt Quick 使用 OpenGL，与 QOpenGLWidget 兼容（否则 Windows 默认 D3D11 会冲突）
-    from PySide6.QtQuick import QQuickWindow, QSGRendererInterface
-    QQuickWindow.setGraphicsApi(QSGRendererInterface.GraphicsApi.OpenGL)
+
+    #try:
+    #    # 强制 Qt Quick 使用 OpenGL，与 QOpenGLWidget 兼容（否则 Windows 默认 D3D11 会冲突）
+    #    from PySide6.QtQuick import QQuickWindow, QSGRendererInterface
+    #    QQuickWindow.setGraphicsApi(QSGRendererInterface.GraphicsApi.OpenGL)
+    #except ImportError:
+    #    pass
 
     splash = None
     if show_splash:

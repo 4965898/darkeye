@@ -104,7 +104,7 @@ View3D {
         clearColor: "#1a1a2e"
         backgroundMode: SceneEnvironment.SkyBox
         lightProbe: Texture {
-            source: (typeof hdrPath !== "undefined" ? hdrPath : "/") + "lebombo_2k.hdr"//fireplace_2k,lebombo_2k
+            source: (typeof hdrPath !== "undefined" ? hdrPath : "/") + "lebombo_1k.hdr"//fireplace_2k,lebombo_2k
         }
         probeOrientation: Qt.vector3d(0, 155, 0)
         antialiasingMode: SceneEnvironment.MSAA

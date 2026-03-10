@@ -85,8 +85,6 @@ def generate_graph()->nx.Graph:
 def generate_similar_graph()->nx.Graph:
     '''计算两两作品间的相似度，产生图，相似度高于阈值的连接'''
     import numpy as np
-    from scipy.sparse import lil_matrix
-    from sklearn.metrics.pairwise import cosine_similarity
 
     #从数据库获取作品及其标签
     from core.database.connection import get_connection
@@ -134,24 +132,21 @@ def generate_similar_graph()->nx.Graph:
     work_id_to_idx = {w:i for i,w in enumerate(work_ids)}
     tag_id_to_idx = {t:i for i,t in enumerate(tag_ids)}
 
-    # 构建稀疏矩阵
-    row_idx = []
-    col_idx = []
-
+    # 构建稠密 0/1 特征矩阵，避免依赖 scipy / sklearn
+    X = np.zeros((len(work_ids), len(tag_ids)), dtype=float)
     for work_id, tag_id in work_tags_list:
-        row_idx.append(work_id_to_idx[work_id])
-        col_idx.append(tag_id_to_idx[tag_id])
+        i = work_id_to_idx[work_id]
+        j = tag_id_to_idx[tag_id]
+        X[i, j] = 1.0
 
-    data = np.ones(len(row_idx))  # 值全为1，表示作品拥有该标签
-    from scipy.sparse import csr_matrix
-    # csr_matrix(shape=(num_works, num_tags))
-    X = csr_matrix((data, (row_idx, col_idx)), shape=(len(work_ids), len(tag_ids)))
+    print("特征矩阵形状:", X.shape)
+    print("非零元素数量:", int(X.sum()))
 
-    print("稀疏矩阵形状:", X.shape)
-    print("非零元素数量:", X.nnz)
-
-    # 计算相似度矩阵
-    sim_matrix = cosine_similarity(X)  # 或者使用 jaccard_distance_matrix
+    # 计算余弦相似度矩阵：sim = (X / ||X||) · (X / ||X||)^T
+    norms = np.linalg.norm(X, axis=1, keepdims=True)
+    norms[norms == 0] = 1.0  # 避免除以 0
+    X_normalized = X / norms
+    sim_matrix = X_normalized @ X_normalized.T
     print("相似度矩阵形状:", sim_matrix.shape)
 
     # 根据阈值构建图的边
