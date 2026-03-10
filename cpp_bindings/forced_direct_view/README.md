@@ -19,6 +19,8 @@ C++ implementation of the force-directed graph simulation and rendering engine, 
 
 ## Build
 
+需要下载第三方的库freetype和msdfgen 放到3rdparty里面
+
 ```powershell
 # Configure
 cmake -B build

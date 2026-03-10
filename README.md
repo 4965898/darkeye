@@ -1,3 +1,5 @@
+![Python](https://img.shields.io/badge/Python-3.11-blue.svg)
+![License](https://img.shields.io/github/license/用户名/仓库名)
 
 # DarkEye - 在暗黑界睁开一只眼
 一个使用PySide6 GUI开发，sqlite数据存储的暗黑影片数据存储与分析软件。
