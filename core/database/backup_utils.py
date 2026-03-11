@@ -3,6 +3,15 @@ import sqlite3
 from datetime import datetime
 import shutil
 from pathlib import Path
+import json
+
+from config import (
+    ACTORIMAGES_PATH,
+    ACTRESSIMAGES_PATH,
+    WORKCOVER_PATH,
+    DATABASE,
+    APP_VERSION,
+)
 
 
 def backup_database(database:Path,backup_dir:Path)->str:
@@ -44,6 +53,11 @@ def restore_backup_safely(backup_db: Path,active_db: Path)->bool:
     :param active_db: 正在使用的数据库文件路径
     :param backup_db: 备份数据库文件路径
     """
+    # 备份文件不存在时直接返回失败，避免生成空库并清空现有数据
+    if not Path(backup_db).exists():
+        logging.warning(f"[backup] 备份数据库不存在: {backup_db}")
+        return False
+
     active_conn = sqlite3.connect(active_db)
     success=False
     try:
@@ -75,16 +89,166 @@ def restore_backup_safely(backup_db: Path,active_db: Path)->bool:
         success=False
     finally:
         active_conn.close()
-        return success
+    return success
 
+def _copy_tree(src: Path, dst: Path, overwrite: bool = True) -> None:
+    """递归拷贝目录 src 到 dst，支持覆盖控制。"""
+    src = Path(src)
+    dst = Path(dst)
 
+    if not src.exists():
+        logging.warning(f"[backup] 源目录不存在，跳过拷贝: {src}")
+        return
 
-#这里要写根据哈希的增量备份，比较的麻烦 dirsync
-import hashlib
+    for root, dirs, files in os.walk(src):
+        root_path = Path(root)
+        rel = root_path.relative_to(src)
+        target_root = dst / rel
+        target_root.mkdir(parents=True, exist_ok=True)
 
-def file_hash(path:str):
-    h = hashlib.sha256()
-    with open(path, "rb") as f:
-        while chunk := f.read(8192):
-            h.update(chunk)
-    return h.hexdigest()
+        for name in files:
+            src_file = root_path / name
+            dst_file = target_root / name
+            if dst_file.exists() and not overwrite:
+                continue
+            try:
+                shutil.copy2(src_file, dst_file)
+            except Exception as e:
+                logging.warning(f"[backup] 拷贝文件失败 {src_file} -> {dst_file}: {e}")
+
+def create_resource_snapshot(snapshot_root: Path) -> Path | None:
+    """
+    创建一次资源快照：
+    - 在 snapshot_root 下创建带时间戳的子目录
+    - 备份当前 DATABASE 到该目录
+    - 复制三类资源目录到该目录
+    - 写入 meta.json
+    """
+    try:
+        snapshot_root = Path(snapshot_root)
+        snapshot_root.mkdir(parents=True, exist_ok=True)
+
+        ts = datetime.now().strftime("snapshot-%Y-%m-%d-%H-%M-%S")
+        snapshot_dir = snapshot_root / ts
+        snapshot_dir.mkdir(parents=True, exist_ok=False)
+
+        # 数据库备份复用现有逻辑
+        backup_db_path_str = backup_database(DATABASE, snapshot_dir)
+        backup_db_path = Path(backup_db_path_str)
+        db_rel_name = backup_db_path.name
+
+        # 复制三类资源目录
+        actor_dir = snapshot_dir / "actorimages"
+        actress_dir = snapshot_dir / "actressimages"
+        workcovers_dir = snapshot_dir / "workcovers"
+
+        _copy_tree(ACTORIMAGES_PATH, actor_dir, overwrite=True)
+        _copy_tree(ACTRESSIMAGES_PATH, actress_dir, overwrite=True)
+        _copy_tree(WORKCOVER_PATH, workcovers_dir, overwrite=True)
+
+        def _dir_info(d: Path, name: str) -> dict:
+            d = Path(d)
+            total_size = 0
+            file_count = 0
+            if d.exists():
+                for root, _, files in os.walk(d):
+                    for fname in files:
+                        fp = Path(root) / fname
+                        try:
+                            total_size += fp.stat().st_size
+                            file_count += 1
+                        except OSError:
+                            continue
+            return {
+                "name": name,
+                "path": name,  # 相对 snapshot_dir 的路径
+                "file_count": file_count,
+                "total_size": total_size,
+            }
+
+        meta = {
+            "version": 1,
+            "created_at": datetime.now().isoformat(timespec="seconds"),
+            "app_version": APP_VERSION,
+            "db": {
+                "file": db_rel_name,
+                "type": "sqlite",
+                "size": backup_db_path.stat().st_size if backup_db_path.exists() else 0,
+            },
+            "resources": [
+                _dir_info(actor_dir, "actorimages"),
+                _dir_info(actress_dir, "actressimages"),
+                _dir_info(workcovers_dir, "workcovers"),
+            ],
+        }
+
+        meta_path = snapshot_dir / "meta.json"
+        with meta_path.open("w", encoding="utf-8") as f:
+            json.dump(meta, f, ensure_ascii=False, indent=2)
+
+        logging.info(f"[backup] 创建资源快照成功: {snapshot_dir}")
+        return snapshot_dir
+    except Exception as e:
+        logging.warning(f"[backup] 创建资源快照失败: {e}")
+        return None
+
+def restore_snapshot(
+    meta_path: Path,
+    restore_db: bool = True,
+    restore_actor: bool = True,
+    restore_actress: bool = True,
+    restore_workcovers: bool = True,
+) -> bool:
+    """
+    从指定快照恢复：
+    - 参数必须传入 meta.json 文件路径。
+    - 可选择恢复数据库和三类资源目录。
+    """
+    meta_path = Path(meta_path)
+    if not meta_path.is_file():
+        logging.warning(f"[backup] 指定的 meta.json 不存在: {meta_path}")
+        return False
+
+    snapshot_dir = meta_path.parent
+
+    try:
+        with meta_path.open("r", encoding="utf-8") as f:
+            meta = json.load(f)
+    except Exception as e:
+        logging.warning(f"[backup] 读取快照 meta.json 失败 {meta_path}: {e}")
+        return False
+
+    if meta.get("version") != 1:
+        logging.warning(f"[backup] 不支持的快照版本: {meta.get('version')}")
+        return False
+
+    ok = True
+
+    # 恢复数据库
+    if restore_db:
+        db_info = meta.get("db", {})
+        db_file_name = db_info.get("file")
+        if db_file_name:
+            backup_db_path = snapshot_dir / db_file_name
+            if backup_db_path.exists():
+                if not restore_backup_safely(backup_db_path, DATABASE):
+                    ok = False
+            else:
+                logging.warning(f"[backup] 快照中的数据库文件不存在: {backup_db_path}")
+                ok = False
+        else:
+            logging.warning("[backup] 快照 meta 中缺少 db.file 信息")
+            ok = False
+
+    # 恢复资源目录
+    if restore_actor:
+        _copy_tree(snapshot_dir / "actorimages", ACTORIMAGES_PATH, overwrite=True)
+
+    if restore_actress:
+        _copy_tree(snapshot_dir / "actressimages", ACTRESSIMAGES_PATH, overwrite=True)
+
+    if restore_workcovers:
+        _copy_tree(snapshot_dir / "workcovers", WORKCOVER_PATH, overwrite=True)
+
+    logging.info(f"[backup] 从快照恢复完成: {snapshot_dir}, result={ok}")
+    return ok
