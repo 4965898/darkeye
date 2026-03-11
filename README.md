@@ -7,6 +7,7 @@
 ![License](https://img.shields.io/github/license/de4321/darkeye)
 ![GitHub Repo stars](https://img.shields.io/github/stars/de4321/darkeye?style=social)
 ![Platform](https://img.shields.io/badge/Platform-Windows-blue)
+![GitHub last commit](https://img.shields.io/github/last-commit/de4321/darkeye)
 
 
 
