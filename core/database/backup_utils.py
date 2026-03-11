@@ -4,6 +4,7 @@ from datetime import datetime
 import shutil
 from pathlib import Path
 import json
+from core.database.connection import get_connection
 
 from config import (
     ACTORIMAGES_PATH,
@@ -25,11 +26,22 @@ def backup_database(database:Path,backup_dir:Path)->str:
     timestamp = datetime.now().strftime("backup-%Y-%m-%d-%H-%M-%S.db")
     backup_path = os.path.join(backup_dir, timestamp)
 
+    src_conn=get_connection(database)
+    backup_conn=get_connection(backup_path)
+    try:
+        src_conn.backup(backup_conn)
+        logging.info(f"SQLite 原子备份成功: {backup_path}")
+    finally:
+        backup_conn.close()
+        src_conn.close()
+    '''
     # 原子备份（安全）
     with sqlite3.connect(database) as src_conn:
         with sqlite3.connect(backup_path) as backup_conn:
             src_conn.backup(backup_conn)
             logging.info(f"已使用 sqlite3 原子备份方式成功备份到: {backup_path}")
+    #这个有问题，就是bachup的文件会被程序占用，非常的奇怪
+    '''
     return backup_path
 
 def restore_database(backup_path: Path, target_path: Path) -> bool:
