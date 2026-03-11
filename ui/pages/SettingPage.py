@@ -240,7 +240,15 @@ class DBSettingPage(QWidget):
         self.btn_restoreDB2.setToolTip("在备份的数据库里选择一个数据还原，覆盖现有的数据库")
         self.btn_restoreDB2.setIcon(QIcon(str(ICONS_PATH / "database.svg")))
 
+        self.btn_rebuildprivatelink = Button()
+        self.btn_rebuildprivatelink.setText("重建私有库与公有库的链接")
+        self.btn_rebuildprivatelink.setToolTip("选择私有库，重建私有库的链接，这是当公共库换了的时候用的")
+        self.btn_rebuildprivatelink.setIcon(QIcon(str(ICONS_PATH / "database.svg")))
 
+        self.btn_backupDB_all = Button()
+        self.btn_backupDB_all.setText("备份所有数据库,打成包")
+        self.btn_backupDB_all.setToolTip("备份所有数据库，包括公共库和私有库，打成包，给软件升级使用")
+        self.btn_backupDB_all.setIcon(QIcon(str(ICONS_PATH / "database.svg")))
 
         layout1=QGridLayout()
 
@@ -250,6 +258,8 @@ class DBSettingPage(QWidget):
         layout1.addWidget(self.btn_restoreDB,1,1)
         layout1.addWidget(self.btn_backupDB2,2,0)
         layout1.addWidget(self.btn_restoreDB2,2,1)
+        layout1.addWidget(self.btn_rebuildprivatelink,3,0)
+        layout1.addWidget(self.btn_backupDB_all,3,1)
 
         #总装
         layout=QVBoxLayout(self)
@@ -269,7 +279,7 @@ class DBSettingPage(QWidget):
         self.btn_commit.clicked.connect(self.submit)
 
         self.btn_backupDB.clicked.connect(lambda:self.backup_db("public"))
-        self.btn_restoreDB.clicked.connect(lambda:self.restoreDB("public"))
+        self.btn_restoreDB.clicked.connect(lambda:self.restoreDBnew("public"))
         self.btn_backupDB2.clicked.connect(lambda:self.backup_db("private"))
         self.btn_restoreDB2.clicked.connect(lambda:self.restoreDB("private"))
 
@@ -323,6 +333,39 @@ class DBSettingPage(QWidget):
             self.msg.show_critical("恢复失败", "数据库恢复失败，请检查文件是否有效。")
 
     @Slot()
+    def restoreDBnew(self,access_level:str):
+        #选择一个备份的数据库还原
+        #这个是根据快照还原
+        if access_level=="public":
+            backup_path=DATABASE_BACKUP_PATH
+            target_path=DATABASE
+        elif access_level=="private":
+            backup_path=PRIVATE_DATABASE_BACKUP_PATH
+            target_path=PRIVATE_DATABASE     
+        else:
+            logging.info("错误，未选择等级")
+
+        from core.database.backup_utils import restore_database,restore_backup_safely,restore_snapshot
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,               # 父组件
+            "选择一个meta.json",      # 对话框标题
+            str(backup_path)                 # 起始路径
+        )
+
+        if not file_path:
+            return
+    
+        if not self.msg.ask_yes_no("确认恢复","是否用该备份覆盖现有数据库？操作不可撤销！"):
+            return
+        success=restore_snapshot(Path(file_path))
+        #success = restore_backup_safely(Path(file_path), target_path)
+        if success:
+            self.msg.show_info("恢复成功", "数据库恢复完成。")
+        else:
+            self.msg.show_critical("恢复失败", "数据库恢复失败，请检查文件是否有效。")
+
+
+    @Slot()
     def backup_db(self,access_level:str):
         '''备份数据库'''
         if access_level=="public":
@@ -334,10 +377,12 @@ class DBSettingPage(QWidget):
         else:
             logging.info("错误，未选择等级")
 
-        from core.database.backup_utils import backup_database
+        from core.database.backup_utils import backup_database,create_resource_snapshot
         try:
-            path=backup_database(target_path,backup_path)
-            self.msg.show_info("备份成功",f"备份路径{path}")
+            #path=backup_database(target_path,backup_path)
+            #self.msg.show_info("备份成功",f"备份路径{path}")
+            create_resource_snapshot(backup_path)
+            self.msg.show_info("备份成功",f"备份快照")
         except Exception as e:
             self.msg.show_critical(self,"备份失败",f"{str(e)}")
 

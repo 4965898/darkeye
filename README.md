@@ -30,7 +30,8 @@ https://de4321.github.io/darkeye-webpage/
 - [x] firefox爬虫插件，沉浸式摘取信息，支持javtxt,javlib,javdb
 - [x] 力导向图，查看关联
 - [x] 搜索本地视频，进入爬虫列表
-- [ ] 备份系统
+- [ ] graph系统的更改
+- [ ] 备份系统，按私库重建喜欢的番号
 - [ ] 科普知识
 - [ ] 插件化网页跳转
 - [ ] 插件化爬虫
