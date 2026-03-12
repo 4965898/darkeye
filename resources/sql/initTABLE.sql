@@ -1,6 +1,13 @@
 --初始化数据库
 --包含整体的数据库TABLE与部分TRIGGER
 -------------------------------------------------------------------------------
+CREATE TABLE db_version (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    version TEXT NOT NULL,
+    applied_at DATETIME DEFAULT (datetime('now', 'localtime')),
+    description TEXT
+)
+INSERT INTO "db_version" VALUES (1,'1.0','2025-10-14 09:28:01','初始版本数据库');
 
 CREATE TABLE IF NOT EXISTS work (--公有作品表
     work_id INTEGER PRIMARY KEY AUTOINCREMENT,--不重复主键
@@ -84,14 +91,14 @@ CREATE TABLE IF NOT EXISTS work_actress_relation(  --作品女演员表，主要
 
 
 --------------------------------------------------------
-CREATE TABLE IF NOT EXISTS manufacturer(--制作商，メーカー
-	manufacturer_id INTEGER PRIMARY KEY AUTOINCREMENT,--不重复主键
+CREATE TABLE maker(--制作商，一部片子只有一个制作商
+	maker_id INTEGER PRIMARY KEY AUTOINCREMENT,--不重复主键
 	cn_name TEXT,										--中文名
 	jp_name TEXT,										--日文名
 	aliases TEXT,										--别名
 	detail TEXT,                                       --其他信息
 	logo_url TEXT										--logo地址
-);
+)
 
 CREATE TABLE IF NOT EXISTS label(--厂牌，レーベル
 	label_id INTEGER PRIMARY KEY AUTOINCREMENT,--不重复主键

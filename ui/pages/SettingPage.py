@@ -245,6 +245,15 @@ class DBSettingPage(QWidget):
         self.btn_rebuildprivatelink.setToolTip("选择私有库，重建私有库的链接，这是当公共库换了的时候用的")
         self.btn_rebuildprivatelink.setIcon(QIcon(str(ICONS_PATH / "database.svg")))
 
+        self.btn_export_maker_prefix = Button()
+        self.btn_export_maker_prefix.setText("导出片商前缀到json文件")
+        self.btn_export_maker_prefix.setToolTip("导出片商前缀到json文件")
+        self.btn_export_maker_prefix.setIcon(QIcon(str(ICONS_PATH / "database.svg")))
+
+        self.btn_import_maker_prefix = Button()
+        self.btn_import_maker_prefix.setText("从json文件导入片商前缀")
+        self.btn_import_maker_prefix.setToolTip("从json文件导入片商前缀")
+        self.btn_import_maker_prefix.setIcon(QIcon(str(ICONS_PATH / "database.svg")))
 
 
         layout1=QGridLayout()
@@ -256,6 +265,8 @@ class DBSettingPage(QWidget):
         layout1.addWidget(self.btn_backupDB2,2,0)
         layout1.addWidget(self.btn_restoreDB2,2,1)
         layout1.addWidget(self.btn_rebuildprivatelink,3,0)
+        layout1.addWidget(self.btn_export_maker_prefix,4,0)
+        layout1.addWidget(self.btn_import_maker_prefix,4,1)
 
 
         #总装
@@ -281,6 +292,11 @@ class DBSettingPage(QWidget):
         self.btn_restoreDB2.clicked.connect(lambda:self.restoreDB("private"))
         self.btn_rebuildprivatelink.clicked.connect(self.rebuildprivatelink)
 
+        self.btn_export_maker_prefix.clicked.connect(self.export_maker_prefix)
+        self.btn_import_maker_prefix.clicked.connect(self.import_maker_prefix)
+
+        
+
 
     @Slot()
     def rebuildprivatelink(self):
@@ -292,6 +308,63 @@ class DBSettingPage(QWidget):
         from core.database.migrations import rebuild_privatelink
         rebuild_privatelink()
         self.msg.show_info("重建成功", "私有库与公有库的链接重建完成。")
+
+
+    @Slot()
+    def export_maker_prefix(self):
+        """导出片商与前缀到 JSON 文件"""
+        from core.database.migrations import export_maker_prefix_json
+
+        # 默认导出路径：工作目录下的 resources/config
+        default_dir = BASE_DIR / "resources" / "config"
+        default_dir.mkdir(parents=True, exist_ok=True)
+
+        file_path, _ = QFileDialog.getSaveFileName(
+            self,
+            "选择导出 JSON 文件",
+            str(default_dir / "maker_prefix.json"),
+            "JSON 文件 (*.json)",
+        )
+        if not file_path:
+            return
+
+        try:
+            export_maker_prefix_json(Path(file_path))
+            self.msg.show_info("导出成功", f"已导出片商前缀到：\n{file_path}")
+        except Exception as e:
+            logging.exception("导出片商前缀失败")
+            self.msg.show_critical("导出失败", f"导出片商前缀时发生错误：\n{e}")
+
+
+    @Slot()
+    def import_maker_prefix(self):
+        """从 JSON 文件导入片商与前缀"""
+        from core.database.migrations import import_maker_prefix_json
+
+        default_dir = BASE_DIR / "resources" / "config"
+        default_dir.mkdir(parents=True, exist_ok=True)
+
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "选择片商前缀 JSON 文件",
+            str(default_dir),
+            "JSON 文件 (*.json)",
+        )
+        if not file_path:
+            return
+
+        if not self.msg.ask_yes_no(
+            "确认导入",
+            "将使用该 JSON 覆盖当前的片商和前缀数据，操作不可撤销，是否继续？",
+        ):
+            return
+
+        try:
+            import_maker_prefix_json(Path(file_path))
+            self.msg.show_info("导入成功", "片商前缀数据已从 JSON 导入。")
+        except Exception as e:
+            logging.exception("导入片商前缀失败")
+            self.msg.show_critical("导入失败", f"导入片商前缀时发生错误：\n{e}")
 
 
 
