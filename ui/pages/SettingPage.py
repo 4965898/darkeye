@@ -279,6 +279,20 @@ class DBSettingPage(QWidget):
         self.btn_restoreDB.clicked.connect(lambda:self.restoreDBnew("public"))
         self.btn_backupDB2.clicked.connect(lambda:self.backup_db("private"))
         self.btn_restoreDB2.clicked.connect(lambda:self.restoreDB("private"))
+        self.btn_rebuildprivatelink.clicked.connect(self.rebuildprivatelink)
+
+
+    @Slot()
+    def rebuildprivatelink(self):
+        '''重建私有库与公有库的链接
+        当公共库换了的时候，需要重建私有库的work_id
+        包括三个表的更新，favourite_actress，favourite_work，msturbation,
+        这三个表中更新其对应的work_id和actress_id,然后如果公共库中没有，就新建，然后开爬虫
+        '''
+        from core.database.migrations import rebuild_privatelink
+        rebuild_privatelink()
+        self.msg.show_info("重建成功", "私有库与公有库的链接重建完成。")
+
 
 
     @Slot()
