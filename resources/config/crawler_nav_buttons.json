@@ -1,0 +1,110 @@
+[
+  {
+    "name": "javlibrary",
+    "url": "https://www.javlibrary.com/cn/vl_searchbyid.php?keyword={serial}",
+    "description": "获得封面"
+  },
+  {
+    "name": "javdb",
+    "url": "https://javdb.com/search?q={serial}",
+    "description": "获得一般信息"
+  },
+  {
+    "name": "javtxt",
+    "url": "https://javtxt.com/search?type=id&q={serial}",
+    "description": "获得故事与标题，但是没有封面"
+  },
+  {
+    "name": "minnao-av",
+    "url": "https://www.minnano-av.com/search_result.php?search_scope=actress&search_word={serial}&search=+Go",
+    "description": "女优信息"
+  },
+  {
+    "name": "avdanyuwiki",
+    "url": "https://avdanyuwiki.com/?s={serial}",
+    "serial_transform": "fanza",
+    "description": "作品男优信息"
+  },
+  {
+    "name": "avmoo",
+    "url": "https://avmoo.website/cn/search/{serial}",
+    "description": "获得封面"
+  },
+  {
+    "name": "missav",
+    "url": "https://missav.ai/cn/search/{serial}",
+    "description": "在线观看网站"
+  },
+  {
+    "name": "netflav",
+    "url": "https://netflav.com/",
+    "description": "在线观看网站"
+  },
+  {
+    "name": "fanza",
+    "url": "https://www.dmm.co.jp/search/=/searchstr={serial}/limit=30/sort=rankprofile",
+    "serial_transform": "fanza",
+    "description": "fanza售卖网站，非日本本土，需日本vpn且特殊插件才能访问"
+  },
+  {
+    "name": "123av",
+    "url": "https://123av.gg/zh/search?keyword={serial}",
+    "description": "在线观看网站"
+  },
+  {
+    "name": "jable",
+    "url": "https://jable.tv/search/{serial}/",
+    "description": "在线观看网站"
+  },
+  {
+    "name": "prestige",
+    "url": "https://www.prestige-av.com/",
+    "description": "prestige网站，非日本本土，需日本vpn且特殊插件才能访问"
+  },
+  {
+    "name": "MGS",
+    "url": "https://www.mgstage.com",
+    "description": "mgs素人网站，非日本本土，需日本vpn且特殊插件才能访问"
+  },
+  {
+    "name": "supjav",
+    "url": "https://supjav.com/?s={serial}",
+    "serial_transform": "supjav",
+    "description": "专门看FC2"
+  },
+  {
+    "name": "金鸡儿奖",
+    "url": "https://jinjier.art/",
+    "description": "金鸡儿奖网站，挺有意思的"
+  },
+  {
+    "name": "平假名",
+    "url": "https://zh.wikipedia.org/wiki/%E5%B9%B3%E5%81%87%E5%90%8D",
+    "description": "平假名"
+  },
+  {
+    "name": "片假名",
+    "url": "https://zh.wikipedia.org/wiki/%E7%89%87%E5%81%87%E5%90%8D",
+    "description": "片假名"
+  },
+  {
+    "name": "AV女優大辞典wiki",
+    "url": "https://av-help.memo.wiki/",
+    "description": "AV女優大辞典wiki"
+  },
+  {
+    "name": "avbase",
+    "url": "https://www.avbase.net/",
+    "description": "avbase"
+  },
+  {
+    "name": "javbus",
+    "url": "https://www.javbus.com/",
+    "description": "javbus"
+  },
+  {
+    "name": "avwiki",
+    "url": "https://av-wiki.net/?s={serial}",
+    "description": "avwiki，这个查作品是跳到fanza"
+  }
+]

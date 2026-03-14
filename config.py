@@ -75,6 +75,7 @@ PRIVATE_DATABASE_BACKUP_PATH=get_PATH("Paths/PrivateDatabaseBackups","resources/
 SENSITIVE_WORDS_PATH=get_PATH("Paths/SensitiveWords","resources/config/sensitive_words.txt")#敏感词文件地址
 TAG_MAP_PATH=get_PATH("Paths/TagMap","resources/config/tag_map.json")#敏感词文件地址
 USER_SHORTCUT_PATH=get_PATH("Paths/ShortcutMap","resources/config/shortcuts.json")#用户快捷键列表文件地址
+CRAWLER_NAV_BUTTONS_PATH=get_PATH("Paths/CrawlerNavButtons","resources/config/crawler_nav_buttons.json")#手动导航按钮配置
 
 SQLPATH=get_PATH("Paths/Sql","resources/sql/")
 ICONS_PATH = get_PATH("Paths/Icons","resources/icons/")#软件图标的地址

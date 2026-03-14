@@ -18,7 +18,6 @@ from .image.ActorCard import ActorCard
 
 from .text.ClickableLabel import ClickableLabel
 
-from .CrawlerToolBox import CrawlerToolBox
 from .SingleActressInfo import SingleActressInfo
 from .StatsOverviewCards import StatsOverviewCards
 

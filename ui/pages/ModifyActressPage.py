@@ -2,7 +2,7 @@
 from PySide6.QtWidgets import QHBoxLayout,QVBoxLayout,QFormLayout,QWidget
 from PySide6.QtCore import Qt,QObject,Signal,Property,Signal,Slot,QThreadPool
 
-from ui.widgets.CrawlerToolBox import CrawlerToolBox
+
 import logging,json,asyncio
 from pathlib import Path
 from enum import Enum

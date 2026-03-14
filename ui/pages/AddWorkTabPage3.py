@@ -1,9 +1,9 @@
-from PySide6.QtWidgets import QPushButton, QHBoxLayout, QLabel,QVBoxLayout,QLineEdit,QTextEdit,QSizePolicy,QPlainTextEdit,QWidget,QSplitter
+from PySide6.QtWidgets import QPushButton, QHBoxLayout, QLabel,QVBoxLayout,QLineEdit,QTextEdit,QSizePolicy,QPlainTextEdit,QWidget,QSplitter,QScrollArea
 from PySide6.QtCore import Qt,QObject,Signal,Property,SignalInstance,Slot,QThreadPool,QTimer
 from PySide6.QtGui import QIntValidator
 
 from ui.myads.workspace_manager import WorkspaceManager, Placement, ContentConfig
-from ui.widgets.CrawlerToolBox import CrawlerToolBox
+from ui.widgets.CrawlerToolBox import CrawlerAutoPage,CrawlerManualNavPage
 import logging,json,asyncio
 from pathlib import Path
 from enum import Enum
@@ -15,7 +15,7 @@ from ui.widgets.selectors.TagSelector5 import TagSelector5
 from core.database.query import get_unique_director, get_work_tags, get_workinfo_by_workid, get_actressid_by_workid, get_actorid_by_workid, get_unique_short_story, exist_actor, get_workid_by_serialnumber, exist_actress
 from core.database.insert import InsertNewWorkByHand
 from core.database.update import update_work_byhand
-from utils.utils import mse,load_ini_ids,covert_fanza,translate_text_sync
+from utils.utils import mse,load_ini_ids,translate_text_sync
 
 
 from darkeye_ui import LazyWidget
@@ -629,7 +629,9 @@ class AddWorkTabPage3(LazyWidget):
         from core.database.query import get_serial_number
 
         # ---------- 控件创建（与原先一致） ----------
-        self.crawler_toolbox = CrawlerToolBox()
+
+        
+        
         self.coverdroplabel = CoverDropWidget(aspect_ratio=0.7)
 
         self.label_serial_umber = Label("番       号：")
@@ -693,18 +695,24 @@ class AddWorkTabPage3(LazyWidget):
             return cfg.set_window_title(title).set_widget(w).set_closeable(closeable)
 
         # ---------- 1. 爬虫区 ----------
-        page1 = self.crawler_toolbox.widget(0)
-        page2 = self.crawler_toolbox.widget(1)
+        self.crawler_auto_page = CrawlerAutoPage()
+        
         crawler_container = QWidget()
         crawler_layout = QVBoxLayout(crawler_container)
         crawler_layout.setContentsMargins(0, 0, 0, 0)
-        crawler_layout.addWidget(page1)
+        crawler_layout.addWidget(self.crawler_auto_page)
         crawler_container.setMinimumHeight(200)
 
+        self.navpage = CrawlerManualNavPage()
+        nav_scroll = QScrollArea()
+        nav_scroll.setWidget(self.navpage)
+        nav_scroll.setWidgetResizable(True)
+        nav_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        nav_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         nav_container = QWidget()
         nav_layout = QVBoxLayout(nav_container)
         nav_layout.setContentsMargins(0, 0, 0, 0)
-        nav_layout.addWidget(page2)
+        nav_layout.addWidget(nav_scroll)
         nav_container.setMinimumHeight(200)
 
         cover_container = QWidget()
@@ -918,25 +926,10 @@ class AddWorkTabPage3(LazyWidget):
         self.btn_trans_title.clicked.connect(self.viewmodel._trans_title)
         self.btn_trans_story.clicked.connect(self.viewmodel._trans_story)
 
-        from core.crawler.jump import jump_javlibrary,jump_javdb,jump_javtxt,jump_missav,jump_avmoo,jump_fanza,jump_mgs,jump_avdanyuwiki,jump_netflav,jump_jinjier,jump_kana,jump_gana,jump_123av,jump_jable,jump_supjav
-        self.crawler_toolbox.btn_get_javlibrary.clicked.connect(lambda:jump_javlibrary(self.input_serial_number.text()))
-        self.crawler_toolbox.btn_get_javdb.clicked.connect(lambda:jump_javdb(self.input_serial_number.text()))
-        self.crawler_toolbox.btn_get_javtxt.clicked.connect(lambda:jump_javtxt(self.input_serial_number.text()))
-        self.crawler_toolbox.btn_get_missav.clicked.connect(lambda:jump_missav(self.input_serial_number.text()))
-        self.crawler_toolbox.btn_get_avmoo.clicked.connect(lambda:jump_avmoo(self.input_serial_number.text()))
-        self.crawler_toolbox.btn_get_avdanyuwiki.clicked.connect(lambda:jump_avdanyuwiki(covert_fanza(self.input_serial_number.text())))
-        self.crawler_toolbox.btn_get_123av.clicked.connect(lambda:jump_123av(self.input_serial_number.text()))
-        self.crawler_toolbox.btn_get_jable.clicked.connect(lambda:jump_jable(self.input_serial_number.text()))
-        self.crawler_toolbox.btn_get_supjav.clicked.connect(lambda:jump_supjav(self.input_serial_number.text()))
-        self.crawler_toolbox.btn_get_fanza.clicked.connect(jump_fanza)
-        self.crawler_toolbox.btn_get_mgs.clicked.connect(jump_mgs)
-        self.crawler_toolbox.btn_get_netflav.clicked.connect(jump_netflav)
-        self.crawler_toolbox.btn_get_jinjier.clicked.connect(jump_jinjier)
-        self.crawler_toolbox.btn_get_kana.clicked.connect(jump_kana)
-        self.crawler_toolbox.btn_get_gana.clicked.connect(jump_gana)
+        self.navpage.set_serial_number_provider(lambda: self.input_serial_number.text())
 
         self.btn_add_work.clicked.connect(self.viewmodel.submit)
-        self.crawler_toolbox.btn_get_crawler.clicked.connect(self.crawler2)
+        self.crawler_auto_page.btn_get_crawler.clicked.connect(self.crawler2)
 
         global_signals.gui_update.connect(self.update_gui)
         global_signals.download_success.connect(self.update_cover)
@@ -954,30 +947,30 @@ class AddWorkTabPage3(LazyWidget):
 
     def update_gui(self,data):
         '''更新gui'''
-        if self.crawler_toolbox.cb_release_date.isChecked():
+        if self.crawler_auto_page.cb_release_date.isChecked():
             self.viewmodel.set_release_date(data["release_date"])
-        if self.crawler_toolbox.cb_director.isChecked():
+        if self.crawler_auto_page.cb_director.isChecked():
             self.viewmodel.set_director(data["director"])
-        if self.crawler_toolbox.cb_actress.isChecked():
+        if self.crawler_auto_page.cb_actress.isChecked():
             self.viewmodel.set_actress(data["actress_list"])
-        if self.crawler_toolbox.cb_actor.isChecked():
+        if self.crawler_auto_page.cb_actor.isChecked():
             self.viewmodel.set_actor(data["actor_list"])
-        if self.crawler_toolbox.cb_cn_title.isChecked():
+        if self.crawler_auto_page.cb_cn_title.isChecked():
             self.viewmodel.set_cn_title(data["cn_title"])
-        if self.crawler_toolbox.cb_cn_story.isChecked():
+        if self.crawler_auto_page.cb_cn_story.isChecked():
             self.viewmodel.set_cn_story(data["cn_story"])
-        if self.crawler_toolbox.cb_jp_title.isChecked():
+        if self.crawler_auto_page.cb_jp_title.isChecked():
             self.viewmodel.set_jp_title(data["jp_title"])
-        if self.crawler_toolbox.cb_jp_story.isChecked():
+        if self.crawler_auto_page.cb_jp_story.isChecked():
             self.viewmodel.set_jp_story(data["jp_story"])
-        if self.crawler_toolbox.cb_tag.isChecked():
+        if self.crawler_auto_page.cb_tag.isChecked():
             cur_tag_id=self.viewmodel.get_tag()
             self.viewmodel.set_tag(list(set(cur_tag_id)|set(data["tag_id_list"])))
 
     def update_cover(self,file_path:str):
         '''更新封面'''
         logging.info(f"更新封面:{file_path}")
-        if self.crawler_toolbox.cb_cover.isChecked():
+        if self.crawler_auto_page.cb_cover.isChecked():
             self.viewmodel.set_cover(file_path)
         
 

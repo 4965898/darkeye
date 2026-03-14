@@ -2,6 +2,16 @@ from PySide6.QtWidgets import QGridLayout, QWidget
 from darkeye_ui.components.token_check_box import TokenCheckBox
 from darkeye_ui.components.icon_push_button import IconPushButton
 from darkeye_ui.components.button import Button
+import json
+import logging
+from webbrowser import open as open_browser
+from pathlib import Path
+from typing import Callable
+
+from config import CRAWLER_NAV_BUTTONS_PATH
+from utils.utils import covert_fanza
+
+
 class CrawlerAutoPage(QWidget):
     """自动爬虫抓取信息页面"""
     def __init__(self):
@@ -45,96 +55,66 @@ class CrawlerAutoPage(QWidget):
         layout.addWidget(self.btn_get_crawler, 3, 1)
 
 
+def _apply_serial_transform(serial: str, transform: str | None) -> str:
+    """应用番号转换（如 fanza 格式、supjav 的 FC2 处理）。"""
+    if not transform:
+        return serial
+    if transform == "fanza":
+        return covert_fanza(serial)
+    if transform == "supjav":
+        return serial.split("-")[-1] if serial.strip().upper().startswith("FC2-") else serial
+    return serial
+
+
 class CrawlerManualNavPage(QWidget):
-    """手动导航页面"""
+    """手动导航页面，由外部 JSON 配置驱动（按钮名、跳转 URL、可选番号转换、说明）。"""
     def __init__(self):
         super().__init__()
+        self._serial_provider: Callable[[], str] | None = None
+        self._button_configs: list[dict] = []
         linklayout = QGridLayout(self)
+        self._load_buttons(linklayout)
 
-        self.btn_get_javlibrary = Button("javlibrary")
-        self.btn_get_javlibrary.setToolTip("获得封面")
-        self.btn_get_javdb = Button("javdb")
-        self.btn_get_javdb.setToolTip("获得一般信息")
-        self.btn_get_javtxt = Button("javtxt")
-        self.btn_get_javtxt.setToolTip("获得故事与标题，但是没有封面")
-        self.btn_get_minnaoav = Button("minnao-av")
-        self.btn_get_minnaoav.setToolTip("女优信息")
-        self.btn_get_avdanyuwiki = Button("avdanyuwiki")
-        self.btn_get_avdanyuwiki.setToolTip("作品男优信息")
-        self.btn_get_missav = Button("missav")
-        self.btn_get_missav.setToolTip("在线观看网站")
-        self.btn_get_avmoo = Button("avmoo")
-        self.btn_get_avmoo.setToolTip("获得封面")
-        self.btn_get_fanza = Button("fanza")
-        self.btn_get_fanza.setToolTip("fanza售卖网站，非日本本土，需日本vpn且特殊插件才能访问")
-        self.btn_get_netflav = Button("netflav")
-        self.btn_get_netflav.setToolTip("在线观看网站")
-        self.btn_get_123av = Button("123av")
-        self.btn_get_123av.setToolTip("在线观看网站")
-        self.btn_get_jable = Button("jable")
-        self.btn_get_jable.setToolTip("在线观看网站")
-        self.btn_get_supjav = Button("supjav")
-        self.btn_get_supjav.setToolTip("专门看FC2")
-        self.btn_get_mgs = Button("MGS")
-        self.btn_get_mgs.setToolTip("PRESTIGE官方的售卖网站，非日本本土，需日本vpn且特殊插件才能访问")
-        self.btn_get_jinjier = Button("金鸡儿奖")
-        self.btn_get_jinjier.setToolTip("金鸡儿奖网站，挺有意思的")
-        self.btn_get_gana = Button("平假名")
-        self.btn_get_kana = Button("片假名")
+    def _load_buttons(self, layout: QGridLayout) -> None:
+        path = Path(CRAWLER_NAV_BUTTONS_PATH)
+        if not path.exists():
+            logging.warning("手动导航按钮配置不存在: %s", path)
+            return
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                self._button_configs = json.load(f)
+        except (json.JSONDecodeError, OSError) as e:
+            logging.warning("加载手动导航按钮配置失败: %s", e)
+            return
+        columns = 2
+        for i, cfg in enumerate(self._button_configs):
+            name = cfg.get("name", "")
+            description = cfg.get("description", "")
+            row, col = i // columns, i % columns
+            btn = Button(name)
+            btn.setToolTip(description)
+            layout.addWidget(btn, row, col)
+            btn.clicked.connect(self._make_click_handler(cfg))
 
-        linklayout.addWidget(self.btn_get_javlibrary, 0, 0)
-        linklayout.addWidget(self.btn_get_javdb, 0, 1)
-        linklayout.addWidget(self.btn_get_javtxt, 0, 2)
-        linklayout.addWidget(self.btn_get_minnaoav, 1, 0)
-        linklayout.addWidget(self.btn_get_avdanyuwiki, 1, 1)
-        linklayout.addWidget(self.btn_get_avmoo, 1, 2)
-        linklayout.addWidget(self.btn_get_missav, 2, 0)
-        linklayout.addWidget(self.btn_get_netflav, 2, 1)
-        linklayout.addWidget(self.btn_get_fanza, 2, 2)
-        linklayout.addWidget(self.btn_get_123av, 3, 0)
-        linklayout.addWidget(self.btn_get_jable, 3, 1)
-        linklayout.addWidget(self.btn_get_mgs, 3, 2)
-        linklayout.addWidget(self.btn_get_supjav, 4, 0)
-        linklayout.addWidget(self.btn_get_jinjier, 4, 2)
-        linklayout.addWidget(self.btn_get_gana, 5, 1)
-        linklayout.addWidget(self.btn_get_kana, 5, 2)
+    def _make_click_handler(self, cfg: dict):
+        def _on_click():
+            self._open_nav_url(cfg)
+        return _on_click
 
+    def _open_nav_url(self, cfg: dict) -> None:
+        url_template = cfg.get("url", "")
+        serial_transform = cfg.get("serial_transform")
+        if "{serial}" not in url_template:
+            open_browser(url_template)
+            return
+        if not self._serial_provider:
+            logging.warning("未设置番号提供者，无法打开带番号的链接")
+            return
+        serial = self._serial_provider().strip()
+        serial = _apply_serial_transform(serial, serial_transform)
+        url = url_template.replace("{serial}", serial)
+        open_browser(url)
 
-class CrawlerToolBox(QWidget):
-    """给 addworktabpage 使用的部分控件；无 QToolBox，仅持有两个页面并对外暴露 widget(index) 与控件引用。"""
-    def __init__(self):
-        super().__init__()
-        self._page1 = CrawlerAutoPage()
-        self._page2 = CrawlerManualNavPage()
-        # 转发 page1 控件，供 AddWorkTabPage3 等通过 self.crawler_toolbox.xxx 访问
-        self.cb_release_date = self._page1.cb_release_date
-        self.cb_director = self._page1.cb_director
-        self.cb_cover = self._page1.cb_cover
-        self.cb_cn_title = self._page1.cb_cn_title
-        self.cb_jp_title = self._page1.cb_jp_title
-        self.cb_cn_story = self._page1.cb_cn_story
-        self.cb_jp_story = self._page1.cb_jp_story
-        self.cb_actress = self._page1.cb_actress
-        self.cb_actor = self._page1.cb_actor
-        self.cb_tag = self._page1.cb_tag
-        self.btn_get_crawler = self._page1.btn_get_crawler
-        # 转发 page2 控件
-        self.btn_get_javlibrary = self._page2.btn_get_javlibrary
-        self.btn_get_javdb = self._page2.btn_get_javdb
-        self.btn_get_javtxt = self._page2.btn_get_javtxt
-        self.btn_get_minnaoav = self._page2.btn_get_minnaoav
-        self.btn_get_avdanyuwiki = self._page2.btn_get_avdanyuwiki
-        self.btn_get_missav = self._page2.btn_get_missav
-        self.btn_get_avmoo = self._page2.btn_get_avmoo
-        self.btn_get_fanza = self._page2.btn_get_fanza
-        self.btn_get_netflav = self._page2.btn_get_netflav
-        self.btn_get_123av = self._page2.btn_get_123av
-        self.btn_get_jable = self._page2.btn_get_jable
-        self.btn_get_supjav = self._page2.btn_get_supjav
-        self.btn_get_mgs = self._page2.btn_get_mgs
-        self.btn_get_jinjier = self._page2.btn_get_jinjier
-        self.btn_get_gana = self._page2.btn_get_gana
-        self.btn_get_kana = self._page2.btn_get_kana
-
-    def widget(self, index: int) -> QWidget:
-        return [self._page1, self._page2][index]
+    def set_serial_number_provider(self, provider: Callable[[], str]) -> None:
+        """设置获取当前番号的回调，用于带 {serial} 的链接。"""
+        self._serial_provider = provider
