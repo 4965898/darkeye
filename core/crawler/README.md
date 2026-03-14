@@ -1,27 +1,27 @@
-
-
-各家网站，怎么说呢，实际上只要爬聚合站就行了，
+各家网站，怎么说呢，实际上只要爬聚合站就行了，  
 fanza上下架的作品，在其他的新的网站上也是没有作品的，比如javtxt
 
-| 网站名 | 数据 | 特点 |
-| :--- | :--- | :--- |
-| javdb | 数据+视频 | 最全，更新最快，封面有水印 |
-| javlibrary | 数据 | 正规数据年代久远 |
-| javtxt | 数据 | 年代新，基本上fanza没有的数据这里也没有，没有封面，但是有中日的故事 |
-| fanza | 数据+视频 | 一手数据，缺点会下架片子 |
-| mgs | 数据+视频 | 一手数据，缺点会下架片子 |
-| avdanyuwiki | 数据+男优 | 数据缺少严重，重点是有男优数据 |
-| minnanoav | 女优数据 | 主要是女优数据，没有片子数据 |
-| missav | 视频站 | 只用来补充下载封面数据 |
-| avwiki | 数据 | 好像有冷门数据 |
-| javbus | 数据 |  |
-| avmoo |数据|和javbus长的很像|
 
-https://av-help.memo.wiki/
-https://www.avbase.net/
+| 网站名                                       | 已爬取     | 数据    | 特点                                   |
+| ----------------------------------------- | ------- | ----- | ------------------------------------ |
+| [fanza](https://www.dmm.co.jp)            | 未使用     | 数据+视频 | 一手数据，缺点会下架片子，以及网络访问问题                |
+| mgstage                                   | 未使用     | 数据+视频 | 一手数据，缺点会下架片子，以及网络访问问题,素人企划，SIRO      |
+| prestige                                  | 未使用     | 数据    | 蚊香社一手数据，缺点会下架片子，以及网络访问问题              |
+| [fc2](https://video.fc2.com/)             | 未使用     | 数据    | 一手数据，缺点会下架片子，以及网络访问问题                |
+| [avdanyuwiki](https://avdanyuwiki.com)    | 使用      | 数据+男优 | 男优数据，片子比fanza多，sod的封面不正规             |
+| [minnanoav](https://www.minnano-av.com/)  | 使用      | 女优数据  | 女优数据，没有片子数据                          |
+| [javdb](https://javdb.com)                | 使用      | 数据+视频 | 最全，各种FC2非正规数据的都有，封面有水印，不要其图片         |
+| [javlibrary](https://www.javlibrary.com/) | 使用      | 数据    | 数据年代最久远                              |
+| [javtxt](https://javtxt.com)              | 使用标题与故事 | 数据    | 年代新，基本上fanza没有的数据这里也没有，没有封面，但是有中日的故事 |
+| [missav](https://missav.ai/)              | 使用图片    | 视频站   | 只用来补充下载封面数据                          |
+| [avwiki](https://av-wiki.net/)            | 未使用     | 数据    | 好像有冷门数据                              |
+| [AV女優大辞典wiki](https://av-help.memo.wiki/) | 未使用     | 数据    | 日本网站这个好像比较新，而且比较活跃                   |
+| [avbase](https://www.avbase.net/)         | 未使用     | 数据    | 日本网站这个好像比较新，而且比较活跃                       |
+| javbus                                    | 未使用     | 视频    | 这个基本不用，                              |
+| avmoo                                     | 未使用     | 视频    | 这个基本不用，和javbus长的很像                   |
 
-我只要做好前9个网站的爬取就行了，其他的不需要，保证每种要素有两个备用来源就行了
 
+我只要做好fanza,avdanyuwiki,minnanoav,javdb,javlib,javtxt爬取就行了，其他的不需要，保证每种要素有两个备用来源就行了
 
 采集优先日本网站，反爬力度低，信息准，不会涉及到翻译问题
 
@@ -43,5 +43,3 @@ https://www.avbase.net/
 
 女优信息 minnanoav
 男优信息 无来源
-
-
