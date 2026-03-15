@@ -1,7 +1,7 @@
 
 
 # DarkEye - 在暗黑界睁开一只眼
-一个暗黑影片收藏软件，专注沉浸式采集与拟物化收藏。使用PySide6，qtquick3D做GUI，sqlite数据存储，firefox爬虫，C++加速力导向图。集采集，收藏，分析于一体的软件。
+>一个暗黑影片收藏软件，专注沉浸式采集与拟物化收藏的本地软件。使用PySide6，qtquick3D做GUI，sqlite数据存储，firefox爬虫，C++加速力导向图。集采集，收藏，分析于一体的软件。
 
 ![Python](https://img.shields.io/badge/Python-3.13-blue.svg)
 ![License](https://img.shields.io/github/license/de4321/darkeye)
@@ -12,7 +12,7 @@
 
 https://de4321.github.io/darkeye-webpage/
 
-# 快速开始
+# 💡 快速开始
 ## 下载
 [![下载 Windows 版本](https://img.shields.io/badge/%20下载-Windows%20-blue?style=for-the-badge&logo=windows)](https://github.com/de4321/darkeye/releases/download/v1.1.1/DarkEye.7z)
 下载程序，解压,打开exe即可使用
@@ -28,14 +28,18 @@ https://de4321.github.io/darkeye-webpage/
 2. 在 “This Firefox” 页面中，点击 “Load Temporary Add-on…”（加载临时附加组件）。在弹出的文件选择框里，选中解压后firefox_capture的 manifest.json 文件，确认后，插件会立即被加载，图标会出现在工具栏/扩展列表中。
 
 ## 使用
-装好浏览器插件，启动软件，然后上javdb或者javlibrary或者javtxt,点击收录开始采集
+启动后有闪一下属于正常现象，需要加载opengl环境，这个我目前无法解决这个闪一下的问题。
 
-如果本地有片，可以在设置->视频里添加片的位置，然后在管理->批量操作->查找本地视频并录入添加，爬虫会慢慢启动爬取。速度很慢设置了20s一次。
+下面是三种方式收藏与采集片子的数据。
 
-快捷键w手动添加番号
+1. 装好浏览器插件，启动软件，然后上javdb或者javlibrary或者javtxt,点击收录开始采集。
+2. 如果本地有片，可以在设置->视频里添加片的位置，然后在管理->批量操作->查找本地视频并录入添加，爬虫会慢慢启动爬取。速度很慢设置了20s一次。现在这个识别很不准。
+3. 快捷键w手动添加番号
 
+当采集时会弹出firefox窗口，javlibrary第一次需要点击一次过cloudflare盾，大概这个过盾可以持续20分钟。
 
 ## 版本迁移
+所有的数据库文件均在resources/public和resources/private这两个文件夹的下面
 
 在没有数据库迁移工具时只能手动复制主要的文件夹，resources/public和resources/private，把对应的文件夹移动到新版本的对应的位置就行了。
 
@@ -67,6 +71,7 @@ https://de4321.github.io/darkeye-webpage/
 - [x] json驱动外链跳转
 - [ ] 插件化爬虫
 - [ ] 绿色模式
+- [ ] 主题更改
 
 拟物化的dvd
 ![收藏](docs/assets/dvd.jpg)
