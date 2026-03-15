@@ -47,9 +47,9 @@ https://de4321.github.io/darkeye-webpage/
 
 
 # 开发方向
-1.0 基础工具的完善，包括力导向图探索影片之间的关系
-2.0 UGC，分布式同步数据
-3.0 机器学习推荐算法
+- 1.0 基础工具的完善，包括力导向图探索影片之间的关系，收藏体验的增强
+- 2.0 UGC，分布式同步数据
+- 3.0 机器学习推荐算法
 
 ## 特性
 - [x] 影片的手动添加，增删查改，部分爬虫
@@ -59,7 +59,7 @@ https://de4321.github.io/darkeye-webpage/
 - [x] 撸管记录的手动添加，增删查改
 - [x] 做爱记录的手动添加，增删查改
 - [x] 晨勃记录的手动添加，增删查改
-- [x] 分析图表,数据展示
+- [x] 分析图表,数据展示,还有部分未完成
 - [x] 拟物化dvd展示
 - [x] 筛选作品页面
 - [x] firefox爬虫插件，沉浸式摘取信息，支持javtxt,javlib,javdb
@@ -132,7 +132,7 @@ python main.py
 
 | Document | Description |
 |----------|-------------|
-| [Architecture](docs/architecture.md) | Overall architecture, module boundaries, data flow, key design decisions |
-| [Development](docs/development.md) | Dev environment, dependencies, build/package, debugging, code style, commit conventions |
-| [Security](docs/security.md) | Permissions, encryption, data storage locations, threat model |
-| [Changelog](docs/CHANGELOG.md) | All version release notes and changes |
+| [Architecture](docs/architecture.md) | 整体架构 |
+| [Development](docs/development.md) | 开发环境 |
+| [Security](docs/security.md) | 数据存储 |
+| [Changelog](docs/CHANGELOG.md) | 版本更新 |
