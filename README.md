@@ -83,7 +83,7 @@ conda activate venv
 pip install -e ".[docs]"
 ```
 
-下载后请复制public基本数据包到resource/文件夹下面
+下载后请复制resources/develop_resources/public 基本数据包到resource/文件夹下面
 
 
 ## 运行
