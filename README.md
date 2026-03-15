@@ -12,6 +12,36 @@
 
 https://de4321.github.io/darkeye-webpage/
 
+# 快速开始
+## 下载
+[![下载 Windows 版本](https://img.shields.io/badge/%20下载-Windows%20-blue?style=for-the-badge&logo=windows)](https://github.com/de4321/darkeye/releases/download/v1.1.1/DarkEye.7z)
+下载程序，解压,打开exe即可使用
+
+[![下载FireFox插件](https://img.shields.io/badge/%20下载-Firefox插件%20-blue?style=for-the-badge)](https://github.com/de4321/darkeye/releases/download/v1.1.1/firefox_capture.7z),按照下面的插件安装，否则爬虫收集功能将不可用。
+
+## 插件安装
+在firefox中
+1. 打开临时加载界面
+在地址栏输入：about:debugging
+左边点 “This Firefox”（此 Firefox）
+
+2. 在 “This Firefox” 页面中，点击 “Load Temporary Add-on…”（加载临时附加组件）。在弹出的文件选择框里，选中解压后firefox_capture的 manifest.json 文件，确认后，插件会立即被加载，图标会出现在工具栏/扩展列表中。
+
+## 使用
+装好浏览器插件，启动软件，然后上javdb或者javlibrary或者javtxt,点击收录开始采集
+
+如果本地有片，可以在设置->视频里添加片的位置，然后在管理->批量操作->查找本地视频并录入添加，爬虫会慢慢启动爬取。速度很慢设置了20s一次。
+
+快捷键w手动添加番号
+
+
+## 版本迁移
+
+在没有数据库迁移工具时只能手动复制主要的文件夹，resources/public和resources/private，把对应的文件夹移动到新版本的对应的位置就行了。
+
+有迁移工具后，点击备份私库与公库，然后选择电脑上的一个位置，用新的版本点击还原后选择对应的meta.json和.db文件然后重启软件。现在暂时做不到无缝，总有问题。
+
+
 # 开发方向
 1.0 基础工具的完善，包括力导向图探索影片之间的关系
 2.0 UGC，分布式同步数据
@@ -55,36 +85,6 @@ https://de4321.github.io/darkeye-webpage/
 
 
 
-# 快速开始
-## 下载
-[![下载 Windows 版本](https://img.shields.io/badge/%20下载-Windows%20-blue?style=for-the-badge&logo=windows)](https://github.com/de4321/darkeye/releases/download/v1.1.1/DarkEye.7z)
-下载程序，解压,打开exe即可使用
-
-[![下载FireFox插件](https://img.shields.io/badge/%20下载-Firefox插件%20-blue?style=for-the-badge)](https://github.com/de4321/darkeye/releases/download/v1.1.1/firefox_capture.7z),按照下面的插件安装，否则爬虫收集功能将不可用。
-
-## 插件安装
-在firefox中
-1. 打开临时加载界面
-在地址栏输入：about:debugging
-左边点 “This Firefox”（此 Firefox）
-
-在 “This Firefox” 页面中，点击 “Load Temporary Add-on…”（加载临时附加组件）
-在弹出的文件选择框里，选中extensions/firefox下的 manifest.json 文件
-确认后，插件会立即被加载，图标会出现在工具栏/扩展列表中
-
-## 使用
-装好浏览器插件，启动软件，然后上javdb或者javlibrary或者javtxt,点击收录开始采集
-
-如果本地有片，可以在设置->视频里添加片的位置，然后在管理->批量操作->查找本地视频并录入添加，爬虫会慢慢启动爬取。速度很慢设置了20s一次。
-
-快捷键w手动添加番号
-
-
-## 版本迁移
-
-在没有数据库迁移工具时只能手动复制主要的文件夹，resources/public和resources/private，把对应的文件夹移动到新版本的对应的位置就行了。
-
-有迁移工具后，点击备份私库与公库，然后选择电脑上的一个位置，用新的版本点击还原后选择对应的meta.json和.db文件然后重启软件。现在暂时做不到无缝，总有问题。
 
 # 开发
 
@@ -95,6 +95,8 @@ pip install -e ".[docs]"
 ```
 
 下载后请复制resources/develop_resources/public 基本数据包到resource/文件夹下面
+
+插件加载，需要手动的按照上面去浏览器临时加载选择extensions/firefox_capture里的manifest.json
 
 
 ## 运行
