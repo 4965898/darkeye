@@ -2,13 +2,16 @@
 >一个完全本地，隐私导向的暗黑影片收藏软件，专注沉浸式采集与拟物化收藏软件。使用PySide6，qtquick3D做GUI，sqlite数据存储，firefox爬虫，fastapi本地与浏览器插件交互，C++加速力导向图。集采集，收藏，分析于一体的软件。
 
 ![Python](https://img.shields.io/badge/Python-3.13-blue.svg)
-![License](https://img.shields.io/github/license/de4321/darkeye)
-![Platform](https://img.shields.io/badge/Platform-Windows-blue)
-![GitHub last commit](https://img.shields.io/github/last-commit/de4321/darkeye)
 ![Framework](https://img.shields.io/badge/framework-PySide6%20(Qt6)-orange)
+![Platform](https://img.shields.io/badge/Platform-Windows-blue)
+![License](https://img.shields.io/github/license/de4321/darkeye)
+![GitHub last commit](https://img.shields.io/github/last-commit/de4321/darkeye)
+![GitHub release](https://img.shields.io/github/v/release/de4321/darkeye)
 ![GitHub Repo stars](https://img.shields.io/github/stars/de4321/darkeye?style=social)
+![GitHub all releases](https://img.shields.io/github/downloads/de4321/darkeye/total)
+[![Homepage](https://img.shields.io/badge/homepage-darkeye-blue)](https://de4321.github.io/darkeye-webpage/)
 
-[项目主页](https://de4321.github.io/darkeye-webpage/)
+
 
 # 💡 快速开始
 ## 下载
