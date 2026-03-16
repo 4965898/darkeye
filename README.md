@@ -1,7 +1,5 @@
-
-
 # DarkEye - 在暗黑界睁开一只眼
->一个暗黑影片收藏软件，专注沉浸式采集与拟物化收藏的本地软件。使用PySide6，qtquick3D做GUI，sqlite数据存储，firefox爬虫，C++加速力导向图。集采集，收藏，分析于一体的软件。
+>一个完全本地，隐私导向的暗黑影片收藏软件，专注沉浸式采集与拟物化收藏软件。使用PySide6，qtquick3D做GUI，sqlite数据存储，firefox爬虫，fastapi本地与浏览器插件交互，C++加速力导向图。集采集，收藏，分析于一体的软件。
 
 ![Python](https://img.shields.io/badge/Python-3.13-blue.svg)
 ![License](https://img.shields.io/github/license/de4321/darkeye)
@@ -10,7 +8,7 @@
 ![Framework](https://img.shields.io/badge/framework-PySide6%20(Qt6)-orange)
 ![GitHub Repo stars](https://img.shields.io/github/stars/de4321/darkeye?style=social)
 
-https://de4321.github.io/darkeye-webpage/
+[项目主页](https://de4321.github.io/darkeye-webpage/)
 
 # 💡 快速开始
 ## 下载
@@ -20,9 +18,9 @@ https://de4321.github.io/darkeye-webpage/
 [![下载FireFox插件](https://img.shields.io/badge/%20下载-Firefox插件%20-blue?style=for-the-badge)](https://github.com/de4321/darkeye/releases/download/v1.1.1/firefox_capture.7z),按照下面的插件安装，否则爬虫收集功能将不可用。
 
 ## 插件安装
-在firefox中
+在 Firefox 中
 1. 打开临时加载界面
-在地址栏输入：about:debugging
+在地址栏输入`about:debugging`
 左边点 “This Firefox”（此 Firefox）
 
 2. 在 “This Firefox” 页面中，点击 “Load Temporary Add-on…”（加载临时附加组件）。在弹出的文件选择框里，选中解压后firefox_capture的 manifest.json 文件，确认后，插件会立即被加载，图标会出现在工具栏/扩展列表中。
@@ -46,7 +44,7 @@ https://de4321.github.io/darkeye-webpage/
 有迁移工具后，点击备份私库与公库，然后选择电脑上的一个位置，用新的版本点击还原后选择对应的meta.json和.db文件然后重启软件。现在暂时做不到无缝，总有问题。
 
 
-# 开发方向
+# 🚀 开发方向
 - 1.0 基础工具的完善，包括力导向图探索影片之间的关系，收藏体验的增强
 - 2.0 UGC，分布式同步数据
 - 3.0 机器学习推荐算法
@@ -62,36 +60,47 @@ https://de4321.github.io/darkeye-webpage/
 - [x] 分析图表,数据展示,还有部分未完成
 - [x] 拟物化dvd展示
 - [x] 筛选作品页面
-- [x] firefox爬虫插件，沉浸式摘取信息，支持javtxt,javlib,javdb
-- [x] 力导向图，查看关联
+- [ ] tag计算器，高级tag过滤系统，tag重定向
+- [x] firefox爬虫插件，沉浸式摘取信息，支持javtxt,javlib,javdb交互式摘取信息，
+- [x] 多链路爬虫，主要使用javlib,avdanyuwiki,javtxt,javdb,对于正规片的爬取很有效，且易过盾。
+- [x] 力导向图，查看关联，承受1w节点60帧率
 - [x] 搜索本地视频，进入爬虫列表
 - [ ] graph系统的更改，关联算法
 - [x] 备份系统，按私库重建喜欢的番号
-- [x] 科普知识
+- [ ] 科普知识与持续更新
 - [x] json驱动外链跳转
 - [ ] 插件化爬虫
-- [ ] 绿色模式
-- [ ] 主题更改
+- [ ] 绿色模式，现在实现了一半，不过貌似没用
+- [x] 主题更改，剩下3D场景没有更改明亮黑暗
+- [ ] i18n,未来打算支持简体中文，繁体中文，日文，韩文与一切能支持竖排的语言。
+- [ ] 以竖排风格为核心，优化UI的界面
+- [ ] 编辑界面高级停靠系统的保存
+- [ ] 其他格式的信息导出功能，目前只能导.csv，还没想好怎么导出
+- [x] 部分截图功能，女优界面C键截图
 
 拟物化的dvd
 ![收藏](docs/assets/dvd.jpg)
 ![展开](docs/assets/dvd2.jpg)
-![](docs/assets/actress.jpg)
+![女优](docs/assets/actress.jpg)
 
 图谱发现关系
 ![力导向图](docs/assets/directforceview.jpg)
 分析研究数据
-![](docs/assets/chart.jpg)
-![](docs/assets/mutiwork.jpg)
+![图表](docs/assets/chart.jpg)
+![多作品](docs/assets/mutiwork.jpg)
 ![编辑界面](docs/assets/edit.jpg)
 
-下面以javtxt为例展示爬虫插件，打开插件后，会与本地交互，可点击添加，自动启动爬虫爬取信息到本地，另外支持javlib与javdb，
-![](docs/assets/capture.JPG)
+下面以javtxt为例展示爬虫插件，打开插件后，会与本地交互，可点击添加，自动启动爬虫爬取信息到本地，另外支持javlib与javdb。注意下面的这个中间的收藏与与收录在网站上是没有的，只有打开插件与本地软件后才会出现。
+![javtxt网站为例](docs/assets/capture.JPG)
+
+## 爬虫
+目前爬虫对于作品只爬取发布时间，导演，中日文标题与剧情，女优，男优(如果有)，标签，封面图片。没有爬影片长度，制作商，厂牌，系列等信息。
+未来会加上影片长度，主要我认为影片长度不重要，av质量的好坏和影片长度无任何关系，长时间的很水。制作商与厂牌的信息目前是靠番号的常识信息推理，没有写入作品，有些番号的前缀比如AVOP和PFES这种不固定制作商的，目前就没有制作商的分类，后面都会加上去的。
+
+对女优信息的爬取只爬头像，生日，出道日，三维，身高罩杯，与曾用名，目前没有曾用名的更新机制。会有一个问题，如果一开始用的日文名是曾用名，则会有问题。
 
 
-
-
-# 开发
+# 🚀 开发
 
 ```
 conda create -n venv python=3.13
@@ -99,7 +108,7 @@ conda activate venv
 pip install -e ".[docs]"
 ```
 
-下载后请复制resources/develop_resources/public 基本数据包到resource/文件夹下面
+下载后请复制 `resources/develop_resources/public` 基本数据包到 `resources/` 文件夹下
 
 插件加载，需要手动的按照上面去浏览器临时加载选择extensions/firefox_capture里的manifest.json
 
