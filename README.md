@@ -51,6 +51,7 @@
 
 有迁移工具后，点击备份私库与公库，然后选择电脑上的一个位置，用新的版本点击还原后选择对应的meta.json和.db文件然后重启软件。现在暂时做不到无缝，总有问题。
 
+
 # Community
 
 问题，想法？加入discord社区 https://discord.gg/3thnEguWUk
