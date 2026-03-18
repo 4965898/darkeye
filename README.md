@@ -21,34 +21,16 @@
 
 [![下载FireFox插件](https://img.shields.io/badge/%20下载-Firefox插件%20-blue?style=for-the-badge)](https://github.com/de4321/darkeye/releases/download/v1.1.1/firefox_capture.7z)按照下面的插件安装，否则爬虫收集功能将不可用。
 
-[![下载Chrome/Edge插件](https://img.shields.io/badge/%20下载-Chrome/Firefox插件%20-blue?style=for-the-badge)](https://github.com/de4321/darkeye/releases/download/v1.1.1/chrome_capture.7z)按照下面的插件安装，否则爬虫收集功能将不可用。
+[![下载Chrome/Edge插件](https://img.shields.io/badge/%20下载-Chrome/Edge插件%20-blue?style=for-the-badge)](https://github.com/de4321/darkeye/releases/download/v1.1.1/chrome_capture.7z)按照下面的插件安装，否则爬虫收集功能将不可用。
 
 ## 插件安装
 见文档 https://de4321.github.io/darkeye/usage/#_2
 
 ## 使用
-启动后有闪一下属于正常现象，需要加载opengl环境，这个我目前无法解决这个闪一下的问题。
-
-下面是三种方式收藏与采集片子的数据。
-
-1. 装好浏览器插件，启动软件，然后上javdb或者javlibrary或者javtxt,点击收录开始采集。
-2. 如果本地有片，可以在设置->视频里添加片的位置，然后在管理->批量操作->查找本地视频并录入添加，爬虫会慢慢启动爬取。速度很慢设置了20s一次。现在这个识别很不准。
-3. 快捷键w手动添加番号
-
-当采集时会弹出firefox窗口，javlibrary第一次需要点击一次过cloudflare盾，大概这个过盾可以持续20分钟。
-
-采集女优数据，这个自动化会非常的不准，在点击女优栏后右键可以到编辑界面，点击爬虫直接更新，但是这个仅限于无重名女优。有重名女优需要用浏览器插件手动选择更新。
-
-更详细的使用说明参考[help](resources/help/help.md) 
-
+见文档 https://de4321.github.io/darkeye/usage/#_3
 
 ## 版本迁移
-所有的数据库文件均在resources/public和resources/private这两个文件夹的下面
-
-在没有数据库迁移工具时只能手动复制主要的文件夹，resources/public和resources/private，把对应的文件夹移动到新版本的对应的位置就行了。
-
-有迁移工具后，点击备份私库与公库，然后选择电脑上的一个位置，用新的版本点击还原后选择对应的meta.json和.db文件然后重启软件。现在暂时做不到无缝，总有问题。
-
+见文档 https://de4321.github.io/darkeye/usage/#_4
 
 # Community
 
