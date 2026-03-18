@@ -21,14 +21,10 @@
 
 [![下载FireFox插件](https://img.shields.io/badge/%20下载-Firefox插件%20-blue?style=for-the-badge)](https://github.com/de4321/darkeye/releases/download/v1.1.1/firefox_capture.7z)按照下面的插件安装，否则爬虫收集功能将不可用。
 
+[![下载Chrome/Edge插件](https://img.shields.io/badge/%20下载-Chrome/Firefox插件%20-blue?style=for-the-badge)](https://github.com/de4321/darkeye/releases/download/v1.1.1/chrome_capture.7z)按照下面的插件安装，否则爬虫收集功能将不可用。
+
 ## 插件安装
-在 Firefox 中
-1. 打开临时加载界面
-在地址栏输入`about:debugging`
-左边点 “This Firefox”（此 Firefox）
-
-2. 在 “This Firefox” 页面中，点击 “Load Temporary Add-on…”（加载临时附加组件）。在弹出的文件选择框里，选中解压后firefox_capture的 manifest.json 文件，确认后，插件会立即被加载，图标会出现在工具栏/扩展列表中。
-
+见文档 https://de4321.github.io/darkeye/usage/#_2
 
 ## 使用
 启动后有闪一下属于正常现象，需要加载opengl环境，这个我目前无法解决这个闪一下的问题。
