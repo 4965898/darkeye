@@ -316,7 +316,7 @@ class DBSettingPage(QWidget):
 
         self.btn_backupDB.clicked.connect(self.backup_db_public)
         self.btn_restoreDB.clicked.connect(lambda:self.restoreDBnew("public"))
-        self.btn_backupDB2.clicked.connect(lambda:self.backup_db("private"))
+        self.btn_backupDB2.clicked.connect(self.backup_db_private)
         self.btn_restoreDB2.clicked.connect(lambda:self.restoreDB("private"))
         self.btn_rebuildprivatelink.clicked.connect(self.rebuildprivatelink)
 
@@ -497,6 +497,27 @@ class DBSettingPage(QWidget):
         except Exception as e:
             self.msg.show_critical(self,"备份失败",f"{str(e)}")
 
+
+    @Slot()
+    def backup_db_private(self):
+        '''备份私有数据库'''
+
+        backup_path = PRIVATE_DATABASE_BACKUP_PATH
+        target_path = PRIVATE_DATABASE
+        from core.database.backup_utils import backup_database
+        try:
+            # 通过对话框选择备份路径
+            dir_path = QFileDialog.getExistingDirectory(
+                self,
+                "选择备份保存位置",
+                str(backup_path)
+            )
+            if not dir_path:
+                return
+            path = backup_database(target_path, Path(dir_path))
+            self.msg.show_info("备份成功", f"备份数据库到{path}")
+        except Exception as e:
+            self.msg.show_critical(self, "备份失败", f"{str(e)}")
 
     @Slot()
     def backup_db(self,access_level:str):
