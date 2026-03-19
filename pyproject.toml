@@ -24,7 +24,6 @@ dependencies = [
     "psutil",
     "matplotlib",
     "networkx",
-    "opencv-python-headless",
     "bs4",
     "requests",
     "googletrans",

@@ -57,7 +57,7 @@ test4.py
 test5.py
 test6.py
 # 项目自定义排除，主要是资源文件
-
+dist-pyinstaller/
 data/private/
 data/public/
 data/temp/
@@ -115,3 +115,4 @@ compile_commands.json
 .cursor/
 .continue/
 
+report.xml
