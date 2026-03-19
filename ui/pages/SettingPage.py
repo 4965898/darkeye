@@ -3,7 +3,7 @@ from darkeye_ui import LazyWidget
 
 from PySide6.QtWidgets import  QHBoxLayout,QVBoxLayout,QFileDialog,QGridLayout,QWidget,QFormLayout
 from PySide6.QtGui import QIcon, QKeySequence, QColor, QDesktopServices
-from PySide6.QtCore import Slot, Qt, QUrl, QTimer
+from PySide6.QtCore import Slot, Qt, QUrl, QTimer, QObject, Signal
 import logging
 from config import ICONS_PATH
 from controller.MessageService import MessageBoxService
@@ -626,27 +626,6 @@ class LastPage(QWidget):
         layout.addLayout(layout3)
         layout.addLayout(form_layout)
 
-    def _parse_version_tuple(self, v: str) -> tuple[int, ...] | None:
-        """把 '1.1.2' 解析为 (1,1,2)。解析失败返回 None。"""
-        if not v:
-            return None
-        try:
-            parts = [p.strip() for p in v.split(".") if p.strip() != ""]
-            parsed: list[int] = []
-            for p in parts:
-                parsed.append(int(p))
-            return tuple(parsed)
-        except Exception:
-            return None
-
-    def _is_newer_version(self, remote_version: str, local_version: str) -> bool:
-        remote_t = self._parse_version_tuple(remote_version)
-        local_t = self._parse_version_tuple(local_version)
-        if remote_t is None or local_t is None:
-            # 兜底：无法解析版本就按“字符串不等则认为需要更新”（尽量不误判到具体方向）
-            return (remote_version or "").strip() != (local_version or "").strip()
-        return remote_t > local_t
-
     def _on_check_update_clicked(self, btn: Button) -> None:
         """从 GitHub 拉取 latest.json 并判断是否需要更新（不直接替换）。"""
         latest_json_url = "https://raw.githubusercontent.com/de4321/darkeye/main/update/latest.json"
@@ -667,6 +646,9 @@ class LastPage(QWidget):
                 return
             done_state["notified"] = True
 
+            # 释放引用，避免多次点击时持有旧 notifier
+            self._update_check_notifier = None
+
             btn.setText("检查更新")
             btn.setEnabled(True)
             if ok:
@@ -674,45 +656,28 @@ class LastPage(QWidget):
             else:
                 self.msg.show_critical(title, msg)
 
+        class _UpdateCheckNotifier(QObject):
+            result = Signal(bool, str, str)
+
+        # 用 Signal 把后台结果可靠地投递回 UI 线程（避免后台线程 QTimer 不触发）
+        notifier = _UpdateCheckNotifier(self)
+        self._update_check_notifier = notifier
+        notifier.result.connect(safe_on_done)
+
         def worker():
-            result_title = "更新检查结果"
-            try:
-                from urllib.request import urlopen, Request
-                import json
+            from core.updater import check_for_updates
 
-                req = Request(latest_json_url, headers={"User-Agent": "DarkEye-Updater/1.0"})
-                with urlopen(req, timeout=urlopen_timeout_seconds) as resp:
-                    raw = resp.read()
-                data = json.loads(raw.decode("utf-8", errors="replace"))
-
-                latest_version = str(data.get("latestVersion", "")).strip()
-                release_notes = str(data.get("releaseNotes", "")).strip()
-                pkg_url = str((data.get("package") or {}).get("url", "")).strip()
-
-                if not latest_version:
-                    msg = "latest.json 缺少 latestVersion 字段。"
-                    return (False, result_title, msg)
-
-                if not self._is_newer_version(latest_version, APP_VERSION):
-                    msg = f"当前已是最新版本：{APP_VERSION}。"
-                    return (True, result_title, msg)
-
-                # 需要更新
-                lines = [f"检测到新版本：{APP_VERSION} -> {latest_version}"]
-                if release_notes:
-                    lines.append(f"更新内容：{release_notes}")
-                if pkg_url:
-                    lines.append(f"下载地址：{pkg_url}")
-                msg = "\n".join(lines)
-                return (True, result_title, msg)
-            except Exception as e:
-                return (False, "更新检查失败", f"无法获取最新版本信息：{e}")
-            finally:
-                pass
+            res = check_for_updates(
+                APP_VERSION,
+                latest_json_url,
+                urlopen_timeout_seconds=urlopen_timeout_seconds,
+                log_latest_json=True,
+            )
+            return (res.success, res.title, res.message)
 
         def run():
             ok, title, msg = worker()
-            QTimer.singleShot(0, lambda: safe_on_done(ok, title, msg))
+            notifier.result.emit(ok, title, msg)
 
         threading.Thread(target=run, daemon=True).start()
 
