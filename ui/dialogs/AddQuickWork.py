@@ -1,4 +1,3 @@
-from anyio import sleep
 from PySide6.QtWidgets import (
     QDialog,QVBoxLayout, QHBoxLayout, QTableWidgetItem, QHeaderView, QAbstractItemView
 )
@@ -7,8 +6,10 @@ from PySide6.QtGui import QIcon
 from config import ICONS_PATH
 import logging, re
 from controller.MessageService import MessageBoxService
+
 from darkeye_ui.components.button import Button
 from darkeye_ui.components.token_table_widget import TokenTableWidget
+
 class AddQuickWork(QDialog):
     # 快速记录作品番号的窗口，能在局外响应
     def __init__(self):

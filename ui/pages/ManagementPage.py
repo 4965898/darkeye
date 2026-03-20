@@ -1,17 +1,19 @@
 from PySide6.QtWidgets import QHBoxLayout, QWidget,QVBoxLayout,QToolButton,QSizePolicy
 from PySide6.QtGui import QIcon
 from PySide6.QtCore import Qt,Slot,QThreadPool
-from pathlib import Path
+
 from config import ICONS_PATH
-from ui.pages.TagManagement import TagManagement
-from ui.pages.SearchTable import SearchTable
-from .AddWorkTabPage3 import AddWorkTabPage3
+from ui.pages.management.TagManagement import TagManagement
+from ui.pages.management.SearchTable import SearchTable
+from ui.pages.management.AddWorkTabPage3 import AddWorkTabPage3
+from ui.pages.management.StudioManagementPage import StudioManagementPage
+from ui.pages.management.ManagementTable import ManagementTable
+from ui.pages.management.RecycleBinPage import RecycleBinPage
+
 import logging
 from .UpdateManyTabPage import UpdateManyTabPage
 from controller.MessageService import MessageBoxService
-from .StudioManagementPage import StudioManagementPage
-from .ManagementTable import ManagementTable
-from .RecycleBinPage import RecycleBinPage
+
 from darkeye_ui.components.token_tab_widget import TokenTabWidget
 
 class ManagementPage(QWidget):

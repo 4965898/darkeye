@@ -294,7 +294,9 @@ class InboxPage(QWidget):
         elif state.in_queue:
             self._pending_serials.insert(0, serial)
         else:
-            # 既不在队列、也不在 tasks、且未开始/未完成：不展示
+            # 既不在队列、也不在 tasks、且未开始/未完成：不展示（如爬虫先运行、后打开页面时漏收信号的任务）
+            self._tasks.pop(serial, None)  # 清理孤立状态，避免堆积
+            self._models_dirty = True
             return
 
         self._models_dirty = True

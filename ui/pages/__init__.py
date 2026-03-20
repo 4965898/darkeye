@@ -11,12 +11,12 @@ from .AvPage import AvPage
 from .ManagementPage import ManagementPage
 # from .PersonalDataPage import PersonalDataPage  # Lazy loaded by StatisticsPage
 # from .PlotTabPage import PlotTabPage          # Lazy loaded by StatisticsPage
-from .AddWorkTabPage3 import AddWorkTabPage3
-from .TagManagement import TagManagement
+
+
 from .UpdateManyTabPage import UpdateManyTabPage
-from .SearchTable import SearchTable
+
 from .CoverBrowser import CoverBrowser
-from .RecycleBinPage import RecycleBinPage
+
 from .ModifyActressPage import ModifyActressPage
 from .ModifyActorPage import ModifyActorPage
 from .SettingPage import SettingPage
