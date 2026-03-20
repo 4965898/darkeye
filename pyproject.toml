@@ -17,7 +17,6 @@ dependencies = [
     "uvicorn[standard]",
     "fastapi",
     "pydantic",
-    "anyio",
     "pyinstaller",
     "nuitka==2.8.9",
     "pytest",
