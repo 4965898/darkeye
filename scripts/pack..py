@@ -1,0 +1,116 @@
+#!/usr/bin/env python3
+# 把编译的文件打包压缩改名,计算sha256和大小，然后修改update/latest.json中的信息
+# 编译后的文件在dist/main.dist中
+
+import hashlib
+import io
+import json
+import sys
+import tarfile
+from pathlib import Path
+
+import zstandard as zstd
+
+# 项目根目录（脚本在 scripts/ 下）
+ROOT = Path(__file__).resolve().parent.parent
+DIST_SRC = ROOT / "dist" / "main.dist"
+DIST_DIR = ROOT / "dist"
+LATEST_JSON = ROOT / "update" / "latest.json"
+APP_NAME = "DarkEye"
+
+
+def get_version() -> str:
+    """优先从 latest.json 读取版本，否则从 pyproject.toml 读取"""
+    if LATEST_JSON.exists():
+        data = json.loads(LATEST_JSON.read_text(encoding="utf-8"))
+        if v := data.get("latestVersion"):
+            return v
+    pyproject = ROOT / "pyproject.toml"
+    if pyproject.exists():
+        for line in pyproject.read_text(encoding="utf-8").splitlines():
+            if line.strip().startswith("version"):
+                for q in ('"', "'"):
+                    if q in line:
+                        start = line.find(q) + 1
+                        end = line.find(q, start)
+                        if end > start:
+                            return line[start:end].strip()
+    return "1.0.0"
+
+
+PACKAGE_URL_TEMPLATE = "http://yinruizhe.asia/DarkEye-v{version}.tar.zst"
+
+
+def main():
+    version = get_version()
+    pkg_name = f"{APP_NAME}-v{version}.tar.zst"
+    pkg_path = DIST_DIR / pkg_name
+
+    if not DIST_SRC.exists():
+        print(f"错误: 编译目录不存在: {DIST_SRC}", file=sys.stderr)
+        print("请先运行 build-nuitka.ps1 完成编译", file=sys.stderr)
+        sys.exit(1)
+
+    # 1. 打包为 tar，再用 zstd 压缩
+    print(f"正在打包 {DIST_SRC} -> {pkg_path} ...")
+    tar_buffer = io.BytesIO()
+    with tarfile.open(fileobj=tar_buffer, mode="w") as tar:
+        tar.add(DIST_SRC, arcname="main.dist")
+    tar_buffer.seek(0)
+    total = tar_buffer.getbuffer().nbytes
+
+    def _progress_bar(done: int, total: int, prefix: str = "", width: int = 40) -> None:
+        pct = done / total if total else 0
+        filled = int(width * pct)
+        bar = "=" * filled + "-" * (width - filled)
+        sys.stderr.write(f"\r{prefix} |{bar}| {pct*100:.1f}% ({done//1024//1024}MB/{total//1024//1024}MB)")
+        sys.stderr.flush()
+
+    cctx = zstd.ZstdCompressor(level=19)
+    chunk_size = 1024 * 1024  # 1MB
+    written = 0
+    with open(pkg_path, "wb") as f:
+        with cctx.stream_writer(f) as compressor:
+            while chunk := tar_buffer.read(chunk_size):
+                compressor.write(chunk)
+                written += len(chunk)
+                _progress_bar(written, total, "压缩")
+    print(file=sys.stderr)
+
+    # 2. 计算 sha256 和大小
+    print("计算 sha256 ...")
+    h = hashlib.sha256()
+    with open(pkg_path, "rb") as f:
+        while chunk := f.read(65536):
+            h.update(chunk)
+    sha256 = h.hexdigest()
+    size = pkg_path.stat().st_size
+    print(f"  sha256: {sha256}")
+    print(f"  size:   {size} bytes")
+
+    # 3. 更新 update/latest.json
+    package_url = PACKAGE_URL_TEMPLATE.format(version=version)
+    if LATEST_JSON.exists():
+        data = json.loads(LATEST_JSON.read_text(encoding="utf-8"))
+    else:
+        data = {"app": APP_NAME}
+
+    data["latestVersion"] = version
+    data["package"] = {
+        "url": package_url,
+        "sha256": sha256,
+        "size": size,
+    }
+
+    LATEST_JSON.parent.mkdir(parents=True, exist_ok=True)
+    LATEST_JSON.write_text(
+        json.dumps(data, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    print(f"已更新 {LATEST_JSON}")
+
+    print(f"\n完成: {pkg_path}")
+
+
+if __name__ == "__main__":
+    main()

@@ -28,6 +28,7 @@ dependencies = [
     "requests",
     "googletrans",
     "wordcloud",
+    "zstandard",
 ]
 
 [project.optional-dependencies]

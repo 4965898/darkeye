@@ -34,6 +34,7 @@ $nuitkaArgs = @(
     # 对齐 main.spec 中的资源目录
     "--include-data-dir=resources/develop_resources/public=data/public",
     "--include-data-file=resources/develop_resources/crawler_nav_buttons.json=data/crawler_nav_buttons.json",
+    "--include-data-file=DarkEyeUpdater.exe=DarkEyeUpdater.exe",
     # 其他资源目录
     "--include-data-dir=resources/icons=resources/icons",
     "--include-data-dir=resources/config=resources/config",
@@ -144,7 +145,7 @@ $nuitkaArgs = @(
     "--nofollow-import-to=PIL.GbrImagePlugin",
     "--nofollow-import-to=PIL.SunImagePlugin",
     "--nofollow-import-to=PIL.SgiImagePlugin",
-    
+
     "--nofollow-import-to=pandas.tests",
     "--nofollow-import-to=seaborn.tests",
     "--nofollow-import-to=scipy",
