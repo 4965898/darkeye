@@ -9,6 +9,17 @@
 # 3. 布局与图标：from darkeye_ui import FlowLayout, get_builtin_icon
 # 4. 主题切换：theme_mgr.set_theme(app, ThemeId.LIGHT/DARK/RED)，然后可重新合并样式或仅刷新依赖 token 的组件。
 
+# Windows CMD 中文乱码修复：在首次输出前将控制台代码页设为 UTF-8
+import sys
+if sys.platform == "win32":
+    try:
+        import ctypes
+        kernel32 = ctypes.windll.kernel32
+        kernel32.SetConsoleOutputCP(65001)
+        kernel32.SetConsoleCP(65001)
+    except Exception:
+        pass
+
 
 def load_global_style():
     """加载全局样式表（项目 main.qss）"""
