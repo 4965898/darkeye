@@ -9,8 +9,8 @@ class StatisticsPage(LazyWidget):
 
     def _lazy_load(self):
         # 懒加载导入
-        from .PlotTabPage import PlotTabPage
-        from .PersonalDataPage import PersonalDataPage
+        from ui.pages.statistic.PlotTabPage import PlotTabPage
+        from ui.pages.statistic.PersonalDataPage import PersonalDataPage
         
         mainlayout = QVBoxLayout(self)
         mainlayout.setContentsMargins(0, 0, 0, 0)
