@@ -55,7 +55,7 @@ def _spawn_detached_process(cmd, cwd):
 
         # 优先使用 cmd /c start 启动：updater 成为 cmd 的子进程，主程序退出时 Job 不会影响 updater。
         # cmd 执行 start 后立即退出，updater 成为孤儿进程，可继续下载不受主程序关闭影响。
-        start_cmd = ["cmd", "/c", "start", "/b", ""] + list(cmd)
+        start_cmd = ["cmd", "/c", "start", ""] + list(cmd)
         start_flags = no_window | detached | new_group | breakaway
         try:
             return subprocess.Popen(start_cmd, creationflags=start_flags, **popen_kwargs)
@@ -721,8 +721,10 @@ class LastPage(QWidget):
                     self.msg.show_critical("更新失败", "无法从配置读取当前版本号。")
                     return
 
+                app_dir = BASE_DIR.resolve()
                 cmd = [
                     str(updater_exe),
+                    "--install-dir", str(app_dir),
                     "--current-version", current_version,
                     "--main-exe", "DarkEye.exe",
                     "--latest-json-url", latest_json_url,
@@ -731,7 +733,7 @@ class LastPage(QWidget):
                 ]
                 try:
                     # Start updater as a detached process so it keeps running after app exit.
-                    _spawn_detached_process(cmd, BASE_DIR)
+                    _spawn_detached_process(cmd, app_dir)
                 except Exception as e:
                     logging.exception("启动更新程序失败")
                     self.msg.show_critical("更新失败", f"无法启动更新程序：{e}")
