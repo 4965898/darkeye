@@ -305,6 +305,9 @@ class CrawlerManager2(QObject):
         if serial in self._unfinished_serials:
             self._unfinished_serials.discard(serial)
             self._persist_unfinished_to_ini()
+        # 从 tasks 中移除，避免 Inbox 轮询时仍视为“运行中”而堆积
+        if serial in self.tasks:
+            del self.tasks[serial]
 
     def _schedule_next(self, delay=None):
         """安排下一次调度"""
@@ -419,7 +422,7 @@ class CrawlerManager2(QObject):
                 del self._relays[key]
 
             if not task.pending_sources:  # 全部完成，仅在工作线程做合并+翻译；DataUpdate 必须在主线程创建以便下载器信号槽正常
-                worker = Worker(lambda: self._do_merge_only(serial))
+                worker = Worker(lambda: (serial, self._do_merge_only(serial)))
                 worker.signals.finished.connect(
                     self._on_merge_worker_finished,
                     Qt.ConnectionType.QueuedConnection,
@@ -441,8 +444,19 @@ class CrawlerManager2(QObject):
         try:
             if result is None:
                 return
-            final_data: CrawledWorkData = result
-            serial = final_data.serial_number
+            # Worker 返回 (serial, final_data)，合并失败时 final_data 为 None
+            if isinstance(result, tuple) and len(result) == 2:
+                serial, final_data = result
+            else:
+                final_data = result
+                serial = getattr(final_data, "serial_number", None) if final_data else None
+            if not serial:
+                return
+            if not final_data:
+                # 合并失败时从 tasks 移除，避免 Inbox 堆积
+                if serial in self.tasks:
+                    del self.tasks[serial]
+                return
             task = self.tasks.get(serial)
             if not task:
                 return
