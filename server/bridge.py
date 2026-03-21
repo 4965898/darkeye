@@ -9,6 +9,7 @@ class ServerBridge(QObject):
     # 定义信号，传递字典类型的数据
     capture_received = Signal(dict)
     actressid_received = Signal(int)
+    minnano_actress_capture_received = Signal(dict)
     captureone_received = Signal(str)
     javlib_finished = Signal(dict)
     fanza_finished=Signal(dict)

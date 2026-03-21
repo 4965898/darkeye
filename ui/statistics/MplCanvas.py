@@ -338,12 +338,15 @@ class MplCanvas(FigureCanvas):
         wh_ratio=[item[3] for item in tuple_list]
         # 统计每个腰围-臀围组合的频次
 
-        # 重映射计算点大小（基于频次，范围10-100）
+        # 重映射计算点大小（基于频次，范围10-150）
         min_count=min(weight)
         max_count =max(weight)
         base=max_count-min_count
-        
-        size =[140*y/base+10 for y in [x-min_count for x in weight]]#重映射到10-150
+
+        if base == 0:
+            size = [75] * len(weight)  # 全相同频次时用中间值，避免除零
+        else:
+            size = [140*y/base+10 for y in [x-min_count for x in weight]]
         scatter=self.ax.scatter(
         x=waist,
         y=hip,

@@ -17,18 +17,17 @@ dependencies = [
     "uvicorn[standard]",
     "fastapi",
     "pydantic",
-    "anyio",
     "pyinstaller",
     "nuitka==2.8.9",
     "pytest",
     "psutil",
     "matplotlib",
     "networkx",
-    "opencv-python-headless",
     "bs4",
     "requests",
     "googletrans",
     "wordcloud",
+    "zstandard",
 ]
 
 [project.optional-dependencies]

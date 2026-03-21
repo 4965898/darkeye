@@ -41,6 +41,8 @@ function connectSSE() {
 }
 
 const pendingCrawlers = new Map();
+/** 桌面 navigate 写入：tabId -> { actress_id?, source? } */
+const tabNavigateContext = new Map();
 let crawlerWindowId = null; // 专用爬虫窗口 ID
 let crawlerWindowPromise = null; // 创建中的窗口 Promise，避免多任务同时开多个窗口
 
@@ -48,15 +50,21 @@ function handleCommand(data) {//处理服务器发送来的命令
   if (data.type === "navigate") {
     const url = data.url;
     const target = data.target || "new_tab";
+    const ctx = data.context || null;
 
     if (target === "new_tab") {
       browser.tabs.create({ url: url }).then((tab) => {
-          //pendingCrawlers.add(tab.id);
+          if (ctx != null && tab && tab.id !== undefined) {
+            tabNavigateContext.set(tab.id, ctx);
+          }
       });
     } else if (target === "current_tab") {
         browser.tabs.query({active: true, currentWindow: true}).then((tabs) => {
             if (tabs[0]) {
-                browser.tabs.update(tabs[0].id, { url: url });
+                const tid = tabs[0].id;
+                browser.tabs.update(tid, { url: url }).then(() => {
+                  if (ctx != null) tabNavigateContext.set(tid, ctx);
+                });
             }
         });
     }
@@ -155,10 +163,14 @@ browser.windows.onRemoved.addListener((windowId) => {
   }
 });
 
+browser.tabs.onRemoved.addListener((tabId) => {
+  tabNavigateContext.delete(tabId);
+});
+
 // 接收 content script 消息，转发到本地服务器
 browser.runtime.onMessage.addListener((message, sender, sendResponse) => {//这个是向服务器发送的消息
     if (message.command === "check_existence") {
-        // Batch check existence
+        // 批量检查番号是否存在于本地数据库
         fetch(`${SERVER_URL}/api/v1/check_existence`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -171,7 +183,7 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {//这�
         return true; // Async response
     }
     if (message.command === "capture_item") {
-        // Capture single item
+        // 现在这个代码没有被调用，这个是用于批量抓取的
         fetch(`${SERVER_URL}/api/v1/capture`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -184,7 +196,7 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {//这�
         return true; // Async response
     }
     if (message.command === "capture_one") {
-        // Capture single item
+        // 接受插件发来的单个id,然后发到本地，触发爬虫
         fetch(`${SERVER_URL}/api/v1/capture/one`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -196,32 +208,35 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {//这�
         console.log("DarkEye: 抓取指令 to server", message);
         return true; // Async response
     }
-    if (message.command === "capture_minnano_id") {
-        console.log("DarkEye: Received ID capture request", message);
-        
-        // Send to local server
-        fetch(`${SERVER_URL}/api/v1/actressid`, {
+    if (message.command === "get_tab_context") {
+        const tabId = sender.tab && sender.tab.id;
+        const ctx = tabId !== undefined ? tabNavigateContext.get(tabId) : undefined;
+        sendResponse({ context: ctx || null });
+        return false;
+    }
+    if (message.command === "capture_minnano_actress") {
+        const tabId = sender.tab && sender.tab.id;
+        const context = tabId !== undefined ? (tabNavigateContext.get(tabId) || {}) : {};
+        const payload = {
+            context,
+            data: message.data,
+            url: sender.tab && sender.tab.url ? sender.tab.url : "",
+        };
+        fetch(`${SERVER_URL}/api/v1/minnano-actress-capture`, {
             method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-                source: "minnano",
-                id: message.id,
-                url: sender.tab.url
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+        })
+            .then((response) => response.json())
+            .then((data) => {
+                console.log("DarkEye: minnano actress capture sent", data);
+                sendResponse({ ok: true, data });
             })
-        })
-        .then(response => response.json())
-        .then(data => {
-            console.log("DarkEye: ID sent to server", data);
-            // Close the tab after successful send
-            if (sender.tab && sender.tab.id) {
-                browser.tabs.remove(sender.tab.id);
-            }
-        })
-        .catch(error => {
-            console.error("DarkEye: Failed to send ID", error);
-        });
+            .catch((error) => {
+                console.error("DarkEye: Failed to send minnano capture", error);
+                sendResponse({ ok: false, error: String(error) });
+            });
+        return true;
     }
     if (message.command === "send_crawler_result") {
         console.log("发送爬虫的结果到本地服务器", message);

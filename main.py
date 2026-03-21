@@ -9,6 +9,17 @@
 # 3. 布局与图标：from darkeye_ui import FlowLayout, get_builtin_icon
 # 4. 主题切换：theme_mgr.set_theme(app, ThemeId.LIGHT/DARK/RED)，然后可重新合并样式或仅刷新依赖 token 的组件。
 
+# Windows CMD 中文乱码修复：在首次输出前将控制台代码页设为 UTF-8
+import sys
+if sys.platform == "win32":
+    try:
+        import ctypes
+        kernel32 = ctypes.windll.kernel32
+        kernel32.SetConsoleOutputCP(65001)
+        kernel32.SetConsoleCP(65001)
+    except Exception:
+        pass
+
 
 def load_global_style():
     """加载全局样式表（项目 main.qss）"""
@@ -86,7 +97,7 @@ def _run_main_app():
     #强制 Qt Quick 使用 OpenGL，与 QOpenGLWidget 兼容（否则 Windows 默认 D3D11 会冲突）
 
     from PySide6.QtWidgets import QApplication, QDialog, QSplashScreen
-    from PySide6.QtGui import QPixmap, QSurfaceFormat
+    from PySide6.QtGui import QPixmap, QSurfaceFormat, QOpenGLContext, QOffscreenSurface
     from PySide6.QtCore import Qt, QTimer
 
     #OpenGL设置
@@ -109,6 +120,22 @@ def _run_main_app():
         import sys
         app = QApplication(sys.argv)
     profiler.checkpoint("创建应用")
+
+    # 预热 OpenGL 驱动与上下文初始化开销，避免主窗口显示后首秒卡顿/闪停。
+    # 这里使用离屏 surface，不会产生额外窗口闪烁。
+    with profiler.measure_execution("OpenGL预热", sync=True):
+        try:
+            prewarm_fmt = QSurfaceFormat.defaultFormat()
+            prewarm_surface = QOffscreenSurface()
+            prewarm_surface.setFormat(prewarm_fmt)
+            prewarm_surface.create()
+            if prewarm_surface.isValid():
+                prewarm_ctx = QOpenGLContext()
+                prewarm_ctx.setFormat(prewarm_fmt)
+                if prewarm_ctx.create() and prewarm_ctx.makeCurrent(prewarm_surface):
+                    prewarm_ctx.doneCurrent()
+        except Exception:
+            logger.exception("OpenGL预热失败，继续正常启动")
 
 
     #try:
@@ -207,6 +234,10 @@ def _run_main_app():
     from server import start_server
     QTimer.singleShot(0, lambda: start_server())
     profiler.checkpoint("API服务器线程启动（延迟）")
+
+    # 周五 18:00 后自动检查更新（每周一次，弹窗提示）
+    from ui.pages.settings.about import maybe_auto_check_update
+    QTimer.singleShot(2000, lambda: maybe_auto_check_update(window))
 
     # 打印性能分析摘要
     profiler.print_summary()

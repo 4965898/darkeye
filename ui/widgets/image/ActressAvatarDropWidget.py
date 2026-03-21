@@ -1,6 +1,6 @@
 from PySide6.QtWidgets import QSizePolicy,QFileDialog,QMenu
 from PySide6.QtGui import QPixmap,QImage, QDragEnterEvent, QDropEvent,QMouseEvent,QAction
-from PySide6.QtCore import Qt,Signal,QRect,Slot
+from PySide6.QtCore import Qt,Signal,Slot
 import shutil,logging,os,subprocess
 from datetime import datetime
 from pathlib import Path
@@ -202,8 +202,12 @@ class ActressAvatarDropWidget(Label):
             if cover_changed:
                 self.cover_changed.emit()
             return
-        
-        self._path=str(self.base_path / relative_image_path)
+
+        p = Path(relative_image_path)
+        if p.is_absolute():
+            self._path = str(p)
+        else:
+            self._path=str(self.base_path / relative_image_path)
         self._show_image()
         self.cover_changed.emit()
 

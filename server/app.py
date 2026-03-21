@@ -42,6 +42,7 @@ class CaptureData(BaseModel):
 class NavigateCommand(BaseModel):
     url: str
     target: str = "new_tab"  # new_tab 或 current_tab
+    context: Optional[Dict[str, Any]] = None  # 例如 { "actress_id": 1, "source": "minnano_manual" }
 
 @app.get("/api/v1/health")
 async def health_check():
@@ -97,6 +98,21 @@ async def check_existence(request: CheckExistenceRequest):
         logger.error(f"Error checking existence: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/api/v1/minnano-actress-capture")
+async def receive_minnano_actress_capture(body: Dict[str, Any]):
+    """
+    接收插件在女优详情页采集的完整字段，经 bridge 回填编辑界面。
+    body: { "context": { "actress_id"? }, "data": { 日文名, ... }, "url"? }
+    """
+    try:
+        logger.info("Received minnano actress capture from extension")
+        bridge.minnano_actress_capture_received.emit(body)
+        return {"status": "success", "message": "Data received"}
+    except Exception as e:
+        logger.error(f"Error processing minnano actress capture: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.post("/api/v1/actressid")
 async def receive_actressid(data: Dict[str, Any]):
     """
@@ -119,10 +135,11 @@ async def receive_actressid(data: Dict[str, Any]):
         logger.error(f"Error processing capture data: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @app.post("/api/v1/capture")
 async def receive_capture(data: Dict[str, Any]):
     """
-    接收来自插件的抓取数据，只有普通的页面抓取数据，不包含ID抓取
+    接收来自插件的抓取数据，只有普通的页面抓取数据，不包含ID抓取，这个是
     """
     try:
         logger.info(f"Received capture data from: {data.get('url', 'unknown')}")
@@ -160,8 +177,10 @@ async def send_navigate(command: NavigateCommand):
     message = {
         "type": "navigate",
         "url": command.url,
-        "target": command.target
+        "target": command.target,
     }
+    if command.context is not None:
+        message["context"] = command.context
     event_data = f"data: {json.dumps(message)}\n\n"
     
     for client in sse_clients:

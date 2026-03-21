@@ -29,7 +29,7 @@ def openAddMakeLoveDialog():
     dialog=AddMakeLoveDialog()
     dialog.exec()
 
-from ui.pages import AddWorkTabPage3
+from ui.pages.management.AddWorkTabPage3 import AddWorkTabPage3
 def openAddActressDialog(addworktab:AddWorkTabPage3):
     from ui.dialogs import AddActressDialog
     dialog = AddActressDialog()

@@ -69,6 +69,7 @@
         "*://www.minnano-av.com/*"
       ],
       "js": [
+        "content/sites/minnano-scrape.js",
         "content/sites/minnano.js"
       ]
     },

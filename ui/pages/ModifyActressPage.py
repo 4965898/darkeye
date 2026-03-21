@@ -3,11 +3,9 @@ from PySide6.QtWidgets import QHBoxLayout,QVBoxLayout,QFormLayout,QWidget
 from PySide6.QtCore import Qt,QObject,Signal,Property,Signal,Slot,QThreadPool
 
 
-import logging,json,asyncio
-from pathlib import Path
-from enum import Enum
+import logging
 
-from config import settings,WORKCOVER_PATH
+
 from darkeye_ui import LazyWidget
 from controller.MessageService import MessageBoxService,IMessageService
 
@@ -37,7 +35,8 @@ class Model():
         self._bust:int= None
         self._debut_date:str= None
         self._need_update:bool= False
-
+        # minnano-av 页面缓存的演员编号（可能来自 DB/插件的字符串）
+        self._minnano_id:str= None
         self._image_urlA:str= None
         self._actress_name:list[dict] = []
 
@@ -52,6 +51,7 @@ class Model():
             "bust": self._bust,
             "debut_date": self._debut_date,
             "need_update": self._need_update,
+            "minnano_url": self._minnano_id,
             "image_urlA": self._image_urlA,
             "actress_name": self._actress_name
         }
@@ -66,6 +66,8 @@ class ViewModel(QObject):
     bust_Changed = Signal(int)
     debut_date_Changed = Signal(str)
     need_update_Changed = Signal(bool)
+    # 用 str 以避免 Qt 的 Signal(int) 在接收到空字符串/非数字时转换失败
+    minnano_id_Changed = Signal(str)
     image_urlA_Changed = Signal(str)
     actress_name_Changed = Signal(list)
 
@@ -75,7 +77,10 @@ class ViewModel(QObject):
         self.msg:MessageBoxService=message_service
 
         bridge = ServerBridge()
+
         bridge.actressid_received.connect(self.set_minnano_id)
+        bridge.minnano_actress_capture_received.connect(self.apply_minnano_capture)
+
 
     def get_actress_id(self):
         return self.model._actress_id
@@ -172,6 +177,26 @@ class ViewModel(QObject):
 
     actress_name = Property(list, get_actress_name, set_actress_name, notify=actress_name_Changed)
 
+    def get_minnano_id(self):
+        return self.model._minnano_id
+    def set_minnano_id(self, value):
+        """
+        minnano-av id 有时来自 DB（可能是 None/空字符串），有时来自插件（int）。
+        这里统一转成字符串，确保 QLineEdit 能正确显示。
+        """
+        if value is None:
+            normalized = ""
+        elif isinstance(value, int):
+            normalized = str(value)
+        else:
+            normalized = str(value).strip()
+
+        if self.model._minnano_id != normalized:
+            self.model._minnano_id = normalized
+            self.minnano_id_Changed.emit(normalized)
+    minnano_id = Property(str, get_minnano_id, set_minnano_id, notify=minnano_id_Changed)
+
+
     def load(self,actress_id:int):
         '''加载'''
         from core.database.query import get_actress_info
@@ -183,6 +208,7 @@ class ViewModel(QObject):
         self.set_actress_id(actress_id)
         self.set_height(actress.get("height") or 0)
         self.set_cup(actress.get("cup") or "")
+        self.set_minnano_id(actress.get("minnano_url") or "")
 
         self.set_birthday(actress.get("birthday") or "")
         self.set_hip(actress.get("hip") or 0)
@@ -192,6 +218,7 @@ class ViewModel(QObject):
         self.set_image_urlA(actress.get("image_urlA") or "")
         self.set_actress_name(get_actress_allname(self.actress_id))
         self.set_need_update(actress.get("need_update")or False)
+
 
     @Slot()
     def submit(self):
@@ -242,36 +269,109 @@ class ViewModel(QObject):
         QThreadPool.globalInstance().start(worker)
 
 
-    def on_navigate_result(self,result:bool,actressName:str):
-        if result:
-            self.msg.show_info("提示", f"已在浏览器打开搜索: {actressName}")
-        else:
-            self.msg.show_warning("警告", f"无法在浏览器打开搜索: {actressName}")
-
-
-
-
-    @Slot()
-    def clawer_update_hand(self):
-        '''调用浏览器的爬虫，然后在页面上指定是哪个女优，更新网站id后再调用更新'''
-        from core.crawler.Worker import Worker
-        import urllib.parse
-        
-        actress_name = self.actress_name[0]["jp"]
-
-        url = f"https://www.minnano-av.com/search_result.php?search_scope=actress&search_word={urllib.parse.quote(actress_name)}&search= Go"
-        from core.crawler.jump import send_navigate_request
-        worker = Worker(lambda:send_navigate_request(url))
-        worker.signals.finished.connect(lambda result:self.on_navigate_result(result,actress_name))
-        QThreadPool.globalInstance().start(worker)
-
-
-
-    def set_minnano_id(self,value:int):
+    def update_minnano_id(self,value):
         '''将女优的minnano_id直接写入数据库'''
         from core.database.update import update_actress_minnano_id
         logging.info(f"设置女优{self.actress_id}的minnano_id为{value}")
         update_actress_minnano_id(self.actress_id,value)
+
+    @Slot(dict)
+    def apply_minnano_capture(self, body: dict):
+        '''插件采集的女优详情 JSON 仅回填界面；不写库，用户确认后点「提交修改」再持久化（含 minnano id）。'''
+        import copy
+        from datetime import datetime
+        from pathlib import Path
+
+        from config import TEMP_PATH
+        from core.crawler.download import download_image
+
+        if not body or self.actress_id is None:
+            return
+        ctx = body.get("context") or {}
+        aid = ctx.get("actress_id")
+        if aid is not None:
+            try:
+                aid_int = int(aid)
+            except (TypeError, ValueError):
+                aid_int = None
+            if aid_int is not None and self.actress_id != aid_int:
+                self.msg.show_warning("提示", "采集上下文与当前编辑女优不一致，已忽略。")
+                return
+
+        data = body.get("data") or {}
+        mid = data.get("minnano_actress_id")
+        if mid is not None and str(mid).strip() != "":
+            try:
+                mid_int = int(str(mid).strip())
+                self.set_minnano_id(str(mid_int))
+            except (ValueError, TypeError):
+                logging.warning("无效的 minnano_actress_id: %s", mid)
+
+        self.set_height(int(data.get("身高") or 0))
+        self.set_bust(int(data.get("胸围") or 0))
+        self.set_waist(int(data.get("腰围") or 0))
+        self.set_hip(int(data.get("臀围") or 0))
+        self.set_cup(str(data.get("罩杯") or ""))
+        self.set_birthday(str(data.get("出生日期") or ""))
+        self.set_debut_date(str(data.get("出道日期") or ""))
+
+        names = copy.deepcopy(self.get_actress_name() or [])
+        jp = (data.get("日文名") or "").strip()
+        kana = (data.get("假名") or "").strip()
+        en = (data.get("英文名") or "").strip()
+        aliases = data.get("alias_chain") or []
+
+        if not names:
+            names = [{
+                "actress_name_id": None,
+                "cn": "",
+                "jp": jp,
+                "kana": kana,
+                "en": en,
+                "redirect_actress_name_id": None,
+                "level": 1,
+            }]
+        else:
+            names[0]["jp"] = jp or names[0].get("jp", "")
+            names[0]["kana"] = kana or names[0].get("kana", "")
+            names[0]["en"] = en or names[0].get("en", "")
+
+        for i, al in enumerate(aliases):
+            if not isinstance(al, dict):
+                continue
+            row_idx = i + 1
+            jp_a = (al.get("jp") or "").strip()
+            kana_a = (al.get("kana") or "").strip()
+            en_a = (al.get("en") or "").strip()
+            if row_idx < len(names):
+                names[row_idx]["jp"] = jp_a or names[row_idx].get("jp", "")
+                names[row_idx]["kana"] = kana_a or names[row_idx].get("kana", "")
+                names[row_idx]["en"] = en_a or names[row_idx].get("en", "")
+            else:
+                names.append({
+                    "actress_name_id": None,
+                    "cn": "",
+                    "jp": jp_a,
+                    "kana": kana_a,
+                    "en": en_a,
+                    "redirect_actress_name_id": None,
+                    "level": row_idx + 1,
+                })
+        self.set_actress_name(names)
+
+        url_img = data.get("头像地址")
+        if url_img:
+            try:
+                TEMP_PATH.mkdir(parents=True, exist_ok=True)
+                ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+                dest = Path(TEMP_PATH) / f"minnano_{self.actress_id}_{ts}.jpg"
+                ok, _ = download_image(url_img, str(dest))
+                if ok:
+                    self.set_image_urlA(str(dest.resolve()))
+            except Exception as e:
+                logging.warning("下载 minnano 头像失败: %s", e)
+
+        self.msg.show_info("采集完成", "已从 minnano 填入表单，请核对后点击提交。")
 
 
     @Slot(bool)
@@ -356,13 +456,14 @@ class ModifyActressPage(LazyWidget):
         self.need_update=ToggleSwitch(width=40,height=20)
         self.btn_commit=Button("提交修改")
         self.btn_claw_update=Button("爬虫直接更新")
-        self.btn_claw_update_hand=Button("浏览器插件手动选择更新")
         #self.btn_printModel=QPushButton("打印数据")
-        self.btn_minnano=Button("minnano-av")
+        self.btn_minnano=Button("跳转手动选择")
         self.smallwidget=QWidget()#放一些小按钮
         self.smalllayout=QHBoxLayout(self.smallwidget)
         self.btn_delete=IconPushButton(icon_name="trash_2")
         self.btn_show=IconPushButton(icon_name="eye")
+
+        self.input_minnano_id=LineEdit()
 
         self.smalllayout.addWidget(self.btn_show)
         self.smalllayout.addWidget(self.btn_delete)
@@ -375,9 +476,10 @@ class ModifyActressPage(LazyWidget):
         formlayout.addRow(Label("生日(yyyy-mm-dd)"),self.input_birthday)
         formlayout.addRow(Label("出道日期(yyyy-mm-dd)"),self.input_debut_date)
         formlayout.addRow(Label("需要更新"),self.need_update)
+        formlayout.addRow(Label("minnano-av id"),self.input_minnano_id)
+
         formlayout.addRow("",self.btn_commit)
         formlayout.addRow("",self.btn_claw_update)
-        formlayout.addRow("",self.btn_claw_update_hand)
         #formlayout.addRow("",self.btn_printModel)
         formlayout.addRow("",self.btn_minnano)
         formlayout.addRow("",self.smallwidget)
@@ -398,7 +500,6 @@ class ModifyActressPage(LazyWidget):
     
     def signal_connect(self):
         self.btn_claw_update.clicked.connect(self.vm.clawer_update)
-        self.btn_claw_update_hand.clicked.connect(self.vm.clawer_update_hand)
         #self.btn_printModel.clicked.connect(self.vm.print)
         self.btn_commit.clicked.connect(self.vm.submit)
         self.btn_minnano.clicked.connect(self.jump_minnano)
@@ -432,6 +533,10 @@ class ModifyActressPage(LazyWidget):
 
         self.need_update.toggled.connect(self.vm.set_need_update)
         self.vm.need_update_Changed.connect(self.need_update.setChecked)
+
+        #minnano_id的绑定
+        self.input_minnano_id.textChanged.connect(self.vm.set_minnano_id)
+        self.vm.minnano_id_Changed.connect(self.input_minnano_id.setText)
 
         #tablemodel与viewmodel的绑定
         # TODO 这里存在循环绑定的问题

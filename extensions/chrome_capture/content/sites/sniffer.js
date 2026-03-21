@@ -1,4 +1,4 @@
-// 作品番号探测器：JavDB / JavLibrary / JavTxt 列表页「已收录 / + 收藏」标签；详情页 video-detail 番号嗅探
+// 作品番号探测器：JavDB / JavLibrary / JavTxt 列表页「已收录 / + 采集」标签；详情页 video-detail 番号嗅探
 (function() {
     const api = chrome || browser;
     const href = window.location.href;
@@ -117,7 +117,7 @@
                 tag.title = "本地已收录";
             } else {
                 tag.classList.add("not-found");
-                tag.textContent = "+ 收藏";
+                tag.textContent = "+ 采集";
                 tag.title = "点击采集到本地";
                 tag.onclick = (e) => {
                     e.preventDefault();
@@ -178,7 +178,7 @@
                 setTimeout(() => {
                     tag.classList.remove("error");
                     tag.classList.add("not-found");
-                    tag.textContent = "+ 收藏";
+                    tag.textContent = "+ 采集";
                 }, 2000);
             }
         }
@@ -226,11 +226,14 @@
         }
     }
 
-    /** 详情页嗅探：探测 div.video-detail[data-controller="movie-detail"] 内第一个 strong 的番号并显示标签 */
+    /** 详情页嗅探：探测 div.video-detail[data-controller="movie-detail"] 内第一个 strong 的番号，标签显示在 .video-meta-panel 右上角 */
     class JavDBDetailSniffer extends SiteSniffer {
         constructor() {
             super();
             this.itemSelector = 'div.video-detail[data-controller="movie-detail"]';
+        }
+        getTagPosition() {
+            return 'top-right';
         }
         extractId(element) {
             const h2 = element.querySelector('h2.title.is-4');
@@ -241,13 +244,45 @@
             const code = firstStrong.textContent.trim();
             return code || null;
         }
+        updateUI(id, exists) {
+            const item = State.pendingItems.get(id);
+            if (!item) return;
+            const { element } = item;
+            const container = element.querySelector('.video-meta-panel') || element;
+
+            const tag = document.createElement("div");
+            tag.className = "darkeye-tag darkeye-tag--" + this.getTagPosition();
+            if (exists) {
+                tag.classList.add("exists");
+                tag.textContent = "已收录";
+                tag.title = "本地已收录";
+            } else {
+                tag.classList.add("not-found");
+                tag.textContent = "+ 采集";
+                tag.title = "点击采集到本地";
+                tag.onclick = (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    this.captureItem(tag, id, element);
+                };
+            }
+
+            if (getComputedStyle(container).position === 'static') {
+                container.style.position = 'relative';
+            }
+            container.appendChild(tag);
+            console.log("DarkEye: 注入标签 (JavDB 详情 video-meta-panel):", tag);
+        }
     }
 
-    /** JavLibrary 详情页嗅探：探测 tr 内 td.header「识别码:」+ td.text 结构，提取番号并在该行显示收藏按钮 */
+    /** JavLibrary 详情页嗅探：探测 tr 内 td.header「识别码:」+ td.text 结构，标签显示在 #rightcolumn 右上角 */
     class JavLibraryDetailSniffer extends SiteSniffer {
         constructor() {
             super();
             this.itemSelector = 'tr:has(td.header):has(td.text)';
+        }
+        getTagPosition() {
+            return 'top-right';
         }
         extractId(element) {
             const headerTd = element.querySelector('td.header');
@@ -257,11 +292,16 @@
             const code = textTd.textContent.trim();
             return code || null;
         }
-        /** <tr> 不能直接 append div，插入新 <td> 承载标签 */
         updateUI(id, exists) {
             const item = State.pendingItems.get(id);
             if (!item) return;
             const { element } = item;
+            const container = document.getElementById('video_info');
+            if (!container) return;
+
+            const existing = container.querySelector('.darkeye-tag');
+            if (existing) existing.remove();
+
             const tag = document.createElement("div");
             tag.className = "darkeye-tag darkeye-tag--" + this.getTagPosition();
             if (exists) {
@@ -270,7 +310,7 @@
                 tag.title = "本地已收录";
             } else {
                 tag.classList.add("not-found");
-                tag.textContent = "+ 收藏";
+                tag.textContent = "+ 采集";
                 tag.title = "点击采集到本地";
                 tag.onclick = (e) => {
                     e.preventDefault();
@@ -278,13 +318,12 @@
                     this.captureItem(tag, id, element);
                 };
             }
-            const td = document.createElement("td");
-            td.className = "darkeye-cell";
-            td.style.position = "relative";
-            td.style.verticalAlign = "middle";
-            td.appendChild(tag);
-            element.appendChild(td);
-            console.log("DarkEye: 注入标签 (JavLibrary 详情):", tag);
+
+            if (getComputedStyle(container).position === 'static') {
+                container.style.position = 'relative';
+            }
+            container.appendChild(tag);
+            console.log("DarkEye: 注入标签 (JavLibrary 详情 #rightcolumn):", tag);
         }
     }
 
@@ -293,6 +332,9 @@
         constructor() {
             super();
             this.itemSelector = 'dl';
+        }
+        getTagPosition() {
+            return 'top-right';
         }
         extractId(element) {
             const dds = element.querySelectorAll('dd');
