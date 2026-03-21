@@ -1,5 +1,26 @@
-# 常见问题
 
+## 版本迁移
+
+### 1.1.1之前
+所有的数据库文件均在`resources/public`和`resources/private`这两个文件夹的下面。
+
+在没有数据库迁移工具时只能手动复制主要的文件夹，`resources/public`和`resources/private`，把对应的文件夹移动到新版本的对应的位置就行了。
+
+有迁移工具后，点击备份私库与公库，然后选择电脑上的一个位置，用新的版本点击还原后选择对应的meta.json和.db文件然后重启软件。现在暂时做不到无缝，总有问题。
+
+还有就是settings.ini这个配置文件里面存了包括界面颜色，视频文件夹地址等信息，也一并移动过去。
+
+现在绿色版只能是这样来版本迁移，后面如果有安装版应该是自动版本迁移。
+
+
+### 迁移到1.1.2
+1.1.2以前数据库文件均在`resources/public`和`resources/private`，之后需要把这两个文件移动到`data`下面，然后把settings.ini也移动到`data`文件夹下面。
+`data`文件夹下面还有
+- `settings.ini` 设置
+- `shortcuts.json`用户自定义快捷键
+- `crawler_nav_buttons.json`json驱动的外链，用户可以自行编辑网站
+迁移后这个文件夹应该长这样
+![](assets/data.JPG)
 
 
 ## 为什么FC2等捕捉不完善？

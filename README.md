@@ -32,7 +32,7 @@
 👉 https://de4321.github.io/darkeye/usage/#_3
 
 ## 版本迁移
-👉 https://de4321.github.io/darkeye/usage/#_8
+👉 https://de4321.github.io/darkeye/faq/
 
 # Community
 
