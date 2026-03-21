@@ -1,6 +1,8 @@
 const SERVER_URL = "http://localhost:56789";
 
 const pendingCrawlers = new Map();
+/** 桌面 navigate 写入：tabId -> { actress_id?, source? } */
+const tabNavigateContext = new Map();
 let crawlerWindowId = null;
 let crawlerWindowPromise = null;
 
@@ -8,17 +10,23 @@ function handleCommand(data) {
   if (data.type === "navigate") {
     const url = data.url;
     const target = data.target || "new_tab";
+    const ctx = data.context || null;
 
     if (target === "new_tab") {
       chrome.tabs.create({ url }).then((tab) => {
-        // no-op
+        if (ctx != null && tab && tab.id !== undefined) {
+          tabNavigateContext.set(tab.id, ctx);
+        }
       });
     } else if (target === "current_tab") {
       chrome.tabs
         .query({ active: true, currentWindow: true })
         .then((tabs) => {
           if (tabs[0]) {
-            chrome.tabs.update(tabs[0].id, { url });
+            const tid = tabs[0].id;
+            chrome.tabs.update(tid, { url }).then(() => {
+              if (ctx != null) tabNavigateContext.set(tid, ctx);
+            });
           }
         });
     }
@@ -114,6 +122,10 @@ chrome.windows.onRemoved.addListener((windowId) => {
   }
 });
 
+chrome.tabs.onRemoved.addListener((tabId) => {
+  tabNavigateContext.delete(tabId);
+});
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message && message.type === "sse_command" && message.payload) {
     try {
@@ -163,30 +175,36 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
-  if (message.command === "capture_minnano_id") {
-    console.log("DarkEye (Chrome): Received ID capture request", message);
+  if (message.command === "get_tab_context") {
+    const tabId = sender.tab && sender.tab.id;
+    const ctx = tabId !== undefined ? tabNavigateContext.get(tabId) : undefined;
+    sendResponse({ context: ctx || null });
+    return false;
+  }
 
-    fetch(`${SERVER_URL}/api/v1/actressid`, {
+  if (message.command === "capture_minnano_actress") {
+    const tabId = sender.tab && sender.tab.id;
+    const context = tabId !== undefined ? tabNavigateContext.get(tabId) || {} : {};
+    const payload = {
+      context,
+      data: message.data,
+      url: sender.tab && sender.tab.url ? sender.tab.url : "",
+    };
+    fetch(`${SERVER_URL}/api/v1/minnano-actress-capture`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        source: "minnano",
-        id: message.id,
-        url: sender.tab ? sender.tab.url : null,
-      }),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
     })
       .then((response) => response.json())
       .then((data) => {
-        console.log("DarkEye (Chrome): ID sent to server", data);
-        if (sender.tab && sender.tab.id) {
-          chrome.tabs.remove(sender.tab.id);
-        }
+        console.log("DarkEye (Chrome): minnano actress capture sent", data);
+        sendResponse({ ok: true, data });
       })
       .catch((error) => {
-        console.error("DarkEye (Chrome): Failed to send ID", error);
+        console.error("DarkEye (Chrome): Failed to send minnano capture", error);
+        sendResponse({ ok: false, error: String(error) });
       });
+    return true;
   }
 
   if (message.command === "send_crawler_result") {
