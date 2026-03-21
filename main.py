@@ -97,7 +97,7 @@ def _run_main_app():
     #强制 Qt Quick 使用 OpenGL，与 QOpenGLWidget 兼容（否则 Windows 默认 D3D11 会冲突）
 
     from PySide6.QtWidgets import QApplication, QDialog, QSplashScreen
-    from PySide6.QtGui import QPixmap, QSurfaceFormat
+    from PySide6.QtGui import QPixmap, QSurfaceFormat, QOpenGLContext, QOffscreenSurface
     from PySide6.QtCore import Qt, QTimer
 
     #OpenGL设置
@@ -120,6 +120,22 @@ def _run_main_app():
         import sys
         app = QApplication(sys.argv)
     profiler.checkpoint("创建应用")
+
+    # 预热 OpenGL 驱动与上下文初始化开销，避免主窗口显示后首秒卡顿/闪停。
+    # 这里使用离屏 surface，不会产生额外窗口闪烁。
+    with profiler.measure_execution("OpenGL预热", sync=True):
+        try:
+            prewarm_fmt = QSurfaceFormat.defaultFormat()
+            prewarm_surface = QOffscreenSurface()
+            prewarm_surface.setFormat(prewarm_fmt)
+            prewarm_surface.create()
+            if prewarm_surface.isValid():
+                prewarm_ctx = QOpenGLContext()
+                prewarm_ctx.setFormat(prewarm_fmt)
+                if prewarm_ctx.create() and prewarm_ctx.makeCurrent(prewarm_surface):
+                    prewarm_ctx.doneCurrent()
+        except Exception:
+            logger.exception("OpenGL预热失败，继续正常启动")
 
 
     #try:
