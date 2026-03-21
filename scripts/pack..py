@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# 把编译的文件打包压缩改名,计算sha256和大小，然后修改update/latest.json中的信息
+# 把编译的文件打包压缩改名，计算 sha256 和大小，然后生成新的 update/latest.json（含 releaseNotes）
 # 编译后的文件在dist/main.dist中
 
 import hashlib
@@ -36,6 +36,9 @@ def get_version() -> str:
 
 
 PACKAGE_URL_TEMPLATE = "http://yinruizhe.asia/DarkEye-v{version}.tar.zst"
+
+# 每次发版在此填写更新说明（会写入 latest.json 的 releaseNotes）
+RELEASE_NOTES = "新增更新器，下载提示器，修改UI"
 
 
 def main():
@@ -85,18 +88,17 @@ def main():
     print(f"  sha256: {sha256}")
     print(f"  size:   {size} bytes")
 
-    # 3. 更新 update/latest.json
+    # 3. 生成新的 update/latest.json（不读取旧文件）
     package_url = PACKAGE_URL_TEMPLATE.format(version=version)
-    if LATEST_JSON.exists():
-        data = json.loads(LATEST_JSON.read_text(encoding="utf-8"))
-    else:
-        data = {"app": APP_NAME}
-
-    data["latestVersion"] = version
-    data["package"] = {
-        "url": package_url,
-        "sha256": sha256,
-        "size": size,
+    data = {
+        "app": APP_NAME,
+        "latestVersion": version,
+        "releaseNotes": RELEASE_NOTES,
+        "package": {
+            "url": package_url,
+            "sha256": sha256,
+            "size": size,
+        },
     }
 
     LATEST_JSON.parent.mkdir(parents=True, exist_ok=True)
@@ -104,7 +106,7 @@ def main():
         json.dumps(data, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
-    print(f"已更新 {LATEST_JSON}")
+    print(f"已生成 {LATEST_JSON}")
 
     print(f"\n完成: {pkg_path}")
 
