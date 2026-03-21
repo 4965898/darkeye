@@ -6,7 +6,9 @@ from dataclasses import dataclass
 from typing import Optional
 from urllib.request import Request, urlopen
 
-DEFAULT_LATEST_JSON_URL = "https://yinruizhe.asia/latest.json"
+from config import get_latest_json_url
+
+DEFAULT_LATEST_JSON_URL = get_latest_json_url()
 
 
 @dataclass(frozen=True)

@@ -12,12 +12,17 @@ from PySide6.QtWidgets import QVBoxLayout, QHBoxLayout, QFormLayout, QWidget, QA
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtCore import Qt, QUrl, QTimer, QObject, Signal
 
-from config import BASE_DIR, APP_VERSION, get_last_auto_update_check_week, set_last_auto_update_check_week
+from config import (
+    BASE_DIR,
+    APP_VERSION,
+    get_last_auto_update_check_week,
+    get_latest_json_url,
+    set_last_auto_update_check_week,
+)
 from darkeye_ui.components import Label, Button
 from darkeye_ui.components.token_radio_button import TokenRadioButton
 from controller.MessageService import MessageBoxService
 
-LATEST_JSON_URL = "http://yinruizhe.asia/latest.json"
 URLOPEN_TIMEOUT_SECONDS = 8
 OVERALL_TIMEOUT_SECONDS = 12
 
@@ -96,7 +101,7 @@ def _handle_update_and_launch(msg_svc: MessageBoxService, title: str, msg: str) 
         "--main-exe",
         "DarkEye.exe",
         "--latest-json-url",
-        LATEST_JSON_URL,
+        get_latest_json_url(),
         "--keep",
         "data",
         "--pid",
@@ -147,7 +152,7 @@ def run_update_check(
 
         res = check_for_updates(
             APP_VERSION,
-            LATEST_JSON_URL,
+            get_latest_json_url(),
             urlopen_timeout_seconds=urlopen_timeout,
             log_latest_json=True,
         )

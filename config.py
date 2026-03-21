@@ -8,7 +8,7 @@ import logging
 
 
 #==========================================================
-APP_VERSION = "1.1.2"
+APP_VERSION = "1.1.1"
 REQUIRED_PUBLIC_DB_VERSION = "1.0"#软件所需要的公共数据库版本
 REQUIRED_PRIVATE_DB_VERSION = "1.1"#软件所需要的私有数据库版本
 #==========================================================
@@ -191,3 +191,30 @@ def set_last_auto_update_check_week(week_key: str) -> None:
     '''记录本次自动检查更新的周'''
     settings.setValue("Update/LastAutoCheckWeek", week_key)
     settings.sync()
+
+
+# ========== 更新清单 URL（随版本发布的 ini，非用户 settings.ini）==========
+_UPDATE_INI = resource_path("resources/config/update.ini")
+# 内置兜底：资源文件缺失或字段无效时使用（与 resources/config/update.ini 保持一致）
+DEFAULT_LATEST_JSON_URL = "https://yinruizhe.asia/latest.json"
+
+
+def get_latest_json_url() -> str:
+    """
+    从随安装包发布的 resources/config/update.ini 读取 latest.json 地址。
+    该文件随版本发布/升级覆盖，不放在 data/settings.ini，避免用户配置与版本脱节。
+    """
+    p = _UPDATE_INI
+    if not p.is_file():
+        logging.warning("未找到 resources/config/update.ini，使用内置默认更新地址")
+        return DEFAULT_LATEST_JSON_URL
+    cp = configparser.ConfigParser()
+    try:
+        cp.read(p, encoding="utf-8")
+        url = cp.get("Update", "LatestJsonUrl", fallback="").strip()
+        if url:
+            return url
+        logging.warning("update.ini 中 LatestJsonUrl 为空，使用内置默认更新地址")
+    except Exception:
+        logging.exception("读取 resources/config/update.ini 失败，使用内置默认更新地址")
+    return DEFAULT_LATEST_JSON_URL
