@@ -24,6 +24,14 @@
     right: 5px !important;
 }
 
+/* JavDB 详情：右上角 */
+.darkeye-tag--top-right {
+    top: 5px !important;
+    left: auto !important;
+    bottom: auto !important;
+    right: 5px !important;
+}
+
 /* 未收录状态：灰色加号 */
 .darkeye-tag.not-found {
     background-color: rgba(255, 255, 255, 0.9);

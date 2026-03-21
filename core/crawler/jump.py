@@ -16,14 +16,17 @@ def jump_avdanyuwiki(name):
 
 
 
-def send_navigate_request(url: str):
+def send_navigate_request(url: str, context: dict | None = None):
     import requests
     try:
-        # 发送导航指令到本地服务器
-        response = requests.post("http://localhost:56789/api/v1/navigate", json={
+        payload = {
             "url": url,
-            "target": "new_tab"
-        }, timeout=2)
+            "target": "new_tab",
+        }
+        if context is not None:
+            payload["context"] = context
+        # 发送导航指令到本地服务器
+        response = requests.post("http://localhost:56789/api/v1/navigate", json=payload, timeout=2)
         
         if response.status_code == 200:
             return True
