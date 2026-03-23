@@ -34,7 +34,7 @@ class AddQuickWork(QDialog):
         self.btn_add = Button("添加")
         self.btn_del = Button("删除")
         self.btn_clean = Button("去后缀")
-        self.btn_clean_prefix = Button("去前缀")
+        self.btn_clean_prefix = Button("删前缀行")
         self.btn_sort = Button("排序")
         
         self.btn_add.clicked.connect(self.add_row)
@@ -120,11 +120,11 @@ class AddQuickWork(QDialog):
                         text_item.setText(new_text)
 
     def clean_prefix(self):
-        """去前缀：输入前缀字符串，对已勾选且番号以此前缀开头的行去掉该前缀（前缀比较不区分大小写）。"""
+        """删前缀行：输入前缀字符串，删除已勾选且番号以此前缀开头的整行（前缀比较不区分大小写）。"""
         prefix, ok = QInputDialog.getText(
             self,
-            "去前缀",
-            "输入要删除的前缀（仅处理已勾选的行）：",
+            "删前缀行",
+            "输入前缀（删除已勾选且以此前缀开头的番号行）：",
         )
         if not ok:
             return
@@ -132,8 +132,8 @@ class AddQuickWork(QDialog):
         if not prefix:
             self.msg.show_warning("提示", "前缀不能为空")
             return
-        pl = len(prefix)
         plower = prefix.lower()
+        rows_to_delete = []
         for row in range(self.table.rowCount()):
             chk_item = self.table.item(row, 0)
             if chk_item and chk_item.checkState() == Qt.Checked:
@@ -141,7 +141,9 @@ class AddQuickWork(QDialog):
                 if text_item:
                     original_text = text_item.text().strip()
                     if original_text.lower().startswith(plower):
-                        text_item.setText(original_text[pl:])
+                        rows_to_delete.append(row)
+        for row in reversed(rows_to_delete):
+            self.table.removeRow(row)
 
     def sort_rows(self):
         """按番号列排序当前所有行（点击在升序/降序间切换）。"""
