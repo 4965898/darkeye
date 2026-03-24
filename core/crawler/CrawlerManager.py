@@ -505,7 +505,7 @@ class CrawlerManager2(QObject):
         director=avdanyuwiki_result.get("director", javlib_result.get("director", javdb_result.get("director", "")))
 
         #合并视频长度，优先级avdanyuwiki,javlib,javdb
-        video_length=avdanyuwiki_result.get("runtime", javlib_result.get("length", javdb_result.get("length", "")))
+        runtime=avdanyuwiki_result.get("runtime", javlib_result.get("length", javdb_result.get("length", "")))
 
         #合并女优，优先级avdanyuwiki,javlib,javdb
         actress_list=avdanyuwiki_result.get("actress_list") or javlib_result.get("actress") or javdb_result.get("actress") or []
@@ -549,7 +549,7 @@ class CrawlerManager2(QObject):
             "serial_number": self.tasks[serial].serial,
             "release_date": release_date,
             "director": director,
-            "video_length": video_length,
+            "runtime": runtime,
             "actress_list": actress_list,
             "actor_list": avdanyuwiki_result.get("actor_list") or [],
             "genre_list": genre_list,
@@ -576,15 +576,15 @@ class CrawlerManager2(QObject):
 
         # vlength 必须为 int，video_length 可能为 "" 或 "120" 等字符串
         try:
-            vlength_val = int(work_merge["video_length"]) if work_merge["video_length"] else 0
+            runtime_val = int(work_merge["runtime"]) if work_merge["runtime"] else 0
         except (ValueError, TypeError):
-            vlength_val = 0
+            runtime_val = 0
 
         crawled_work_data=CrawledWorkData(
             serial_number=work_merge["serial_number"],
             director=work_merge["director"],
             release_date=work_merge["release_date"],
-            vlength=vlength_val,
+            runtime=runtime_val,
             cn_title=work_merge["cn_title"],
             jp_title=work_merge["jp_title"],
             cn_story=work_merge["cn_story"],
@@ -759,7 +759,7 @@ class DataUpdate:
                 "serial_number":self.work.serial_number,
                 "director": self.work.director,
                 "release_date": self.work.release_date,
-                "vlength": self.work.vlength,
+                "runtime": self.work.runtime,
                 "cn_title": self.work.cn_title,
                 "jp_title": self.work.jp_title,
                 "cn_story": self.work.cn_story,
@@ -767,6 +767,7 @@ class DataUpdate:
                 "tag_id_list":self.tag_id_list,
                 "actress_list":self.actress_ids,
                 "actor_list":self.actor_ids,
+                "runtime": self.work.runtime,
             })
         else:
             self._update_work()
@@ -880,7 +881,8 @@ class DataUpdate:
         jp_story=self.work.jp_story,
         director=self.work.director,
         release_date=self.work.release_date,actor_ids=self.actor_ids,
-        actress_ids=self.actress_ids
+        actress_ids=self.actress_ids,
+        runtime=self.work.runtime
         )
         add_tag2work(self.work_id, tag_ids=self.tag_id_list)
 

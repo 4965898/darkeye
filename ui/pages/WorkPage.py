@@ -91,7 +91,7 @@ class WorkPage(LazyWidget):
         filterlayout.addWidget(self.actress_input)
         filterlayout.addWidget(Label("标题包含："))
         filterlayout.addWidget(self.title_input)
-        filterlayout.addWidget(Label("简短故事包含："))
+        filterlayout.addWidget(Label("简单笔记包含："))
         filterlayout.addWidget(self.story_input)
         filterlayout.addWidget(Label("导演"))
         filterlayout.addWidget(self.director_input)
@@ -386,7 +386,7 @@ JOIN filter_maker ON filter_maker.maker_id=p.maker_id
         where="WHERE is_deleted=0\n"#占位
         query+=where
         if self.keyword:
-            where="AND work.story LIKE ?\n"
+            where="AND work.notes LIKE ?\n"
             params.append(f"%{self.keyword}%")
             query+=where
 

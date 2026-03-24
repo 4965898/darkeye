@@ -102,7 +102,7 @@ class ShelfPage(QWidget):
         filterlayout.addWidget(self.actress_input)
         filterlayout.addWidget(Label("标题包含："))
         filterlayout.addWidget(self.title_input)
-        filterlayout.addWidget(Label("简短故事包含："))
+        filterlayout.addWidget(Label("简单笔记包含："))
         filterlayout.addWidget(self.story_input)
         filterlayout.addWidget(Label("导演"))
         filterlayout.addWidget(self.director_input)
@@ -373,7 +373,7 @@ JOIN filter_maker ON filter_maker.maker_id=p.maker_id
         query += "WHERE is_deleted=0\n"
 
         if self.keyword:
-            query += "AND work.story LIKE ?\n"
+            query += "AND work.notes LIKE ?\n"
             params.append(f"%{self.keyword}%")
 
         if self.order == "拍摄年龄顺序" or self.order == "拍摄年龄逆序":

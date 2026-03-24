@@ -5,11 +5,20 @@ from .connection import get_connection
 import logging
 from pathlib import Path
 import json
+from config import SQLPATH
 
 def get_db_version(conn:Connection):
+    cur = conn.cursor()
+    cur.execute("PRAGMA user_version")
+    version = cur.fetchone()[0]
+
+    if version != 0:#为了兼容性，版本号为0说明是上个版本的的库
+        return str(version)
+
     cur = conn.execute("SELECT version FROM db_version ORDER BY applied_at DESC LIMIT 1;")
     row = cur.fetchone()
     return row[0] if row else None
+
 
 def set_db_version(conn:Connection, version:str, description:str=""):
     conn.execute(
@@ -17,6 +26,9 @@ def set_db_version(conn:Connection, version:str, description:str=""):
         (version, description)
     )
     conn.commit()
+
+
+
 
 
 from config import REQUIRED_PRIVATE_DB_VERSION,REQUIRED_PUBLIC_DB_VERSION,DATABASE,PRIVATE_DATABASE
@@ -27,11 +39,15 @@ def upgrade_public_db(conn, current_version):
     #当版本库不一致时就一直不断的升级 
     # 示例升级脚本
     if current_version == "1.0":
-        logging.info("→ 执行 1.0 → 1.1.升级...")
-        # 举例：新增字段
-        # 执行标准
-        set_db_version(conn, "1.1", "")
-    
+        logging.info("→ 执行 1.0 → 2升级...")
+        sql_file = Path(SQLPATH / "public" / "v1.0-v2" / "migration.sql")
+        with open(sql_file, "r", encoding="utf-8") as f:
+            sql_script = f.read()
+        conn.executescript(sql_script)  # 一次性执行建库SQL（使用传入的连接）
+        conn.commit()
+        logging.info("公共数据库迁移完成1.0 → 2升级")
+
+
     # 还可以继续往下扩展版本升级逻辑
     # elif current_version == "1.1.0":
     #     ...
@@ -39,18 +55,18 @@ def upgrade_public_db(conn, current_version):
 def upgrade_private_db(conn, current_version):
     """执行数据库升级逻辑"""
     logging.info(f"私有数据库版本从 {current_version or '无版本'} 升级到 {REQUIRED_PRIVATE_DB_VERSION}")
-    from config import SQLPATH
+
     # 示例升级脚本
     if current_version == "1.0":
         logging.info("→ 执行 1.0 → 1.1 升级...")
 
-        sql_file = Path(SQLPATH / "v1.1" / "RBfavorite_actress.sql")
+        sql_file = Path(SQLPATH / "private" / "v1.0-v1.1" / "RBfavorite_actress.sql")
         with open(sql_file, "r", encoding="utf-8") as f:
             sql_script = f.read()
         conn.executescript(sql_script)  # 一次性执行建库SQL（使用传入的连接）
 
 
-        sql_file = Path(SQLPATH / "v1.1" / "RBfavorite_work.sql")
+        sql_file = Path(SQLPATH / "private" / "v1.0-v1.1" / "RBfavorite_work.sql")
         with open(sql_file, "r", encoding="utf-8") as f:
             sql_script = f.read()
         conn.executescript(sql_script)  # 一次性执行建库SQL（使用传入的连接）
@@ -69,10 +85,12 @@ def check_and_upgrade_public_db():
     conn=get_connection(DATABASE)
 
     current_version = get_db_version(conn)
-    logging.info(f"当前公共数据库版本：{current_version}")
+    current_version_str = str(current_version).strip() if current_version is not None else None
+    required_public_version_str = str(REQUIRED_PUBLIC_DB_VERSION).strip()
+    logging.info(f"当前公共数据库版本：{current_version_str}")
 
-    if current_version != REQUIRED_PUBLIC_DB_VERSION:
-        upgrade_public_db(conn, current_version)
+    if current_version_str != required_public_version_str:
+        upgrade_public_db(conn, current_version_str)
     else:
         logging.info("公共数据库版本匹配，无需升级。")
     conn.close()
@@ -81,10 +99,12 @@ def check_and_upgrade_private_db():
     conn=get_connection(PRIVATE_DATABASE)
 
     current_version = get_db_version(conn)
-    logging.info(f"当前私有数据库版本：{current_version}" )
+    current_version_str = str(current_version).strip() if current_version is not None else None
+    required_private_version_str = str(REQUIRED_PRIVATE_DB_VERSION).strip()
+    logging.info(f"当前私有数据库版本：{current_version_str}" )
 
-    if current_version != REQUIRED_PRIVATE_DB_VERSION:
-        upgrade_private_db(conn, current_version)
+    if current_version_str != required_private_version_str:
+        upgrade_private_db(conn, current_version_str)
     else:
         logging.info("私有数据库版本匹配，无需升级。")
     conn.close()

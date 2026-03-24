@@ -85,7 +85,8 @@ def get_workinfo_by_workid(work_id: int) -> dict:
     SELECT
     serial_number,
     director,
-    story,
+    notes,
+    runtime,
     release_date,
     image_url,
     cn_title,
@@ -324,11 +325,11 @@ def get_actor_from_work_id(work_id: int) -> list[dict]:
     return result
 
 
-def get_work_story_rows() -> list[tuple]:
+def get_work_notes_rows() -> list[tuple]:
     query = """
-    SELECT work_id, serial_number, story
+    SELECT work_id, serial_number, notes
     FROM work
-    WHERE story IS NOT NULL AND story != ''
+    WHERE notes IS NOT NULL AND notes != ''
     """
     try:
         with get_connection(DATABASE, True) as conn:
@@ -340,9 +341,9 @@ def get_work_story_rows() -> list[tuple]:
         return []
 
 
-def get_recent_work_story_rows(limit: int) -> list[tuple]:
+def get_recent_work_notes_rows(limit: int) -> list[tuple]:
     query = """
-    SELECT work_id, serial_number, story
+    SELECT work_id, serial_number, notes
     FROM work
     ORDER BY update_time DESC
     LIMIT ?
@@ -440,10 +441,10 @@ def get_unique_short_story() -> list:
     '''获得库中所有的简短的剧情'''
     query = '''
     SELECT
-    story,
+    notes,
     COUNT(*) AS num
     FROM work
-    GROUP BY story
+    GROUP BY notes
     ORDER BY num DESC
     '''
     with get_connection(DATABASE, True) as conn:

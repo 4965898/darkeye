@@ -65,7 +65,7 @@
 - 位置：
 `core/graph/graph_manager.py:160`, `core/graph/graph_manager.py:171`, `core/graph/graph_manager.py:188`, `core/graph/graph_manager.py:194`, `core/graph/graph_manager.py:239`, `core/graph/graph_manager.py:281`, `core/graph/graph_manager.py:289`, `core/graph/graph_manager.py:292`
 - 现状：
-逐条解析 story + 逐条关系更新，混合 Python 循环与查询，数据量上来会放大延迟。
+逐条解析 notes + 逐条关系更新，混合 Python 循环与查询，数据量上来会放大延迟。
 - C++ 转写建议：
 把 wikilink 扫描与关系构建放到 C++ 批处理接口；Python 只负责调度和最终落库。
 - 预期收益：

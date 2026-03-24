@@ -1,6 +1,6 @@
 
 
-
+--这个是私有数据库从v1.0到v1.1的升级脚本
 CREATE TABLE IF NOT EXISTS favorite_work_new(--收藏影片表
 	favorite_work_id INTEGER PRIMARY KEY AUTOINCREMENT, --不重复主键
 	work_id INTEGER NOT NULL,--外键，这个要与公共表中的work_id对应，但是要在软件层去解决数据一致性的问题，不需要唯一

@@ -163,7 +163,7 @@ def _update_worktag(cursor:Cursor,work_id:int,tag_ids:list):
             [(work_id, tag_id) for tag_id in tags_to_add]
         )
 
-def update_work_byhand(work_id,director,release_date, story, actress_ids,actor_ids,cn_title, cn_story, jp_title, jp_story,image_url,tag_ids)->bool:
+def update_work_byhand(work_id,director,release_date, notes, runtime, actress_ids,actor_ids,cn_title, cn_story, jp_title, jp_story,image_url,tag_ids)->bool:
     '''更新作品的信息，默认番号是不会出错的。调用后需 emit: global_signals.work_data_changed'''
     try:
         conn = get_connection(DATABASE,False)
@@ -174,14 +174,15 @@ def update_work_byhand(work_id,director,release_date, story, actress_ids,actor_i
                         UPDATE work
                         SET director=?,
                         release_date=?,
-                        story=?,
+                        notes=?,
+                        runtime=?,
                         cn_title=?,
                         cn_story=?,
                         jp_title=?,
                         jp_story=?,
                         image_url=?
                         WHERE work_id = ?
-''',(director,release_date,story,cn_title,cn_story,jp_title,jp_story,image_url,work_id,))
+''',(director,release_date,notes,runtime,cn_title,cn_story,jp_title,jp_story,image_url,work_id,))
 
         _update_actress(cursor,work_id,actress_ids)
 

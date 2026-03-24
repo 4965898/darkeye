@@ -1,6 +1,5 @@
 from PySide6.QtWidgets import QHBoxLayout,QVBoxLayout,QLineEdit,QTextEdit,QSizePolicy,QPlainTextEdit,QWidget,QScrollArea
 from PySide6.QtCore import Qt,QObject,Signal,Property,SignalInstance,Slot,QThreadPool,QTimer
-from PySide6.QtGui import QIntValidator
 
 from ui.myads.workspace_manager import WorkspaceManager, Placement, ContentConfig
 from ui.widgets.CrawlerToolBox import CrawlerAutoPage,CrawlerManualNavPage
@@ -12,7 +11,7 @@ from enum import Enum
 from config import WORKCOVER_PATH
 from ui.widgets import ActressSelector,CompleterLineEdit,ActorSelector,CoverDropWidget
 from ui.widgets.selectors.TagSelector5 import TagSelector5
-from core.database.query import get_unique_director, get_work_tags, get_workinfo_by_workid, get_actressid_by_workid, get_actorid_by_workid, get_unique_short_story, exist_actor, get_workid_by_serialnumber, exist_actress
+from core.database.query import get_unique_director, get_work_tags, get_workinfo_by_workid, get_actressid_by_workid, get_actorid_by_workid, exist_actor, get_workid_by_serialnumber, exist_actress
 from core.database.insert import InsertNewWorkByHand
 from core.database.update import update_work_byhand
 from utils.utils import mse,translate_text_sync
@@ -31,6 +30,8 @@ from darkeye_ui.components.input import LineEdit
 from darkeye_ui.components.input import PlainTextEdit
 from darkeye_ui.components.icon_push_button import IconPushButton
 from darkeye_ui.components.button import Button
+from darkeye_ui.components.token_spin_box import TokenSpinBox
+from darkeye_ui.components.combo_box import ComboBox
 
 class ButtonState(Enum):
     NORMAL = 1
@@ -44,8 +45,8 @@ class Model():
         self._serial_number:str= ""
         self._director:str = ""
         self._release_date:str = ""
-        self._vlength:int=0
-        self._story:str = ""
+        self._runtime:int=0
+        self._notes:str = ""
         self._cn_title:str = ""
         self._cn_story:str = ""
         self._jp_title:str = ""
@@ -61,7 +62,8 @@ class Model():
             "serial_number": self._serial_number,
             "director": self._director,
             "release_date": self._release_date,
-            "story": self._story,
+            "notes": self._notes,
+            "runtime": self._runtime,
             "cn_title": self._cn_title,
             "cn_story": self._cn_story,
             "jp_title": self._jp_title,
@@ -77,8 +79,8 @@ class ViewModel(QObject):
     serial_number_changed = Signal(str)
     director_changed = Signal(str)
     release_date_changed=Signal(str)
-    story_changed=Signal(str)
-    vlength_changed=Signal(int)
+    notes_changed=Signal(str)
+    runtime_changed=Signal(int)
 
     cn_title_changed = Signal(str)
     cn_story_changed = Signal(str)
@@ -100,7 +102,7 @@ class ViewModel(QObject):
         self.model:Model = model
         self.msg=message_service
         self._changed_flags = {#检测内容修改的字典,通过这个控制UI的改变
-        'story': False,
+        'notes': False,
         'release_date': False,
         'director': False,
         'cn_title': False,
@@ -110,7 +112,8 @@ class ViewModel(QObject):
         'actress_ids': False,
         'actor_ids': False,
         'tag_ids': False,
-        'image_url': False
+        'image_url': False,
+        'runtime': False
         }
         self._btn_state={
             'add_work':ButtonState.DISABLED,
@@ -148,23 +151,27 @@ class ViewModel(QObject):
             self.release_date_changed.emit(value)
             #print("Model updated:", self.model._release_date)
     
-    def get_vlength(self)->int: return self.model._vlength
-    def set_vlength(self, value:int):
-        if self.model._vlength != value:
-            self.model._vlength = value
-            self.vlength_changed.emit(value)
-            #print("Model updated:", self.model._vlength)
+
+
+    def get_runtime(self)->int: return self.model._runtime
+    def set_runtime(self, value:int):
+        value = int(value) if value not in (None, "") else 0
+        if self.model._runtime != value:
+            self.model._runtime = value
+            self.runtime_changed.emit(value)
+            #print("Model runtime updated:", self.model._runtime)
 
 
 
-    def get_story(self)->str: return self.model._story
-    def set_story(self, value:str):
+
+    def get_notes(self)->str: return self.model._notes
+    def set_notes(self, value:str):
         if not value:
             value=""
-        if self.model._story != value.strip():
-            self.model._story = value.strip()
-            self.story_changed.emit(value)
-            #print("Model Story updated:", self.model._story)
+        if self.model._notes != value.strip():
+            self.model._notes = value.strip()
+            self.notes_changed.emit(value)
+            #print("Model Story updated:", self.model._notes)
 
     def get_cn_title(self)->str: return self.model._cn_title
     def set_cn_title(self, value:str):
@@ -262,8 +269,9 @@ class ViewModel(QObject):
     serial_number = Property(str, get_serial_number, set_serial_number, notify=serial_number_changed)
     director = Property(str, get_director, set_director, notify=director_changed)
     release_date = Property(str, get_release_date, set_release_date, notify=release_date_changed)
-    story = Property(str, get_story, set_story, notify=story_changed)
-    vlength = Property(int, get_vlength, set_vlength, notify=vlength_changed)
+    notes = Property(str, get_notes, set_notes, notify=notes_changed)
+   
+    runtime = Property(int, get_runtime, set_runtime, notify=runtime_changed)
 
     cn_title = Property(str, get_cn_title, set_cn_title, notify=cn_title_changed)
     cn_story = Property(str, get_cn_story, set_cn_story, notify=cn_story_changed)
@@ -285,7 +293,7 @@ class ViewModel(QObject):
             "serial_number": 
             "director": 
             "release_date": 
-            "story": 
+            "notes": 
             "cn_title": 
             "cn_story": 
             "jp_title": 
@@ -294,6 +302,7 @@ class ViewModel(QObject):
             "actor_ids": 
             "tag_ids": 
             "image_url": 
+            "runtime": 
         }
         '''
         #获得基本数据
@@ -410,7 +419,8 @@ class ViewModel(QObject):
 
         self.set_release_date(inf['release_date'])
         self.set_director(inf['director'])
-        self.set_story(inf['story'])
+        self.set_runtime(inf['runtime'])
+        self.set_notes(inf['notes'])
         self.set_cn_title(inf['cn_title'])#Nano与空值的处理
         self.set_cn_story(inf['cn_story'])
         self.set_jp_title(inf['jp_title'])
@@ -456,7 +466,8 @@ class ViewModel(QObject):
         '''清空所有的面板里的内容除了input_serial_number'''
         self.set_release_date("")
         self.set_director("")
-        self.set_story("")
+        self.set_runtime(0)
+        self.set_notes("")
         self.set_cn_title("")
         self.set_cn_story("")
         self.set_jp_title("")
@@ -476,7 +487,7 @@ class ViewModel(QObject):
         self._cheakable = False #True时开启检测变更
         logging.debug("关闭修改检测")
         # 文本类控件
-        self.story_changed.connect(lambda: self.check_change('story', self.get_story()))
+        self.notes_changed.connect(lambda: self.check_change('notes', self.get_notes()))
         self.release_date_changed.connect(lambda: self.check_change('release_date', self.get_release_date()))
         self.director_changed.connect(lambda: self.check_change('director', self.get_director()))
         
@@ -490,6 +501,9 @@ class ViewModel(QObject):
         self.actress_changed.connect(lambda: self.check_change('actress_ids', self.get_actress()))
         self.actor_changed.connect(lambda: self.check_change('actor_ids', self.get_actor()))
         self.tag_changed.connect(lambda: self.check_change('tag_ids', self.get_tag()))
+
+        # spinbox
+        self.runtime_changed.connect(lambda: self.check_change('runtime', self.get_runtime()))
         
         # 图片控件
         self.cover_changed.connect(self.check_image_change)
@@ -647,9 +661,10 @@ class AddWorkTabPage3(LazyWidget):
         self.input_time.setPlaceholderText("YYYY-MM-DD")
         self.label_director = Label("导       演：")
         self.input_director = CompleterLineEdit(get_unique_director)
-        self.label_vlength = Label("影片长度：")
-        self.input_vlength = LineEdit()
-        self.input_vlength.setValidator(QIntValidator())
+        self.label_runtime = Label("影片长度：")
+        self.input_runtime = TokenSpinBox()
+        self.input_runtime.setRange(0, 9999)
+        self.input_runtime.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.btn_add_work = Button()
         self.label_cn_title = Label("中文标题")
         self.cn_title = PlainTextEdit()
@@ -670,6 +685,18 @@ class AddWorkTabPage3(LazyWidget):
         jp_story_label_layout.addWidget(self.label_jp_story)
         jp_story_label_layout.addWidget(self.btn_trans_story)
 
+        self.label_maker = Label("片       商：")
+        self.input_maker = ComboBox()
+        self.input_maker.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+
+        self.label_label = Label("厂       牌：")
+        self.input_label = ComboBox()
+        self.input_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+
+        self.label_series = Label("系       列：")
+        self.input_series = ComboBox()
+        self.input_series.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+
         self.actressselector = ActressSelector()
         self.actorselector = ActorSelector()
         self.tag_selector = TagSelector5()
@@ -682,8 +709,8 @@ class AddWorkTabPage3(LazyWidget):
         self.forceview_placeholder.setAlignment(Qt.AlignCenter)  # type: ignore[arg-type]
         self.viewmodel.workload.connect(self.on_set_directview)
 
-        self.input_story = WikiTextEdit()
-        self.input_story.set_completer_func(get_serial_number)
+        self.input_notes = WikiTextEdit()
+        self.input_notes.set_completer_func(get_serial_number)
 
         # ---------- 工作区布局（与 ui/myads/tests/demo.py 用法一致） ----------
         main_layout = QVBoxLayout(self)
@@ -696,15 +723,15 @@ class AddWorkTabPage3(LazyWidget):
             cfg = self._workspace_manager.create_content_config()
             return cfg.set_window_title(title).set_widget(w).set_closeable(closeable)
 
-        # ---------- 1. 爬虫区 ----------
+        # 爬虫区
         self.crawler_auto_page = CrawlerAutoPage()
-        
         crawler_container = QWidget()
         crawler_layout = QVBoxLayout(crawler_container)
         crawler_layout.setContentsMargins(0, 0, 0, 0)
         crawler_layout.addWidget(self.crawler_auto_page)
         crawler_container.setMinimumHeight(200)
 
+        #外部导航栏
         self.navpage = CrawlerManualNavPage()
         nav_scroll = QScrollArea()
         nav_scroll.setWidget(self.navpage)
@@ -717,11 +744,13 @@ class AddWorkTabPage3(LazyWidget):
         nav_layout.addWidget(nav_scroll)
         nav_container.setMinimumHeight(200)
 
+        #封面栏
         cover_container = QWidget()
         cover_layout = QVBoxLayout(cover_container)
         cover_layout.setContentsMargins(0, 0, 0, 0)
         cover_layout.addWidget(self.coverdroplabel)
 
+        #基础信息栏
         basic_info_container = QWidget()
         basic_layout = QVBoxLayout(basic_info_container)
         left_small_layout1 = QHBoxLayout()
@@ -736,12 +765,26 @@ class AddWorkTabPage3(LazyWidget):
         left_small_layout3.addWidget(self.label_director)
         left_small_layout3.addWidget(self.input_director)
         left_small_layout4 = QHBoxLayout()
-        left_small_layout4.addWidget(self.label_vlength)
-        left_small_layout4.addWidget(self.input_vlength)
+        left_small_layout4.addWidget(self.label_runtime)
+        left_small_layout4.addWidget(self.input_runtime)
+        left_small_layout5 = QHBoxLayout()
+        left_small_layout5.addWidget(self.label_maker)
+        left_small_layout5.addWidget(self.input_maker)
+        left_small_layout6 = QHBoxLayout()
+        left_small_layout6.addWidget(self.label_label)
+        left_small_layout6.addWidget(self.input_label)
+        left_small_layout7 = QHBoxLayout()
+        left_small_layout7.addWidget(self.label_series)
+        left_small_layout7.addWidget(self.input_series)
+
         basic_layout.addLayout(left_small_layout1)
         basic_layout.addLayout(left_small_layout2)
         basic_layout.addLayout(left_small_layout3)
         basic_layout.addLayout(left_small_layout4)
+        basic_layout.addLayout(left_small_layout5)
+        basic_layout.addLayout(left_small_layout6)
+        basic_layout.addLayout(left_small_layout7)
+
         basic_layout.addWidget(self.label_cn_title)
         basic_layout.addWidget(self.cn_title)
         basic_layout.addWidget(self.label_cn_story)
@@ -752,30 +795,35 @@ class AddWorkTabPage3(LazyWidget):
         basic_layout.addWidget(self.jp_story)
         basic_layout.addWidget(self.btn_add_work)
 
+        #女优选择器
         actress_container = QWidget()
         actress_layout = QVBoxLayout(actress_container)
         actress_layout.setContentsMargins(0, 0, 0, 0)
         actress_layout.addWidget(self.actressselector)
 
+        #男优选择器
         actor_container = QWidget()
         actor_layout = QVBoxLayout(actor_container)
         actor_layout.setContentsMargins(0, 0, 0, 0)
         actor_layout.addWidget(self.actorselector)
 
+        #标签选择器
         tag_container = QWidget()
         tag_layout = QVBoxLayout(tag_container)
         tag_layout.setContentsMargins(0, 0, 0, 0)
         tag_layout.addWidget(self.tag_selector)
 
+        #力导向图区
         self.forceview_container = QWidget()
         forceview_container_layout = QVBoxLayout(self.forceview_container)
         forceview_container_layout.setContentsMargins(0, 0, 0, 0)
         forceview_container_layout.addWidget(self.forceview_placeholder)
 
+        #自由记录区
         editor_container = QWidget()
         editor_layout = QVBoxLayout(editor_container)
         editor_layout.setContentsMargins(0, 0, 0, 0)
-        editor_layout.addWidget(self.input_story)
+        editor_layout.addWidget(self.input_notes)
 
         # 先搭架子再填充：root -> 右侧依次 nav, cover, basic, tag, forceview；cover 下拆 actress；forceview 下拆 editor
         pane_basic = self._workspace_manager.split(root, Placement.Right, ratio=0.7)
@@ -793,7 +841,7 @@ class AddWorkTabPage3(LazyWidget):
         self._workspace_manager.fill_pane(pane_actress, make_config("女优选择器", actress_container, closeable=False))
         self._workspace_manager.fill_pane(pane_tag, make_config("标签选择器", tag_container, closeable=False))
         self._workspace_manager.fill_pane(pane_force, make_config("力导向图区", self.forceview_container, closeable=False))
-        self._workspace_manager.fill_pane(pane_editor, make_config("编辑区", editor_container, closeable=False))
+        self._workspace_manager.fill_pane(pane_editor, make_config("自由记录区", editor_container, closeable=False))
 
         QTimer.singleShot(0, self._init_forceview)
 
@@ -838,13 +886,22 @@ class AddWorkTabPage3(LazyWidget):
             vm_signal:SignalInstance=getattr(self.viewmodel,f"{prop_name}_changed")
             vm_signal.connect(lambda text, w=widget,p=prop_name:self.lineedit_model_to_ui(w,p,text))
 
+        # runtime 使用数字选择器做双向绑定
+        self._updating_flags["runtime"] = False
+        self.input_runtime.valueChanged.connect(
+            lambda value: self.runtime_ui_to_model(value)
+        )
+        self.viewmodel.runtime_changed.connect(
+            lambda value: self.runtime_model_to_ui(value)
+        )
+
         #这样可以完整的处理好同一个类型的绑定问题，避免其回环，UI->model单向，model->UI单向，各自独立
         bindings_map:dict[str,QTextEdit] = {
             "cn_title": self.cn_title,
             "cn_story": self.cn_story,
             "jp_title": self.jp_title,
             "jp_story": self.jp_story,
-            "story": self.input_story
+            "notes": self.input_notes
         }
         for prop_name,widget in bindings_map.items():
             self._updating_flags[prop_name] = False
@@ -911,6 +968,20 @@ class AddWorkTabPage3(LazyWidget):
         widget.setText(text)
         self._updating_flags[prop_name] = False
 
+    def runtime_ui_to_model(self, value: int):
+        if self._updating_flags.get("runtime", False):
+            return
+        self._updating_flags["runtime"] = True
+        self.viewmodel.set_runtime(value)
+        self._updating_flags["runtime"] = False
+
+    def runtime_model_to_ui(self, value: int):
+        if self._updating_flags.get("runtime", False):
+            return
+        self._updating_flags["runtime"] = True
+        self.input_runtime.setValue(int(value) if value is not None else 0)
+        self._updating_flags["runtime"] = False
+
 
 #----------------------------------------------------------
 #                       信号连接
@@ -967,6 +1038,8 @@ class AddWorkTabPage3(LazyWidget):
         if self.crawler_auto_page.cb_tag.isChecked():
             cur_tag_id=self.viewmodel.get_tag()
             self.viewmodel.set_tag(list(set(cur_tag_id)|set(data["tag_id_list"])))
+        if self.crawler_auto_page.cb_runtime.isChecked():
+            self.viewmodel.set_runtime(data["runtime"])
 
     def update_cover(self,file_path:str):
         '''更新封面'''
@@ -1055,14 +1128,16 @@ class AddWorkTabPage3(LazyWidget):
         highlight_line = "QLineEdit { border: 2px solid #FFA500; }"
         highlight_text = "QPlainTextEdit { border: 2px solid #FFA500; }"
         highlight_list = "QListView { border: 2px solid #FFA500; }"
+        highlight_spin = "QSpinBox { border: 2px solid #FFA500; }"
         highlight_cover_border = "2px dashed orange"
         normal_cover_border = None
         highlight_text2="QTextEdit { border: 2px solid #FFA500; }"
 
         mapping = [
-            ("story", self.input_story, highlight_text2, ""),
+            ("notes", self.input_notes, highlight_text2, ""),
             ("director", self.input_director, highlight_line, ""),
             ("release_date", self.input_time, highlight_line, ""),
+            ("runtime", self.input_runtime, highlight_spin, ""),
             ("cn_title", self.cn_title, highlight_text, ""),
             ("jp_title", self.jp_title, highlight_text, ""),
             ("cn_story", self.cn_story, highlight_text, ""),

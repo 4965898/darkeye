@@ -7,7 +7,7 @@ from threading import Lock
 from PySide6.QtCore import QObject, Signal
 
 from core.graph.text_parser import parse_wikilinks
-from core.database.query import get_workid_by_serialnumber, get_actress_from_work_id, get_serial_number_map, get_work_story_rows, get_recent_work_story_rows
+from core.database.query import get_workid_by_serialnumber, get_actress_from_work_id, get_serial_number_map, get_work_notes_rows, get_recent_work_notes_rows
 
 
 '''
@@ -137,7 +137,7 @@ class GraphManager(QObject):
                 logging.error(f"Error generating base graph: {e}")
                 self.G = nx.Graph() # Fallback
 
-            # 2. 从数据库加载 story 并解析 [[]] 引用，叠加到基图中
+            # 2. 从数据库加载 notes 并解析 [[]] 引用，叠加到基图中
             self._augment_with_story_relations()
             
             self._initialized = True
@@ -162,7 +162,7 @@ class GraphManager(QObject):
         从数据库加载数据，解析story中的 [[]] 引用，并在基图上添加引用关系边
         """
         try:
-            rows = get_work_story_rows()
+            rows = get_work_notes_rows()
             logging.info(f"Loaded {len(rows)} works with stories from database for augmentation.")
 
             # 缓存 serial_number -> work_id 的映射，避免重复查询数据库
@@ -171,7 +171,7 @@ class GraphManager(QObject):
             for row in rows:
                 source_work_id = row[0]
                 source_serial = row[1]
-                story = row[2]
+                notes = row[2]
                 
                 # 构造符合基图规范的 Source 节点 ID (w + work_id)
                 source_node_id = f"w{source_work_id}"
@@ -181,7 +181,7 @@ class GraphManager(QObject):
                     continue
 
                 # 解析引用
-                links = parse_wikilinks(story)
+                links = parse_wikilinks(notes)
                 if not links:
                     continue
 
@@ -208,7 +208,7 @@ class GraphManager(QObject):
                                     # logging.debug(f"Added reference edge: {source_serial} -> {target_serial}")
 
         except Exception as e:
-            logging.error(f"Error augmenting graph with story relations: {e}")
+            logging.error(f"Error augmenting graph with notes relations: {e}")
 
     def get_graph(self):
         """
@@ -247,7 +247,7 @@ class GraphManager(QObject):
         logging.info(f"更新图关系")
         rows = []
         try:
-            rows = get_recent_work_story_rows(limit)
+            rows = get_recent_work_notes_rows(limit)
             if not rows:
                 return
         except Exception as e:
@@ -263,7 +263,7 @@ class GraphManager(QObject):
             for row in rows:
                 source_work_id = row[0]
                 source_serial = row[1]
-                story = row[2]
+                notes = row[2]
                 source_node_id = f"w{source_work_id}"
 
                 # 1. 作品节点检查与创建
@@ -276,8 +276,8 @@ class GraphManager(QObject):
                         'attr': {'label': source_serial, 'group': 'work'}
                     })
 
-                # 2. 引用边 (type='reference')：仅当有 story 时处理
-                if story:
+                # 2. 引用边 (type='reference')：仅当有 notes 时处理
+                if notes:
                     out_edges = list(self.G.edges(source_node_id, data=True))
                     for u, v, data in out_edges:
                         if data.get('type') == 'reference':
@@ -285,7 +285,7 @@ class GraphManager(QObject):
                             changes.append({'op': 'remove_edge', 'u': u, 'v': v})
                             logging.debug(f"删除引用边: {u} -> {v}")
 
-                    links = parse_wikilinks(story)
+                    links = parse_wikilinks(notes)
                     for target_serial, alias in links:
                         target_work_id = serial_map.get(target_serial)
                         if target_work_id is None:

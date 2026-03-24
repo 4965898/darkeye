@@ -84,14 +84,14 @@ def InsertNewWork(serial_number:str)->int:
 
     return success
 
-def InsertNewWorkByHand(serial_number,director,release_date,story,actress_ids,actor_ids,cn_title,cn_story,jp_title,jp_story,image_url,tag_ids)->bool:
+def InsertNewWorkByHand(serial_number,director,release_date,notes,runtime,actress_ids,actor_ids,cn_title,cn_story,jp_title,jp_story,image_url,tag_ids)->bool:
     '''手动添加新作品。调用后需 emit: global_signals.work_data_changed'''
     success=False
     try:
         conn = get_connection(DATABASE,False)
         cursor = conn.cursor()
         #添加新作品
-        cursor.execute("INSERT INTO work (serial_number,director,story,release_date,cn_title,cn_story,jp_title,jp_story,image_url) VALUES(?,?,?,?,?,?,?,?,?)",(serial_number,director,story,release_date,cn_title,cn_story,jp_title,jp_story,image_url))
+        cursor.execute("INSERT INTO work (serial_number,director,notes,runtime,release_date,cn_title,cn_story,jp_title,jp_story,image_url) VALUES(?,?,?,?,?,?,?,?,?,?)",(serial_number,director,notes,runtime,runtime,release_date,cn_title,cn_story,jp_title,jp_story,image_url))
         new_id = cursor.lastrowid
         for id in actress_ids:
             cursor.execute("INSERT INTO work_actress_relation (work_id,actress_id) VALUES(?,?)",(new_id,id))

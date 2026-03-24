@@ -32,7 +32,7 @@ class CoverCard(QWidget):
         #logging.debug(f"卡片的绿色模式{green_mode}")
         self.image_label = CoverImage(self._path,self._work_id,standard,green_mode)
         
-        self.title_label = Label(title)
+        self.title_label = Label(title or "")
 
         if green_mode:#新创造的修改
             self.title_label.setText(replace_sensitive(title))

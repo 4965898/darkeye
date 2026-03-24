@@ -8,7 +8,7 @@ def randomRec()->list[dict]:
 
     query='''
     SELECT 
-        work_id,serial_number,story,release_date,image_url,cn_title,cn_story 
+        work_id,serial_number,notes,release_date,image_url,cn_title,cn_story 
     FROM work 
     WHERE image_url !='----'
     ORDER BY RANDOM()
@@ -37,7 +37,7 @@ def recommendStart()->list[dict]:
     # 3. 构建 SQL 查询
     placeholders = ', '.join('?' for _ in SerialNumber)
     query = f'''
-    SELECT work_id,serial_number,story,release_date,image_url,cn_title,cn_story
+    SELECT work_id,serial_number,notes,release_date,image_url,cn_title,cn_story
     FROM work
     WHERE serial_number IN ({placeholders})
     '''

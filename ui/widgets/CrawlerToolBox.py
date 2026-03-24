@@ -28,6 +28,7 @@ class CrawlerAutoPage(QWidget):
         self.cb_actress = TokenCheckBox("女优")
         self.cb_actor = TokenCheckBox("男优")
         self.cb_tag = TokenCheckBox("标签")
+        self.cb_runtime = TokenCheckBox("时长")
         self.btn_get_crawler = IconPushButton(icon_name="arrow_down_to_line", icon_size=24, out_size=32)
 
         self.cb_release_date.setChecked(True)
@@ -40,6 +41,7 @@ class CrawlerAutoPage(QWidget):
         self.cb_actor.setChecked(True)
         self.cb_cover.setChecked(True)
         self.cb_tag.setChecked(True)
+        self.cb_runtime.setChecked(True)
         self.btn_get_crawler.setToolTip("主要更新男优，发布日期，导演")
 
         layout.addWidget(self.cb_release_date, 0, 0)
@@ -52,7 +54,8 @@ class CrawlerAutoPage(QWidget):
         layout.addWidget(self.cb_jp_story, 2, 1)
         layout.addWidget(self.cb_actor, 2, 2)
         layout.addWidget(self.cb_tag, 3, 0)
-        layout.addWidget(self.btn_get_crawler, 3, 1)
+        layout.addWidget(self.cb_runtime, 3, 1)
+        layout.addWidget(self.btn_get_crawler, 3, 2)
 
 
 def _apply_serial_transform(serial: str, transform: str | None) -> str:

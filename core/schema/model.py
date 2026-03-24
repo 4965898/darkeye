@@ -7,7 +7,7 @@ class CrawledWorkData:
     serial_number: str
     director: str
     release_date: str
-    vlength: int
+    runtime: int
 
     cn_title: str
     jp_title: str

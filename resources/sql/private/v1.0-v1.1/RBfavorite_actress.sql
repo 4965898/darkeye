@@ -1,7 +1,7 @@
 
 
 
-
+--这个是私有数据库从v1.0到v1.1的升级脚本
 CREATE TABLE IF NOT EXISTS favorite_actress_new(--收藏女优表
 	favorite_actress_id INTEGER PRIMARY KEY AUTOINCREMENT, --不重复主键
 	actress_id INTEGER NOT NULL,--外键，这个要与公共表中的actress_id对应，但是要在软件层去解决数据一致性的问题，不需要唯一
