@@ -163,7 +163,7 @@ def _update_worktag(cursor:Cursor,work_id:int,tag_ids:list):
             [(work_id, tag_id) for tag_id in tags_to_add]
         )
 
-def update_work_byhand(work_id,director,release_date, notes, runtime, actress_ids,actor_ids,cn_title, cn_story, jp_title, jp_story,image_url,tag_ids,maker_id,label_id,series_id)->bool:
+def update_work_byhand(work_id,director,release_date, notes, runtime, actress_ids,actor_ids,cn_title, cn_story, jp_title, jp_story,image_url,tag_ids,maker_id,label_id,series_id,fanart=None)->bool:
     '''更新作品的信息，默认番号是不会出错的。调用后需 emit: global_signals.work_data_changed'''
     try:
         maker_id = int(maker_id) if maker_id not in (None, "") else None
@@ -193,9 +193,10 @@ def update_work_byhand(work_id,director,release_date, notes, runtime, actress_id
                         image_url=?,
                         maker_id=?,
                         label_id=?,
-                        series_id=?
+                        series_id=?,
+                        fanart=?
                         WHERE work_id = ?
-''',(director,release_date,notes,runtime,cn_title,cn_story,jp_title,jp_story,image_url,maker_id,label_id,series_id,work_id,))
+''',(director,release_date,notes,runtime,cn_title,cn_story,jp_title,jp_story,image_url,maker_id,label_id,series_id,fanart,work_id,))
 
         _update_actress(cursor,work_id,actress_ids)
 
@@ -807,6 +808,96 @@ def redirect_tag_121(tag_id0,tag_id1):
         conn.rollback()
         logging.info(f"更新标签数据失败{e}")
         return False
+    finally:
+        cursor.close()
+        conn.close()
+
+
+def _serial_prefix_for_maker_lookup(serial: str) -> str:
+    """与视图一致：SUBSTR(serial, 1, INSTR(serial, '-') - 1)；无 '-' 时为空串。"""
+    if serial is None:
+        return ""
+    s = str(serial).strip()
+    if not s:
+        return ""
+    dash = s.find("-")
+    if dash < 0:
+        return ""
+    return s[:dash]
+
+
+def update_work_maker_from_prefix_relation() -> str:
+    """按 prefix_maker_relation 更新 work.maker_id（番号为 serial_number，前缀为首个 '-' 之前段）。
+    调用成功后需由调用方 emit: global_signals.work_data_changed
+    """
+    conn = get_connection(DATABASE, False)
+    cursor = conn.cursor()
+    skipped_same = 0
+    skipped_no_rule = 0
+    skipped_no_prefix = 0
+    try:
+        cursor.execute(
+            "SELECT prefix, maker_id FROM prefix_maker_relation WHERE prefix IS NOT NULL AND TRIM(prefix) != ''"
+        )
+        prefix_to_maker: dict[str, int] = {}
+        for pref, mid in cursor.fetchall():
+            if mid is None:
+                continue
+            key = str(pref).strip()
+            if not key:
+                continue
+            new_mid = int(mid)
+            if key in prefix_to_maker and prefix_to_maker[key] != new_mid:
+                logging.warning(
+                    "prefix_maker_relation 前缀重复且 maker_id 不一致: prefix=%r 已有=%s 新=%s，采用后者",
+                    key,
+                    prefix_to_maker[key],
+                    new_mid,
+                )
+            prefix_to_maker[key] = new_mid
+
+        if not prefix_to_maker:
+            return "prefix_maker_relation 为空，未执行更新"
+
+        cursor.execute(
+            """
+            SELECT work_id, serial_number, maker_id
+            FROM work
+            WHERE IFNULL(is_deleted, 0) = 0
+            """
+        )
+        updates: list[tuple[int, int]] = []
+        for work_id, serial_number, cur_maker in cursor.fetchall():
+            prefix = _serial_prefix_for_maker_lookup(serial_number)
+            if not prefix:
+                skipped_no_prefix += 1
+                continue
+            new_mid = prefix_to_maker.get(prefix)
+            if new_mid is None:
+                skipped_no_rule += 1
+                continue
+            cur_int = int(cur_maker) if cur_maker is not None else None
+            if cur_int == new_mid:
+                skipped_same += 1
+                continue
+            updates.append((new_mid, work_id))
+
+        cursor.executemany(
+            "UPDATE work SET maker_id = ? WHERE work_id = ?",
+            updates,
+        )
+        updated = len(updates)
+
+        conn.commit()
+        return (
+            f"已更新 {updated} 条作品的片商；"
+            f"已匹配且相同 {skipped_same}；无此前缀规则 {skipped_no_rule}；"
+            f"番号无前缀段 {skipped_no_prefix}"
+        )
+    except Exception as e:
+        conn.rollback()
+        logging.exception("按前缀更新片商失败: %s", e)
+        raise
     finally:
         cursor.close()
         conn.close()

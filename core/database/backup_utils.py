@@ -9,6 +9,7 @@ from core.database.connection import get_connection
 from config import (
     ACTORIMAGES_PATH,
     ACTRESSIMAGES_PATH,
+    FANART_PATH,
     WORKCOVER_PATH,
     DATABASE,
     APP_VERSION,
@@ -153,10 +154,12 @@ def create_resource_snapshot(snapshot_root: Path) -> Path | None:
         actor_dir = snapshot_dir / "actorimages"
         actress_dir = snapshot_dir / "actressimages"
         workcovers_dir = snapshot_dir / "workcovers"
+        fanart_dir = snapshot_dir / "fanart"
 
         _copy_tree(ACTORIMAGES_PATH, actor_dir, overwrite=True)
         _copy_tree(ACTRESSIMAGES_PATH, actress_dir, overwrite=True)
         _copy_tree(WORKCOVER_PATH, workcovers_dir, overwrite=True)
+        _copy_tree(FANART_PATH, fanart_dir, overwrite=True)
 
         def _dir_info(d: Path, name: str) -> dict:
             d = Path(d)
@@ -191,6 +194,7 @@ def create_resource_snapshot(snapshot_root: Path) -> Path | None:
                 _dir_info(actor_dir, "actorimages"),
                 _dir_info(actress_dir, "actressimages"),
                 _dir_info(workcovers_dir, "workcovers"),
+                _dir_info(fanart_dir, "fanart"),
             ],
         }
 
@@ -210,6 +214,7 @@ def restore_snapshot(
     restore_actor: bool = True,
     restore_actress: bool = True,
     restore_workcovers: bool = True,
+    restore_fanart: bool = True,
 ) -> bool:
     """
     从指定快照恢复：
@@ -261,6 +266,11 @@ def restore_snapshot(
 
     if restore_workcovers:
         _copy_tree(snapshot_dir / "workcovers", WORKCOVER_PATH, overwrite=True)
+
+    if restore_fanart:
+        fanart_snap = snapshot_dir / "fanart"
+        if fanart_snap.exists():
+            _copy_tree(fanart_snap, FANART_PATH, overwrite=True)
 
     logging.info(f"[backup] 从快照恢复完成: {snapshot_dir}, result={ok}")
     return ok

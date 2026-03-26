@@ -1,3 +1,4 @@
+import json
 import logging
 from pathlib import Path
 from datetime import datetime
@@ -5,6 +6,7 @@ from datetime import datetime
 from PySide6.QtCore import QObject
 
 from controller.GlobalSignalBus import global_signals
+from core.database.db_queue import submit_db_raw
 from core.database.insert import (
     InsertNewWork,
     InsertNewActress,
@@ -34,7 +36,7 @@ class DataUpdate:
         self.selected_fields: set[str] | None = set(selected_fields) if selected_fields else None
         self.work_id = None
         if withGUI:
-            self._update_work()
+            submit_db_raw(lambda: self._prepare_entities_and_relations_db()).result()
             global_signals.gui_update.emit(
                 {
                     "serial_number": self.work.serial_number,
@@ -51,11 +53,13 @@ class DataUpdate:
                     "maker": self.maker_id,
                     "label": self.label_id,
                     "series": self.series_id,
+                    "fanart": self.work.fanart_url_list
                 }
             )
         else:
-            self._update_work()
-            self._insert2db()
+            submit_db_raw(lambda: self._prepare_and_insert_work_non_gui()).result()
+            #self._prepare_and_insert_work_non_gui()
+        self._schedule_cover_download()
 
     def __del__(self):
         logging.info("DataUpdate 实例已成功销毁，内存已释放")
@@ -63,7 +67,13 @@ class DataUpdate:
     def _want(self, field: str) -> bool:
         return self.selected_fields is None or field in self.selected_fields
 
-    def _update_work(self):
+    def _prepare_and_insert_work_non_gui(self):
+        """无 GUI 时：实体解析 + 作品行写入，单次入队。"""
+        self._prepare_entities_and_relations_db()
+        self._insert2db()
+
+    def _prepare_entities_and_relations_db(self):
+        """标签/演员/片商等解析与插入；仅在数据库队列线程内调用。"""
         self.tag_id_list = []
         if self._want("tag"):
             tag_id_list = text2tag_id_list(self.work.jp_title)
@@ -165,6 +175,23 @@ class DataUpdate:
                 logging.info("系列已存在:%s,series_id:%s", series_name, series_id)
             self.series_id = series_id
 
+        self.fanart_json = None
+        if self._want("fanart"):
+            raw = self.work.fanart_url_list or []
+            items: list[dict] = []
+            for x in raw:
+                if isinstance(x, str) and x.strip():
+                    items.append({"url": x.strip(), "file": ""})
+                elif isinstance(x, dict):
+                    u = (x.get("url") or "").strip()
+                    if u:
+                        items.append(
+                            {"url": u, "file": (x.get("file") or "").strip()}
+                        )
+            if items:
+                self.fanart_json = json.dumps(items, ensure_ascii=False)
+
+    def _schedule_cover_download(self):
         from config import TEMP_PATH
 
         image_filename = self.work.serial_number.strip().lower().replace("-", "") + "pl.jpg"
@@ -231,6 +258,8 @@ class DataUpdate:
             update_fields["label_id"] = self.label_id
         if self._want("series"):
             update_fields["series_id"] = self.series_id
+        if self._want("fanart") and getattr(self, "fanart_json", None):
+            update_fields["fanart"] = self.fanart_json
 
         if update_fields:
             update_work_byhand_(self.work_id, **update_fields)
@@ -242,6 +271,9 @@ class DataUpdate:
     def insert_cover(self, temp_path, image_filename):
         from core.database.insert import rename_save_image
 
-        rename_save_image(temp_path, image_filename, "cover")
-        if self.work_id is not None and self._want("cover"):
-            update_work_byhand_(self.work_id, image_url=image_filename)
+        def _go():
+            rename_save_image(temp_path, image_filename, "cover")
+            if self.work_id is not None and self._want("cover"):
+                update_work_byhand_(self.work_id, image_url=image_filename)
+
+        submit_db_raw(_go).result()

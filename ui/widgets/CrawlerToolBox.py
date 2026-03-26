@@ -32,6 +32,7 @@ class CrawlerAutoPage(QWidget):
         self.cb_maker = TokenCheckBox("片商")
         self.cb_series = TokenCheckBox("系列")
         self.cb_label = TokenCheckBox("厂牌")
+        self.cb_fanart = TokenCheckBox("剧照")
         self.btn_get_crawler = IconPushButton(icon_name="arrow_down_to_line", icon_size=24, out_size=32)
 
         #self.cb_release_date.setChecked(True)
@@ -59,9 +60,10 @@ class CrawlerAutoPage(QWidget):
         layout.addWidget(self.cb_tag, 3, 0)
         layout.addWidget(self.cb_runtime, 3, 1)
         layout.addWidget(self.cb_maker, 3, 2)
-        layout.addWidget(self.cb_series, 4, 0)
-        layout.addWidget(self.cb_label, 4, 1)
-        layout.addWidget(self.btn_get_crawler, 4, 2)
+        layout.addWidget(self.cb_label, 4, 0)
+        layout.addWidget(self.cb_series, 4, 1)
+        layout.addWidget(self.cb_fanart, 4, 2)
+        layout.addWidget(self.btn_get_crawler, 5, 1)
 
 
 def _apply_serial_transform(serial: str, transform: str | None) -> str:

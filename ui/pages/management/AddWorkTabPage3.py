@@ -1,20 +1,24 @@
-from PySide6.QtWidgets import QHBoxLayout,QVBoxLayout,QLineEdit,QTextEdit,QSizePolicy,QPlainTextEdit,QWidget,QScrollArea
+from PySide6.QtWidgets import QHBoxLayout,QVBoxLayout,QLineEdit,QTextEdit,QSizePolicy,QPlainTextEdit,QWidget,QScrollArea,QFrame
 from PySide6.QtCore import Qt,QObject,Signal,Property,SignalInstance,Slot,QThreadPool,QTimer
 
 from ui.myads.workspace_manager import WorkspaceManager, Placement, ContentConfig
 from ui.widgets.CrawlerToolBox import CrawlerAutoPage,CrawlerManualNavPage
+import copy
+import json
 import logging
+import uuid
 from pathlib import Path
 from enum import Enum
 
 
-from config import WORKCOVER_PATH
+from config import FANART_PATH, WORKCOVER_PATH
 from ui.widgets import ActressSelector,CompleterLineEdit,ActorSelector,CoverDropWidget
+from ui.widgets.image.FanartStripWidget import FanartStripWidget, LOCAL_ABS_KEY
 from ui.widgets.selectors.TagSelector5 import TagSelector5
 from core.database.query import get_unique_director, get_work_tags, get_workinfo_by_workid, get_actressid_by_workid, get_actorid_by_workid, exist_actor, get_workid_by_serialnumber, exist_actress
-from core.database.insert import InsertNewWorkByHand
+from core.database.insert import InsertNewWorkByHand, rename_save_image
 from core.database.update import update_work_byhand
-from utils.utils import mse,translate_text_sync
+from utils.utils import delete_image, mse, translate_text_sync
 
 
 from darkeye_ui import LazyWidget
@@ -61,6 +65,7 @@ class Model():
         self._maker_id:int|None=None
         self._label_id:int|None=None
         self._series_id:int|None=None
+        self._fanart:list[dict]= []
 
     def to_dict(self):
         return {
@@ -79,7 +84,8 @@ class Model():
             "maker_id": self._maker_id,
             "label_id": self._label_id,
             "series_id": self._series_id,
-            "image_url": self._cover #这个的地址应该是一个相对地址
+            "image_url": self._cover, #这个的地址应该是一个相对地址
+            "fanart": copy.deepcopy(self._fanart),
         }
 
 class ViewModel(QObject):
@@ -102,6 +108,7 @@ class ViewModel(QObject):
     maker_changed=Signal(int)
     label_changed=Signal(int)
     series_changed=Signal(int)
+    fanart_changed = Signal(list)
     btn_state_changed=Signal(str,ButtonState)
 
     modify_state_changed = Signal(str, bool) #发出修改什么控件的信号
@@ -127,7 +134,8 @@ class ViewModel(QObject):
         'runtime': False,
         'maker_id': False,
         'label_id': False,
-        'series_id': False
+        'series_id': False,
+        'fanart': False,
         }
         self._btn_state={
             'add_work':ButtonState.DISABLED,
@@ -276,6 +284,43 @@ class ViewModel(QObject):
             self.model._series_id = series_id
             self.series_changed.emit(series_id if series_id is not None else 0)
 
+    def get_fanart(self) -> list[dict]:
+        return copy.deepcopy(self.model._fanart)
+
+    def set_fanart(self, value: list[dict]):
+        new_v = copy.deepcopy(value)
+        if self._fanart_signature(new_v) == self._fanart_signature(self.model._fanart):
+            return
+        self.model._fanart = new_v
+        self.fanart_changed.emit(copy.deepcopy(new_v))
+
+    def _fanart_signature(self, items: list[dict]) -> str:
+        rows: list[dict] = []
+        for d in items:
+            rows.append({
+                "u": (d.get("url") or "").strip(),
+                "f": (d.get("file") or "").strip(),
+                "p": bool(d.get(LOCAL_ABS_KEY)),
+            })
+        return json.dumps(rows, sort_keys=True, ensure_ascii=False)
+
+    def _fanart_db_signature_from_raw(self, raw: str | None) -> str:
+        if not raw:
+            return "[]"
+        try:
+            parsed = json.loads(raw)
+        except json.JSONDecodeError:
+            return "[]"
+        rows: list[dict] = []
+        for x in parsed:
+            if isinstance(x, dict):
+                rows.append({
+                    "u": (x.get("url") or "").strip(),
+                    "f": (x.get("file") or "").strip(),
+                    "p": False,
+                })
+        return json.dumps(rows, sort_keys=True, ensure_ascii=False)
+
     def set_btn_state(self, key: str, value:bool):
         if key not in self._btn_state:
             raise KeyError(f"Unknown state key: {key}")
@@ -320,11 +365,61 @@ class ViewModel(QObject):
     maker = Property(int, get_maker, set_maker, notify=maker_changed)
     label = Property(int, get_label, set_label, notify=label_changed)
     series = Property(int, get_series, set_series, notify=series_changed)
+    fanart = Property(list, get_fanart, set_fanart, notify=fanart_changed)
 
 
 #----------------------------------------------------------
 #                    提交修改函数
 #----------------------------------------------------------
+    def _finalize_fanart_json(self, items: list[dict]) -> str | None:
+        serial_base = self.get_serial_number().lower().replace("-", "")
+        out: list[dict] = []
+        for entry in copy.deepcopy(items):
+            url = (entry.get("url") or "").strip()
+            rel = (entry.get("file") or "").strip()
+            loc = (entry.get(LOCAL_ABS_KEY) or "").strip()
+            if loc and Path(loc).is_file():
+                name = f"{serial_base}_fa_{uuid.uuid4().hex[:8]}.jpg"
+                rename_save_image(loc, name, "fanart")
+                rel = name
+            out.append({"url": url, "file": rel})
+        out = [x for x in out if (x.get("url") or "").strip() or (x.get("file") or "").strip()]
+        if not out:
+            return None
+        return json.dumps(out, ensure_ascii=False)
+
+    @staticmethod
+    def _delete_orphan_fanart_files(old_raw: str | None, new_json_str: str | None) -> None:
+        old_files: set[str] = set()
+        if old_raw:
+            try:
+                for o in json.loads(old_raw):
+                    if isinstance(o, dict):
+                        f = (o.get("file") or "").strip()
+                        if f:
+                            old_files.add(f)
+            except json.JSONDecodeError:
+                pass
+        new_files: set[str] = set()
+        if new_json_str:
+            try:
+                for o in json.loads(new_json_str):
+                    if isinstance(o, dict):
+                        f = (o.get("file") or "").strip()
+                        if f:
+                            new_files.add(f)
+            except json.JSONDecodeError:
+                pass
+        for f in old_files - new_files:
+            for base in (FANART_PATH, WORKCOVER_PATH):
+                p = base / f
+                if p.is_file():
+                    try:
+                        delete_image(str(p))
+                    except Exception as e:
+                        logging.warning("删除 fanart 孤儿文件失败 %s: %s", f, e)
+                    break
+
     def submit(self):
         '''手动添加作品记录
         data={
@@ -346,23 +441,32 @@ class ViewModel(QObject):
         '''
         #获得基本数据
         logging.debug("添加记录")
-        data=self.model.to_dict()#从viewmodel里取
+        data = self.model.to_dict()
+        old_fanart_raw: str | None = None
+        if self.work_id is not None:
+            old_fanart_raw = self.original_work.get("fanart") if self.original_work else None
+
+        fan_items: list[dict] = data.pop("fanart", [])
+        data["fanart"] = self._finalize_fanart_json(fan_items)
 
         image_url=self.get_serial_number().lower().replace('-', '') + 'pl.jpg'#默认的替换规则
         if self.get_cover() is None or self.get_cover()=="":
             data["image_url"]=None
         else:
-            logging.debug(f"model内image_url{data["image_url"]}")
-            from core.database.insert import rename_save_image
-            rename_save_image(data["image_url"],image_url,"cover")
+            logging.debug("model内image_url %s", data["image_url"])
+            rename_save_image(data["image_url"], image_url, "cover")
             data["image_url"]=image_url
 
+        ok = False
         if self.work_id is not None:#work已在库中
-            self._update_work_and_handle_result(self.work_id,**data)
+            ok = self._update_work_and_handle_result(self.work_id, **data)
             self.set_btn_state('add_work',ButtonState.DISABLED)
         else:#work未在库中,插入新的作品
-            self._insert_work_and_handle_result(**data)
-            
+            ok = self._insert_work_and_handle_result(**data)
+
+        if ok and old_fanart_raw:
+            self._delete_orphan_fanart_files(old_fanart_raw, data.get("fanart"))
+
         self._load_from_db()#保存后重新加载一遍
 
     def _update_work_and_handle_result(self, work_id,**data):
@@ -478,6 +582,23 @@ class ViewModel(QObject):
 
         tag_ids = get_work_tags(self.work_id)
         self.set_tag(tag_ids)
+
+        raw_fanart = inf.get("fanart") or ""
+        if raw_fanart:
+            try:
+                parsed = json.loads(raw_fanart)
+                self.set_fanart(
+                    [
+                        {"url": str(x.get("url", "") or ""), "file": str(x.get("file", "") or "")}
+                        for x in parsed
+                        if isinstance(x, dict)
+                    ]
+                )
+            except json.JSONDecodeError:
+                self.set_fanart([])
+        else:
+            self.set_fanart([])
+
         #logging.debug(f"加载的image_url为:{inf['image_url']}")
         if inf['image_url'] is None or inf['image_url']=="":
             self.set_cover("")
@@ -524,6 +645,7 @@ class ViewModel(QObject):
         self.set_maker(None)
         self.set_label(None)
         self.set_series(None)
+        self.set_fanart([])
 
 
 #----------------------------------------------------------
@@ -558,6 +680,17 @@ class ViewModel(QObject):
         
         # 图片控件
         self.cover_changed.connect(self.check_image_change)
+        self.fanart_changed.connect(self.check_fanart_change)
+
+    @Slot()
+    def check_fanart_change(self):
+        if not self._cheakable:
+            return
+        orig_raw = self.original_work.get("fanart") if self.original_work else None
+        orig_sig = self._fanart_db_signature_from_raw(orig_raw if isinstance(orig_raw, str) else None)
+        cur_sig = self._fanart_signature(self.get_fanart())
+        self.set_state("fanart", orig_sig != cur_sig)
+        self.update_button_state()
 
     @Slot()
     def check_change(self, field, new_value):
@@ -855,11 +988,20 @@ class AddWorkTabPage3(LazyWidget):
         actor_layout.setContentsMargins(0, 0, 0, 0)
         actor_layout.addWidget(self.actorselector)
 
-        #标签选择器
+        #标签选择器（独立窗格；Fanart 由 myads 另分一格，见下方 split）
         tag_container = QWidget()
         tag_layout = QVBoxLayout(tag_container)
         tag_layout.setContentsMargins(0, 0, 0, 0)
         tag_layout.addWidget(self.tag_selector)
+
+        self.fanart_frame = QFrame()
+        self.fanart_frame.setObjectName("addwork_fanart_outer_frame")
+        fanart_frame_layout = QVBoxLayout(self.fanart_frame)
+        fanart_frame_layout.setContentsMargins(0, 0, 0, 0)
+        self.fanart_strip = FanartStripWidget(
+            FANART_PATH, legacy_cover_path=WORKCOVER_PATH
+        )
+        fanart_frame_layout.addWidget(self.fanart_strip, 1)
 
         #力导向图区
         self.forceview_container = QWidget()
@@ -873,9 +1015,10 @@ class AddWorkTabPage3(LazyWidget):
         editor_layout.setContentsMargins(0, 0, 0, 0)
         editor_layout.addWidget(self.input_notes)
 
-        # 先搭架子再填充：root -> 右侧依次 nav, cover, basic, tag, forceview；cover 下拆 actress；forceview 下拆 editor
+        # 先搭架子再填充：root -> … basic, tag 列；tag 列内先纵向拆出 Fanart，再横向 tag | forceview；forceview 下拆 editor
         pane_basic = self._workspace_manager.split(root, Placement.Right, ratio=0.7)
         pane_tag = self._workspace_manager.split(pane_basic, Placement.Right, ratio=0.25)
+        pane_fanart = self._workspace_manager.split(pane_tag, Placement.Bottom, ratio=0.2)
         pane_force = self._workspace_manager.split(pane_tag, Placement.Right, ratio=0.5)
         pane_actress = self._workspace_manager.split(root, Placement.Bottom, ratio=0.5)
         pane_editor = self._workspace_manager.split(pane_force, Placement.Bottom, ratio=0.4)
@@ -888,6 +1031,7 @@ class AddWorkTabPage3(LazyWidget):
         self._workspace_manager.fill_pane(pane_actress, make_config("男优选择器", actor_container, closeable=False))
         self._workspace_manager.fill_pane(pane_actress, make_config("女优选择器", actress_container, closeable=False))
         self._workspace_manager.fill_pane(pane_tag, make_config("标签选择器", tag_container, closeable=False))
+        self._workspace_manager.fill_pane(pane_fanart, make_config("剧照", self.fanart_frame, closeable=False))
         self._workspace_manager.fill_pane(pane_force, make_config("力导向图区", self.forceview_container, closeable=False))
         self._workspace_manager.fill_pane(pane_editor, make_config("自由记录区", editor_container, closeable=False))
 
@@ -905,6 +1049,10 @@ class AddWorkTabPage3(LazyWidget):
         self.viewmodel.maker_changed.connect(self.maker_model_to_ui)
         self.viewmodel.label_changed.connect(self.label_model_to_ui)
         self.viewmodel.series_changed.connect(self.series_model_to_ui)
+
+        self._updating_flags["fanart"] = False
+        self.viewmodel.fanart_changed.connect(self.fanart_model_to_ui)
+        self.fanart_strip.fanart_changed.connect(self.fanart_ui_to_model)
 
         #这个是单向的model -> UI 没有问题
         self.viewmodel.btn_state_changed.connect(self.update_commit_btn)
@@ -1086,6 +1234,24 @@ class AddWorkTabPage3(LazyWidget):
         self.input_series.set_series_id(series_id if series_id and series_id > 0 else None)
         self._updating_flags["series_id"] = False
 
+    def fanart_model_to_ui(self, items: list[dict]):
+        if self._updating_flags.get("fanart", False):
+            return
+        self._updating_flags["fanart"] = True
+        try:
+            self.fanart_strip.set_entries(items)
+        finally:
+            self._updating_flags["fanart"] = False
+
+    def fanart_ui_to_model(self, items: list[dict]):
+        if self._updating_flags.get("fanart", False):
+            return
+        self._updating_flags["fanart"] = True
+        try:
+            self.viewmodel.set_fanart(items)
+        finally:
+            self._updating_flags["fanart"] = False
+
 
 #----------------------------------------------------------
 #                       信号连接
@@ -1093,6 +1259,7 @@ class AddWorkTabPage3(LazyWidget):
     def signal_connect(self):
         '''按钮信号连接'''
         self.viewmodel.serial_number_changed.connect(self.viewmodel.on_work_selected)#核心
+        self.viewmodel.serial_number_changed.connect(self._sync_fanart_add_enabled)
         self.input_serial_number.returnPressed.connect(self.viewmodel._load_from_db)#按enter后查询
 
 
@@ -1115,6 +1282,7 @@ class AddWorkTabPage3(LazyWidget):
         global_signals.label_data_changed.connect(self.input_label.reload_labels)
         global_signals.series_data_changed.connect(self.input_series.reload_series)
 
+        self._sync_fanart_add_enabled()
 
 #----------------------------------------------------------
 #          爬虫函数，QCheckBox触发，未MVVM,与UI耦合
@@ -1149,11 +1317,31 @@ class AddWorkTabPage3(LazyWidget):
         if self.crawler_auto_page.cb_runtime.isChecked():
             self.viewmodel.set_runtime(data["runtime"])
         if self.crawler_auto_page.cb_maker.isChecked():
+            self.input_maker.reload_makers()
             self.viewmodel.set_maker(data.get("maker_id", data.get("maker")))
         if self.crawler_auto_page.cb_series.isChecked():
+            self.input_series.reload_series()
             self.viewmodel.set_series(data.get("series_id", data.get("series")))
         if self.crawler_auto_page.cb_label.isChecked():
+            self.input_label.reload_labels()
             self.viewmodel.set_label(data.get("label_id", data.get("label")))
+        if self.crawler_auto_page.cb_fanart.isChecked():
+            raw_fanart = data.get("fanart") or []
+            url_list: list[str] = []
+            if isinstance(raw_fanart, list):
+                for u in raw_fanart:
+                    if isinstance(u, str) and u.strip():
+                        url_list.append(u.strip())
+            if url_list:
+                self.fanart_strip.set_url_list(url_list)
+            elif raw_fanart:
+                logging.warning(
+                    "爬虫返回的剧照无有效 URL，保留编辑页现有 Fanart（可能为网络或页面解析异常）"
+                )
+            else:
+                logging.info(
+                    "爬虫未返回剧照列表，保留编辑页现有 Fanart（网络异常时常为空）"
+                )
 
     def update_cover(self,file_path:str):
         '''更新封面'''
@@ -1170,6 +1358,10 @@ class AddWorkTabPage3(LazyWidget):
         from core.graph.graph_filter import EgoFilter
         self.forceview.session.set_filter(EgoFilter(center_id=id, radius=3))#这里设置过滤
         self.forceview.session.new_load()
+
+    @Slot()
+    def _sync_fanart_add_enabled(self, *_args):
+        self.fanart_strip.set_can_add(bool(self.viewmodel.get_serial_number().strip()))
 
 
 #----------------------------------------------------------
@@ -1247,6 +1439,7 @@ class AddWorkTabPage3(LazyWidget):
         highlight_cover_border = "2px dashed orange"
         normal_cover_border = None
         highlight_text2="QTextEdit { border: 2px solid #FFA500; }"
+        highlight_frame = "QFrame#addwork_fanart_outer_frame { border: 2px solid #FFA500; }"
 
         mapping = [
             ("notes", self.input_notes, highlight_text2, ""),
@@ -1275,6 +1468,11 @@ class AddWorkTabPage3(LazyWidget):
                 self.coverdroplabel.set_border_override(highlight_cover_border)
             else:
                 self.coverdroplabel.set_border_override(normal_cover_border)
+        if key == "fanart":
+            if value:
+                self.fanart_frame.setStyleSheet(highlight_frame)
+            else:
+                self.fanart_frame.setStyleSheet("")
         # 控制方法有两种，一种是直接控制，还有种是控件写出一个接口
         if key=="tag_ids":
             if value:

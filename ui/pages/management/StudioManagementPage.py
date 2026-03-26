@@ -1,8 +1,12 @@
+from pathlib import Path
+
 from PySide6.QtCore import Qt, Slot
-from PySide6.QtWidgets import QAbstractItemView, QDataWidgetMapper, QDialog, QFormLayout, QHBoxLayout, QMessageBox, QPushButton, QSplitter, QTableView, QVBoxLayout, QWidget
+from PySide6.QtGui import QIcon
+from PySide6.QtWidgets import QAbstractItemView, QDataWidgetMapper, QDialog, QFileDialog, QFormLayout, QHBoxLayout, QMessageBox, QPushButton, QSplitter, QTableView, QVBoxLayout, QWidget
 import logging
 
-from config import DATABASE
+from config import BASE_DIR, DATABASE, ICONS_PATH
+from controller.MessageService import MessageBoxService
 from core.database.connection import get_connection
 from core.database.query import get_maker_name
 from ui.basic import ModelSearch
@@ -153,6 +157,8 @@ class StudioManagementPage(LazyWidget):
         self.view2.installEventFilter(self)
 
     def init_ui(self):
+        self.msg = MessageBoxService(self)
+
         self.view1 = TokenTableView()
         self.view2 = TokenTableView()
 
@@ -171,6 +177,16 @@ class StudioManagementPage(LazyWidget):
         self.btn_refresh=Button("读数据库数据")
         self.btn_redirect_maker = Button("重定向片商")
 
+        self.btn_export_maker_prefix = Button()
+        self.btn_export_maker_prefix.setText("导出片商前缀到json文件")
+        self.btn_export_maker_prefix.setToolTip("导出片商前缀到json文件")
+        self.btn_export_maker_prefix.setIcon(QIcon(str(ICONS_PATH / "database.svg")))
+
+        self.btn_import_maker_prefix = Button()
+        self.btn_import_maker_prefix.setText("从json文件导入片商前缀")
+        self.btn_import_maker_prefix.setToolTip("从json文件导入片商前缀")
+        self.btn_import_maker_prefix.setIcon(QIcon(str(ICONS_PATH / "database.svg")))
+
         # 布局
         button_layout = QHBoxLayout()
         button_layout.addWidget(self.btn_add)
@@ -178,6 +194,8 @@ class StudioManagementPage(LazyWidget):
         button_layout.addWidget(self.btn_save)
         button_layout.addWidget(self.btn_revert)
         button_layout.addWidget(self.btn_refresh)
+        button_layout.addWidget(self.btn_export_maker_prefix)
+        button_layout.addWidget(self.btn_import_maker_prefix)
         button_layout.addStretch(1)
         button_layout.addWidget(self.btn_redirect_maker)
         button_layout.addWidget(self.status_label)
@@ -217,7 +235,64 @@ class StudioManagementPage(LazyWidget):
         self.btn_revert.clicked.connect(self.revert_changes)
         self.btn_refresh.clicked.connect(self.refresh_data)
         self.btn_redirect_maker.clicked.connect(self.open_redirect_dialog)
+        self.btn_export_maker_prefix.clicked.connect(self.export_maker_prefix)
+        self.btn_import_maker_prefix.clicked.connect(self.import_maker_prefix)
 
+    @Slot()
+    def export_maker_prefix(self):
+        from core.database.migrations import export_maker_prefix_json
+
+        default_dir = BASE_DIR / "resources" / "config"
+        default_dir.mkdir(parents=True, exist_ok=True)
+
+        file_path, _ = QFileDialog.getSaveFileName(
+            self,
+            "选择导出 JSON 文件",
+            str(default_dir / "maker_prefix.json"),
+            "JSON 文件 (*.json)",
+        )
+        if not file_path:
+            return
+
+        try:
+            export_maker_prefix_json(Path(file_path))
+            self.msg.show_info("导出成功", f"已导出片商前缀到：\n{file_path}")
+        except Exception as e:
+            logging.exception("导出片商前缀失败")
+            self.msg.show_critical("导出失败", f"导出片商前缀时发生错误：\n{e}")
+
+    @Slot()
+    def import_maker_prefix(self):
+        from core.database.migrations import import_maker_prefix_json
+
+        default_dir = BASE_DIR / "resources" / "config"
+        default_dir.mkdir(parents=True, exist_ok=True)
+
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "选择片商前缀 JSON 文件",
+            str(default_dir),
+            "JSON 文件 (*.json)",
+        )
+        if not file_path:
+            return
+
+        if not self.msg.ask_yes_no(
+            "确认导入",
+            "将使用该 JSON 覆盖当前的片商和前缀数据，操作不可撤销，是否继续？",
+        ):
+            return
+
+        try:
+            import_maker_prefix_json(Path(file_path))
+            self.msg.show_info("导入成功", "片商前缀数据已从 JSON 导入。")
+            self.refresh_data()
+            from controller.GlobalSignalBus import global_signals
+            global_signals.maker_data_changed.emit()
+            global_signals.work_data_changed.emit()
+        except Exception as e:
+            logging.exception("导入片商前缀失败")
+            self.msg.show_critical("导入失败", f"导入片商前缀时发生错误：\n{e}")
 
     def eventFilter(self, obj, event):
         """事件过滤器，用于跟踪焦点变化"""
@@ -294,7 +369,9 @@ class StudioManagementPage(LazyWidget):
             else:
                 QMessageBox.information(self, "提示", "保存成功")
                 from controller.GlobalSignalBus import global_signals
-                #global_signals.work_data_changed.emit()#发信号,这个以后可能会用到
+                global_signals.maker_data_changed.emit()
+                global_signals.work_data_changed.emit()
+
 
     @Slot()
     def revert_changes(self):

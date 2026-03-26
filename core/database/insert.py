@@ -84,7 +84,7 @@ def InsertNewWork(serial_number:str)->int:
 
     return success
 
-def InsertNewWorkByHand(serial_number,director,release_date,notes,runtime,actress_ids,actor_ids,cn_title,cn_story,jp_title,jp_story,image_url,tag_ids,maker_id,label_id,series_id)->bool:
+def InsertNewWorkByHand(serial_number,director,release_date,notes,runtime,actress_ids,actor_ids,cn_title,cn_story,jp_title,jp_story,image_url,tag_ids,maker_id,label_id,series_id,fanart=None)->bool:
     '''手动添加新作品。调用后需 emit: global_signals.work_data_changed'''
     success=False
     try:
@@ -100,10 +100,11 @@ def InsertNewWorkByHand(serial_number,director,release_date,notes,runtime,actres
 
         conn = get_connection(DATABASE,False)
         cursor = conn.cursor()
-        #添加新作品
+        #添加新作品（列顺序与表定义一致：runtime 后接 release_date）
         cursor.execute(
-            "INSERT INTO work (serial_number,director,notes,runtime,release_date,cn_title,cn_story,jp_title,jp_story,image_url,maker_id,label_id,series_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-            (serial_number,director,notes,runtime,runtime,release_date,cn_title,cn_story,jp_title,jp_story,image_url,maker_id,label_id,series_id)
+            """INSERT INTO work (serial_number,director,notes,runtime,release_date,cn_title,cn_story,jp_title,jp_story,image_url,maker_id,label_id,series_id,fanart)
+               VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+            (serial_number,director,notes,runtime,release_date,cn_title,cn_story,jp_title,jp_story,image_url,maker_id,label_id,series_id,fanart)
         )
         new_id = cursor.lastrowid
         for id in actress_ids:
@@ -190,7 +191,7 @@ def rename_save_image(_path:str,name:str,type:str):
     这个要带格式转换，将其他的格式转换成jpg格式保存，否则可能会有兼容性问题
     '''
     from pathlib import Path
-    from config import WORKCOVER_PATH,ACTRESSIMAGES_PATH,ACTORIMAGES_PATH
+    from config import WORKCOVER_PATH, FANART_PATH, ACTRESSIMAGES_PATH, ACTORIMAGES_PATH
     from utils.utils import delete_image,webp_to_jpg_pillow,png_to_jpg_pillow
     import shutil
     if type=="cover":
@@ -199,8 +200,11 @@ def rename_save_image(_path:str,name:str,type:str):
         dst_path:Path = Path(ACTRESSIMAGES_PATH) / name
     elif type=="actor":
         dst_path:Path = Path(ACTORIMAGES_PATH) / name
+    elif type=="fanart":
+        dst_path:Path = Path(FANART_PATH) / name
     else:
         logging.info("选择保存的类型错误")
+        return
 
     # 检查源路径是否存在
     if not _path:
@@ -210,7 +214,9 @@ def rename_save_image(_path:str,name:str,type:str):
     # 当源路径和目标路径相同时不操作
     if src_path.resolve() == dst_path.resolve():
         return
-    
+
+    dst_path.parent.mkdir(parents=True, exist_ok=True)
+
     match src_path.suffix.lower():
         case ".jpg"|".jpeg":
             shutil.copy(src_path, dst_path)

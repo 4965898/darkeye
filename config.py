@@ -67,6 +67,7 @@ DATABASE_BACKUP_PATH=get_PATH("Paths/DatabaseBackups","data/public/public_backup
 ACTRESSIMAGES_PATH=get_PATH("Paths/Actressimages","data/public/actressimages/")#女优头像的地址
 ACTORIMAGES_PATH=get_PATH("Paths/Actorimages","data/public/actorimages/")#男优头像的地址
 WORKCOVER_PATH=get_PATH("Paths/WorkCovers","data/public/workcovers/")#作品封面的地址
+FANART_PATH=get_PATH("Paths/Fanart","data/public/fanart/")#作品 Fanart 附图目录（与封面分离）
 
 PRIVATE_DATABASE=get_PATH("Paths/PrivateDatabase","data/private/private.db")#私有数据库文件地址
 PRIVATE_DATABASE_BACKUP_PATH=get_PATH("Paths/PrivateDatabaseBackups","data/private/private_backup/")#私有数据库库备份地址
@@ -121,7 +122,8 @@ def update_video_path(new_paths:list[Path]):
 def check_file():
     '''检查文件夹是否存在并建立'''
     TEMP_PATH.mkdir(parents=True, exist_ok=True) 
-    WORKCOVER_PATH.mkdir(parents=True, exist_ok=True) 
+    WORKCOVER_PATH.mkdir(parents=True, exist_ok=True)
+    FANART_PATH.mkdir(parents=True, exist_ok=True)
     ACTRESSIMAGES_PATH.mkdir(parents=True, exist_ok=True) 
 
 def get_size_pos():

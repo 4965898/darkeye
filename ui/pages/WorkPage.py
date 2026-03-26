@@ -6,6 +6,7 @@ from ui.widgets import CompleterLineEdit,CoverCard
 from darkeye_ui.components import LazyScrollArea
 from ui.basic import HorizontalScrollArea
 from config import DATABASE
+from core.database.db_queue import submit_db_raw
 from core.database.query import get_actressname, get_unique_director, get_actorname, get_serial_number, get_maker_name, get_actor_allname, get_label_name, get_series_name
 from core.database.db_utils import attach_private_db,detach_private_db
 from darkeye_ui import LazyWidget
@@ -39,7 +40,7 @@ class WorkPage(LazyWidget):
         self.actor=None
         self.title=None
         self.serial_number=None
-        self.studio=None
+        self.maker_id=None
         self.label_id=None
         self.series_id=None
         self._green_mode=False#安全模式
@@ -76,13 +77,21 @@ class WorkPage(LazyWidget):
         
         self.story_input = LineEdit()
         self.title_input=LineEdit()
-        self.serial_number_input=CompleterLineEdit(get_serial_number)
-        self.actress_input = CompleterLineEdit(get_actressname)
-        self.director_input = CompleterLineEdit(get_unique_director)
-        self.actor_input=CompleterLineEdit(get_actorname)
-        self.maker_selector=MakerSelector(get_maker_name())
-        self.label_selector=LabelSelector(get_label_name())
-        self.series_selector=SeriesSelector(get_series_name())
+        self.serial_number_input=CompleterLineEdit(
+            lambda: submit_db_raw(get_serial_number).result()
+        )
+        self.actress_input = CompleterLineEdit(
+            lambda: submit_db_raw(get_actressname).result()
+        )
+        self.director_input = CompleterLineEdit(
+            lambda: submit_db_raw(get_unique_director).result()
+        )
+        self.actor_input=CompleterLineEdit(
+            lambda: submit_db_raw(get_actorname).result()
+        )
+        self.maker_selector=MakerSelector(submit_db_raw(get_maker_name).result())
+        self.label_selector=LabelSelector(submit_db_raw(get_label_name).result())
+        self.series_selector=SeriesSelector(submit_db_raw(get_series_name).result())
 
         self.story_input.setFixedWidth(100)
         self.title_input.setFixedWidth(100)
@@ -224,7 +233,7 @@ class WorkPage(LazyWidget):
         根据路由参数加载筛选条件（业务状态由页面自身管理，Router 只传参）
         """
         if actor_id is not None and hasattr(self, "actor_input"):
-            namelist = get_actor_allname(actor_id)
+            namelist = submit_db_raw(lambda: get_actor_allname(actor_id)).result()
             if namelist:
                 name = namelist[0].get("cn")
                 self.actor_input.setText(name or "")
@@ -277,7 +286,7 @@ class WorkPage(LazyWidget):
             self.actor=self.actor_input.text().strip()
             self.title=self.title_input.text().strip()
             self.serial_number=self.serial_number_input.text().strip()
-            self.studio=self.maker_selector.currentText().strip()
+            self.maker_id=self.maker_selector.get_maker()
             self.label_id=self.label_selector.get_label()
             self.series_id=self.series_selector.get_series_id()
 
@@ -320,14 +329,12 @@ SELECT
     wtr.tag_id,
     work.work_id,
     CASE 
-        WHEN (SELECT cn_name FROM maker WHERE maker_id =p.maker_id) IS NULL
+        WHEN (SELECT cn_name FROM maker WHERE maker_id = work.maker_id) IS NULL
         THEN 0
         ELSE 1
     END AS standard
 FROM work
 LEFT JOIN work_tag_relation wtr ON work.work_id = wtr.work_id AND wtr.tag_id IN (1, 2, 3)
-LEFT JOIN 
-    prefix_maker_relation p ON p.prefix = SUBSTR(work.serial_number, 1, INSTR(work.serial_number, '-') - 1)
         '''
         cte_parts = []
 
@@ -356,21 +363,8 @@ WHERE cn LIKE ? OR jp LIKE ?
 )
 '''
             cte_parts.append(withsql)
-            params.extend([f"%{self.actor}%", f"%{self.actor}%"])           
-        if self.studio:
-            withsql=f'''
-filter_maker AS(
-SELECT 
-    DISTINCT maker_id
-FROM 
-    maker
-WHERE cn_name LIKE ? OR jp_name LIKE ?
-)
-'''
-            cte_parts.append(withsql)
-            params.extend([f"%{self.studio}%", f"%{self.studio}%"])  
-            # 最终 SQL
-        
+            params.extend([f"%{self.actor}%", f"%{self.actor}%"])
+
         cte_sql = ""
         if cte_parts:  # 如果有任何一个 CTE
             cte_sql = "WITH " + ",\n".join(cte_parts) + "\n"
@@ -401,12 +395,6 @@ JOIN filtered_actresses f ON actress.actress_id = f.actress_id
             join='''
 JOIN work_actor_relation ON work_actor_relation.work_id=work.work_id
 JOIN filtered_actors fa ON fa.actor_id = work_actor_relation.actor_id
-'''
-            query+=join
-        if self.studio:
-            join='''
---JOIN prefix_maker_relation p ON p.prefix = SUBSTR(work.serial_number, 1, INSTR(work.serial_number, '-') - 1)
-JOIN filter_maker ON filter_maker.maker_id=p.maker_id
 '''
             query+=join
 
@@ -445,8 +433,10 @@ JOIN filter_maker ON filter_maker.maker_id=p.maker_id
             query+=where
             params.append(f"%{self.serial_number}%")
 
-        if self.studio:
-            pass
+        if self.maker_id is not None:
+            where="AND work.maker_id = ?\n"
+            query+=where
+            params.append(self.maker_id)
 
         if self.title:
             where="AND work.cn_title LIKE ?\n"
@@ -493,9 +483,9 @@ HAVING COUNT(DISTINCT wtr2.tag_id) = ?
             case "番号逆序":
                 order="ORDER BY work.serial_number DESC\n"
             case "制作商顺序":
-                order="ORDER BY p.maker_id IS NULL, p.maker_id, work.serial_number\n"
+                order="ORDER BY work.maker_id IS NULL, work.maker_id, work.serial_number\n"
             case "制作商逆序":
-                order="ORDER BY p.maker_id IS NULL DESC, p.maker_id DESC, work.serial_number DESC\n"
+                order="ORDER BY work.maker_id IS NULL DESC, work.maker_id DESC, work.serial_number DESC\n"
             case "更新时间逆序":
                 order="ORDER BY work.update_time DESC\n"
             case "更新时间顺序":
@@ -506,14 +496,18 @@ HAVING COUNT(DISTINCT wtr2.tag_id) = ?
         #logging.debug(f"WorkPageExecute SQL\n{query}")
         #logging.debug(f"{params}")
 
-        with sqlite3.connect(f"file:{DATABASE}?mode=ro",uri=True) as conn:
-            cursor = conn.cursor()
-            if self.scope=="收藏库范围"or self.scope=="收藏未观看"or self.scope=="已撸过": attach_private_db(cursor)
-            cursor.execute(query,params)
-            results=cursor.fetchall()
-            if self.scope=="收藏库范围"or self.scope=="收藏未观看"or self.scope=="已撸过": detach_private_db(cursor)
+        def _run_read():
+            with sqlite3.connect(f"file:{DATABASE}?mode=ro", uri=True) as conn:
+                cursor = conn.cursor()
+                if self.scope == "收藏库范围" or self.scope == "收藏未观看" or self.scope == "已撸过":
+                    attach_private_db(cursor)
+                cursor.execute(query, params)
+                results = cursor.fetchall()
+                if self.scope == "收藏库范围" or self.scope == "收藏未观看" or self.scope == "已撸过":
+                    detach_private_db(cursor)
+            return results
 
-        return results
+        return submit_db_raw(_run_read).result()
 
     
     def load_page(self, page_index: int, page_size: int) -> list[CoverCard]:

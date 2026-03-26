@@ -74,6 +74,17 @@ FORCEVIEW_LEFT_MARGIN = 8   # 相对视图左边缘的内边距
 FORCEVIEW_SHOW_DELAY_MS = 500  # DVD 选中动画时长，动画完成后再显示力导向图
 
 
+def _expanded_entity_id(value) -> int:
+    """作品关联的 maker/label/series 主键，无效时为 -1，供 QML 判断是否可跳转。"""
+    if value is None:
+        return -1
+    try:
+        i = int(value)
+        return i if i > 0 else -1
+    except (TypeError, ValueError):
+        return -1
+
+
 class DvdBridge(QObject):
     """QML 与 Python 的桥接，cameraX 为 3D 坐标，由滚轮控制，Python 根据其计算可见范围。"""
 
@@ -89,6 +100,11 @@ class DvdBridge(QObject):
     expandedWorkActorsChanged = Signal()
     expandedWorkDirectorChanged = Signal()
     expandedWorkStudioChanged = Signal()
+    expandedWorkLabelChanged = Signal()
+    expandedWorkSeriesChanged = Signal()
+    expandedWorkMakerIdChanged = Signal()
+    expandedWorkLabelIdChanged = Signal()
+    expandedWorkSeriesIdChanged = Signal()
 
     def __init__(self, view: "DvdShelfView") -> None:
         super().__init__()
@@ -105,6 +121,11 @@ class DvdBridge(QObject):
         self._expanded_work_actors: list = []
         self._expanded_work_director = ""
         self._expanded_work_studio = ""
+        self._expanded_work_label = ""
+        self._expanded_work_series = ""
+        self._expanded_work_maker_id = -1
+        self._expanded_work_label_id = -1
+        self._expanded_work_series_id = -1
 
     def _get_camera_x(self) -> float:
         return self._camera_x
@@ -261,6 +282,71 @@ class DvdBridge(QObject):
         notify=expandedWorkStudioChanged,
     )
 
+    def _get_expanded_work_label(self):
+        return self._expanded_work_label
+
+    def _set_expanded_work_label(self, v):
+        if self._expanded_work_label != v:
+            self._expanded_work_label = v
+            self.expandedWorkLabelChanged.emit()
+
+    expandedWorkLabel = Property(
+        str, _get_expanded_work_label, _set_expanded_work_label,
+        notify=expandedWorkLabelChanged,
+    )
+
+    def _get_expanded_work_series(self):
+        return self._expanded_work_series
+
+    def _set_expanded_work_series(self, v):
+        if self._expanded_work_series != v:
+            self._expanded_work_series = v
+            self.expandedWorkSeriesChanged.emit()
+
+    expandedWorkSeries = Property(
+        str, _get_expanded_work_series, _set_expanded_work_series,
+        notify=expandedWorkSeriesChanged,
+    )
+
+    def _get_expanded_work_maker_id(self) -> int:
+        return self._expanded_work_maker_id
+
+    def _set_expanded_work_maker_id(self, v: int) -> None:
+        if self._expanded_work_maker_id != v:
+            self._expanded_work_maker_id = v
+            self.expandedWorkMakerIdChanged.emit()
+
+    expandedWorkMakerId = Property(
+        int, _get_expanded_work_maker_id, _set_expanded_work_maker_id,
+        notify=expandedWorkMakerIdChanged,
+    )
+
+    def _get_expanded_work_label_id(self) -> int:
+        return self._expanded_work_label_id
+
+    def _set_expanded_work_label_id(self, v: int) -> None:
+        if self._expanded_work_label_id != v:
+            self._expanded_work_label_id = v
+            self.expandedWorkLabelIdChanged.emit()
+
+    expandedWorkLabelId = Property(
+        int, _get_expanded_work_label_id, _set_expanded_work_label_id,
+        notify=expandedWorkLabelIdChanged,
+    )
+
+    def _get_expanded_work_series_id(self) -> int:
+        return self._expanded_work_series_id
+
+    def _set_expanded_work_series_id(self, v: int) -> None:
+        if self._expanded_work_series_id != v:
+            self._expanded_work_series_id = v
+            self.expandedWorkSeriesIdChanged.emit()
+
+    expandedWorkSeriesId = Property(
+        int, _get_expanded_work_series_id, _set_expanded_work_series_id,
+        notify=expandedWorkSeriesIdChanged,
+    )
+
     def set_expanded_favorited(self, v: bool) -> None:
         if self._expanded_favorited != v:
             self._expanded_favorited = v
@@ -335,6 +421,14 @@ class DvdBridge(QObject):
     @Slot()
     def onStudioClicked(self) -> None:
         self._view._on_studio_clicked()
+
+    @Slot()
+    def onLabelClicked(self) -> None:
+        self._view._on_label_clicked()
+
+    @Slot()
+    def onSeriesClicked(self) -> None:
+        self._view._on_series_clicked()
 
     @Slot(int, int)
     def selectionChanged(
@@ -972,6 +1066,11 @@ class DvdShelfView(QWidget):
             self._bridge.expandedWorkActors = []
             self._bridge.expandedWorkDirector = ""
             self._bridge.expandedWorkStudio = ""
+            self._bridge.expandedWorkLabel = ""
+            self._bridge.expandedWorkSeries = ""
+            self._bridge.expandedWorkMakerId = -1
+            self._bridge.expandedWorkLabelId = -1
+            self._bridge.expandedWorkSeriesId = -1
             return
 
         work_id = self._work_ids[virtual_index]
@@ -994,11 +1093,18 @@ class DvdShelfView(QWidget):
         actors = get_actor_from_work_id(work_id) or []
         director = str(info.get("director", "") or "").strip()
         studio = str(info.get("studio_name", "") or "").strip()
+        label_name = str(info.get("label_name", "") or "").strip()
+        series_name = str(info.get("series_name", "") or "").strip()
         self._bridge.expandedWorkTags = tags
         self._bridge.expandedWorkActresses = actresses
         self._bridge.expandedWorkActors = actors
         self._bridge.expandedWorkDirector = director
         self._bridge.expandedWorkStudio = studio
+        self._bridge.expandedWorkLabel = label_name
+        self._bridge.expandedWorkSeries = series_name
+        self._bridge.expandedWorkMakerId = _expanded_entity_id(info.get("maker_id"))
+        self._bridge.expandedWorkLabelId = _expanded_entity_id(info.get("label_id"))
+        self._bridge.expandedWorkSeriesId = _expanded_entity_id(info.get("series_id"))
 
     def _on_heart_clicked(self, virtual_index: int) -> None:
         """爱心点击：切换收藏状态，参考 SingleWorkPage.on_clicked_heart。"""
@@ -1054,9 +1160,37 @@ class DvdShelfView(QWidget):
         Router.instance().push("mutiwork", actor_id=actor_id)
 
     def _on_director_clicked(self) -> None:
-        """导演点击：暂不跳转。"""
-        pass
+        """导演点击：跳转书架并按导演筛选。"""
+        d = (self._bridge._expanded_work_director or "").strip()
+        if not d:
+            return
+        from ui.navigation.router import Router
+
+        Router.instance().push("shelf", director=d)
 
     def _on_studio_clicked(self) -> None:
-        """厂商点击：暂不跳转。"""
-        pass
+        """片商点击：跳转书架并按 maker_id 筛选。"""
+        mid = self._bridge._expanded_work_maker_id
+        if mid <= 0:
+            return
+        from ui.navigation.router import Router
+
+        Router.instance().push("shelf", maker_id=mid)
+
+    def _on_label_clicked(self) -> None:
+        """厂牌点击：跳转书架并按 label_id 筛选。"""
+        lid = self._bridge._expanded_work_label_id
+        if lid <= 0:
+            return
+        from ui.navigation.router import Router
+
+        Router.instance().push("shelf", label_id=lid)
+
+    def _on_series_clicked(self) -> None:
+        """系列点击：跳转书架并按 series_id 筛选。"""
+        sid = self._bridge._expanded_work_series_id
+        if sid <= 0:
+            return
+        from ui.navigation.router import Router
+
+        Router.instance().push("shelf", series_id=sid)

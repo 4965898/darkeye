@@ -23,4 +23,5 @@ class CrawledWorkData:
     actress_list: list[str]   # ["ActressA"]
     actor_list: list[str]      # ["ActorB"]
     cover_url_list: list[str] #["https://example.com/cover.jpg"]
+    fanart_url_list: list[str] #["https://example.com/fanart.jpg"]
     

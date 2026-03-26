@@ -562,3 +562,275 @@ FROM
         except Exception:
             conn.rollback()
             raise
+
+
+def export_series_json(json_path: str | Path) -> Path:
+    """导出 series 表为 JSON（无 series_id，与 import 格式一致）。"""
+    path = Path(json_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    with get_connection(DATABASE, readonly=True) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT cn_name, jp_name, aliases, detail, related_series
+            FROM series
+            ORDER BY series_id
+            """
+        )
+        rows = cursor.fetchall()
+
+    data = [
+        {
+            "cn_name": r[0],
+            "jp_name": r[1],
+            "aliases": r[2],
+            "detail": r[3],
+            "related_series": r[4],
+        }
+        for r in rows
+    ]
+    path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    logging.info("已导出 series 到 %s", path)
+    return path
+
+
+def import_series_json(json_path: str | Path) -> None:
+    """
+    从 JSON 导入 series，覆盖当前 series 表。
+    结构与 export_series_json 一致；series_id 由数据库自增，并按 cn_name/aliases 将 work.series_id 映射到新 id。
+    """
+    path = Path(json_path)
+    if not path.exists():
+        raise FileNotFoundError(f"找不到 JSON 文件: {path}")
+
+    raw = path.read_text(encoding="utf-8")
+    try:
+        items = json.loads(raw)
+    except json.JSONDecodeError as e:
+        raise ValueError(f"解析 JSON 失败: {e}") from e
+
+    if not isinstance(items, list):
+        raise ValueError("JSON 顶层结构必须是列表")
+
+    with get_connection(DATABASE, readonly=False) as conn:
+        cursor = conn.cursor()
+        try:
+            cursor.execute("PRAGMA foreign_keys = OFF;")
+            cursor.execute("DROP TABLE IF EXISTS series_new")
+            cursor.execute(
+                """
+                CREATE TABLE series_new(
+                    series_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    cn_name TEXT,
+                    jp_name TEXT,
+                    aliases TEXT,
+                    detail TEXT,
+                    related_series TEXT
+                );
+                """
+            )
+
+            for item in items:
+                if not isinstance(item, dict):
+                    continue
+                cursor.execute(
+                    """
+                    INSERT INTO series_new (cn_name, jp_name, aliases, detail, related_series)
+                    VALUES (?, ?, ?, ?, ?)
+                    """,
+                    (
+                        item.get("cn_name"),
+                        item.get("jp_name"),
+                        item.get("aliases"),
+                        item.get("detail"),
+                        item.get("related_series"),
+                    ),
+                )
+
+            cursor.execute(
+                """
+                INSERT INTO series_new (cn_name, jp_name, aliases, detail, related_series)
+                SELECT
+                    s_old.cn_name,
+                    s_old.jp_name,
+                    s_old.aliases,
+                    s_old.detail,
+                    s_old.related_series
+                FROM series AS s_old
+                WHERE EXISTS (
+                    SELECT 1 FROM work WHERE work.series_id = s_old.series_id
+                )
+                AND NOT EXISTS (
+                    SELECT 1 FROM series_new AS s
+                    WHERE s.cn_name = s_old.cn_name
+                        OR INSTR(
+                            ',' || REPLACE(REPLACE(REPLACE(COALESCE(s.aliases, ''), '，', ','), ', ', ','), ' ,', ',') || ',',
+                            ',' || s_old.cn_name || ','
+                        ) > 0
+                )
+                """
+            )
+
+            cursor.execute(
+                """
+                UPDATE work
+                SET series_id = (
+                    SELECT s.series_id
+                    FROM series AS s_old
+                    JOIN series_new AS s
+                        ON s.cn_name = s_old.cn_name
+                        OR INSTR(
+                            ',' || REPLACE(REPLACE(REPLACE(COALESCE(s.aliases, ''), '，', ','), ', ', ','), ' ,', ',') || ',',
+                            ',' || s_old.cn_name || ','
+                        ) > 0
+                    WHERE s_old.series_id = work.series_id
+                    LIMIT 1
+                )
+                WHERE series_id IS NOT NULL
+                """
+            )
+
+            cursor.execute("DROP TABLE series")
+            cursor.execute("ALTER TABLE series_new RENAME TO series")
+
+            cursor.execute("PRAGMA foreign_keys = ON;")
+            conn.commit()
+            logging.info("已从 %s 导入 series", path)
+        except Exception:
+            conn.rollback()
+            raise
+
+
+def export_label_json(json_path: str | Path) -> Path:
+    """导出 label 表为 JSON（无 label_id，与 import 格式一致）。"""
+    path = Path(json_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    with get_connection(DATABASE, readonly=True) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT cn_name, jp_name, aliases, detail
+            FROM label
+            ORDER BY label_id
+            """
+        )
+        rows = cursor.fetchall()
+
+    data = [
+        {
+            "cn_name": r[0],
+            "jp_name": r[1],
+            "aliases": r[2],
+            "detail": r[3],
+        }
+        for r in rows
+    ]
+    path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    logging.info("已导出 label 到 %s", path)
+    return path
+
+
+def import_label_json(json_path: str | Path) -> None:
+    """
+    从 JSON 导入 label，覆盖当前 label 表。
+    结构与 export_label_json 一致；label_id 自增，并按 cn_name/aliases 将 work.label_id 映射到新 id。
+    """
+    path = Path(json_path)
+    if not path.exists():
+        raise FileNotFoundError(f"找不到 JSON 文件: {path}")
+
+    raw = path.read_text(encoding="utf-8")
+    try:
+        items = json.loads(raw)
+    except json.JSONDecodeError as e:
+        raise ValueError(f"解析 JSON 失败: {e}") from e
+
+    if not isinstance(items, list):
+        raise ValueError("JSON 顶层结构必须是列表")
+
+    with get_connection(DATABASE, readonly=False) as conn:
+        cursor = conn.cursor()
+        try:
+            cursor.execute("PRAGMA foreign_keys = OFF;")
+            cursor.execute("DROP TABLE IF EXISTS label_new")
+            cursor.execute(
+                """
+                CREATE TABLE label_new(
+                    label_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    cn_name TEXT,
+                    jp_name TEXT,
+                    aliases TEXT,
+                    detail TEXT
+                );
+                """
+            )
+
+            for item in items:
+                if not isinstance(item, dict):
+                    continue
+                cursor.execute(
+                    """
+                    INSERT INTO label_new (cn_name, jp_name, aliases, detail)
+                    VALUES (?, ?, ?, ?)
+                    """,
+                    (
+                        item.get("cn_name"),
+                        item.get("jp_name"),
+                        item.get("aliases"),
+                        item.get("detail"),
+                    ),
+                )
+
+            cursor.execute(
+                """
+                INSERT INTO label_new (cn_name, jp_name, aliases, detail)
+                SELECT
+                    l_old.cn_name,
+                    l_old.jp_name,
+                    l_old.aliases,
+                    l_old.detail
+                FROM label AS l_old
+                WHERE EXISTS (
+                    SELECT 1 FROM work WHERE work.label_id = l_old.label_id
+                )
+                AND NOT EXISTS (
+                    SELECT 1 FROM label_new AS l
+                    WHERE l.cn_name = l_old.cn_name
+                        OR INSTR(
+                            ',' || REPLACE(REPLACE(REPLACE(COALESCE(l.aliases, ''), '，', ','), ', ', ','), ' ,', ',') || ',',
+                            ',' || l_old.cn_name || ','
+                        ) > 0
+                )
+                """
+            )
+
+            cursor.execute(
+                """
+                UPDATE work
+                SET label_id = (
+                    SELECT l.label_id
+                    FROM label AS l_old
+                    JOIN label_new AS l
+                        ON l.cn_name = l_old.cn_name
+                        OR INSTR(
+                            ',' || REPLACE(REPLACE(REPLACE(COALESCE(l.aliases, ''), '，', ','), ', ', ','), ' ,', ',') || ',',
+                            ',' || l_old.cn_name || ','
+                        ) > 0
+                    WHERE l_old.label_id = work.label_id
+                    LIMIT 1
+                )
+                WHERE label_id IS NOT NULL
+                """
+            )
+
+            cursor.execute("DROP TABLE label")
+            cursor.execute("ALTER TABLE label_new RENAME TO label")
+
+            cursor.execute("PRAGMA foreign_keys = ON;")
+            conn.commit()
+            logging.info("已从 %s 导入 label", path)
+        except Exception:
+            conn.rollback()
+            raise

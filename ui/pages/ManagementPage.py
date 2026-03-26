@@ -51,7 +51,7 @@ class ManagementPage(QWidget):
         mainlayout.addWidget(self.tab_widget)
         self.tab_widget.addTab(self.worktab,"添加/修改作品")
         self.tab_widget.addTab(self.tag_manage,"作品标签管理")
-        self.tab_widget.addTab(self.studio_management,"番号/制作商管理")
+        self.tab_widget.addTab(self.studio_management,"番号/片商管理")
         self.tab_widget.addTab(self.label_management,"厂牌管理")
         self.tab_widget.addTab(self.series_management,"系列管理")
         self.tab_widget.addTab(self.updatemany,"批量操作")

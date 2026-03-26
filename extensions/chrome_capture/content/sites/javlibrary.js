@@ -96,6 +96,18 @@
         const imgElement = document.querySelector("#video_jacket_img");
         data.image = imgElement ? imgElement.src : "";
 
+        const previewThumbs = document.querySelector("div.previewthumbs");
+        data.fanart = [];
+        if (previewThumbs) {
+          const anchors = previewThumbs.querySelectorAll("a[href]");
+          data.fanart = Array.from(anchors).map((a) => {
+            const href = (a.getAttribute("href") || "").trim();
+            if (href) return href;
+            const img = a.querySelector("img[src]");
+            return img ? (img.getAttribute("src") || "").trim() : "";
+          }).filter(Boolean);
+        }
+
         sessionStorage.setItem('darkeye_auto_parse', 'false');
         console.log(data);
         if (data) {

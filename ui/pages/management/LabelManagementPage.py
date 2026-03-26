@@ -1,8 +1,23 @@
+from pathlib import Path
+
 from PySide6.QtCore import Slot
-from PySide6.QtWidgets import QAbstractItemView, QDataWidgetMapper, QDialog, QHBoxLayout, QMessageBox, QTableView, QVBoxLayout, QWidget, QFormLayout
+from PySide6.QtGui import QIcon
+from PySide6.QtWidgets import (
+    QAbstractItemView,
+    QDataWidgetMapper,
+    QDialog,
+    QFileDialog,
+    QFormLayout,
+    QHBoxLayout,
+    QMessageBox,
+    QTableView,
+    QVBoxLayout,
+    QWidget,
+)
 import logging
 
-from config import DATABASE
+from config import BASE_DIR, DATABASE, ICONS_PATH
+from controller.MessageService import MessageBoxService
 from core.database.connection import get_connection
 from core.database.query import get_label_name
 from ui.basic import ModelSearch
@@ -105,6 +120,8 @@ class LabelManagementPage(LazyWidget):
         self.searchWidget.set_model_view(self.model, self.view)
 
     def init_ui(self):
+        self.msg = MessageBoxService(self)
+
         self.view = TokenTableView()
         self.searchWidget = ModelSearch()
 
@@ -113,6 +130,17 @@ class LabelManagementPage(LazyWidget):
         self.btn_save = Button("保存修改")
         self.btn_revert = Button("撤销修改")
         self.btn_refresh = Button("读数据库数据")
+
+        self.btn_export_label = Button()
+        self.btn_export_label.setText("导出厂牌到json文件")
+        self.btn_export_label.setToolTip("导出厂牌到json文件")
+        self.btn_export_label.setIcon(QIcon(str(ICONS_PATH / "database.svg")))
+
+        self.btn_import_label = Button()
+        self.btn_import_label.setText("从json文件导入厂牌")
+        self.btn_import_label.setToolTip("从json文件导入厂牌")
+        self.btn_import_label.setIcon(QIcon(str(ICONS_PATH / "database.svg")))
+
         self.btn_redirect_label = Button("重定向厂牌")
 
         button_layout = QHBoxLayout()
@@ -121,6 +149,8 @@ class LabelManagementPage(LazyWidget):
         button_layout.addWidget(self.btn_save)
         button_layout.addWidget(self.btn_revert)
         button_layout.addWidget(self.btn_refresh)
+        button_layout.addWidget(self.btn_export_label)
+        button_layout.addWidget(self.btn_import_label)
         button_layout.addStretch(1)
         button_layout.addWidget(self.btn_redirect_label)
 
@@ -145,7 +175,66 @@ class LabelManagementPage(LazyWidget):
         self.btn_save.clicked.connect(self.save_changes)
         self.btn_revert.clicked.connect(self.revert_changes)
         self.btn_refresh.clicked.connect(self.refresh_data)
+        self.btn_export_label.clicked.connect(self.export_label_json_file)
+        self.btn_import_label.clicked.connect(self.import_label_json_file)
         self.btn_redirect_label.clicked.connect(self.open_redirect_dialog)
+
+    @Slot()
+    def export_label_json_file(self):
+        from core.database.migrations import export_label_json
+
+        default_dir = BASE_DIR / "resources" / "config"
+        default_dir.mkdir(parents=True, exist_ok=True)
+
+        file_path, _ = QFileDialog.getSaveFileName(
+            self,
+            "选择导出 JSON 文件",
+            str(default_dir / "label.json"),
+            "JSON 文件 (*.json)",
+        )
+        if not file_path:
+            return
+
+        try:
+            export_label_json(Path(file_path))
+            self.msg.show_info("导出成功", f"已导出厂牌到：\n{file_path}")
+        except Exception as e:
+            logging.exception("导出厂牌失败")
+            self.msg.show_critical("导出失败", f"导出厂牌时发生错误：\n{e}")
+
+    @Slot()
+    def import_label_json_file(self):
+        from core.database.migrations import import_label_json
+
+        default_dir = BASE_DIR / "resources" / "config"
+        default_dir.mkdir(parents=True, exist_ok=True)
+
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "选择厂牌 JSON 文件",
+            str(default_dir),
+            "JSON 文件 (*.json)",
+        )
+        if not file_path:
+            return
+
+        if not self.msg.ask_yes_no(
+            "确认导入",
+            "将使用该 JSON 覆盖当前的厂牌数据，操作不可撤销，是否继续？",
+        ):
+            return
+
+        try:
+            import_label_json(Path(file_path))
+            self.msg.show_info("导入成功", "厂牌数据已从 JSON 导入。")
+            self.refresh_data()
+            from controller.GlobalSignalBus import global_signals
+
+            global_signals.label_data_changed.emit()
+            global_signals.work_data_changed.emit()
+        except Exception as e:
+            logging.exception("导入厂牌失败")
+            self.msg.show_critical("导入失败", f"导入厂牌时发生错误：\n{e}")
 
     @Slot()
     def add_row(self):

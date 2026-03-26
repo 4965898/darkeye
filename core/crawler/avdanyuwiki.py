@@ -141,7 +141,7 @@ def SearchInfoDanyukiwi(serial_number)->dict:
 
     # 提取maker(匹配 "メーカー：" 后的内容)
     match = re.search(r'メーカー：(.+)', article.getText())
-    maker=""
+    maker="----"
     if match:
         maker = match.group(1).strip()
         #logging.debug("maker为：%s",maker)
@@ -153,7 +153,7 @@ def SearchInfoDanyukiwi(serial_number)->dict:
         series = match.group(1).strip()
         #logging.debug("series为：%s",series)
     if series=="—-":
-        series=""
+        series="----"
 
     # 提取label(匹配 "レーベル：" 后的内容)
     match = re.search(r'レーベル：(.+)', article.getText())
@@ -162,10 +162,14 @@ def SearchInfoDanyukiwi(serial_number)->dict:
         label = match.group(1).strip()
         #logging.debug("label为：%s",label)
     if label=="—-":
-        label=""
+        label="----"
 
-    # 提取runtime（匹配「収録時間：」与「分」之间的内容）
-    match = re.search(r'収録時間：\s*([^分]+)\s*分', article.getText())
+    # 提取runtime（匹配「収録時間：」与「分」/「min」之间的内容）
+    match = re.search(
+        r'収録時間：\s*([^分]+?)\s*(?:分|min\b)',
+        article.getText(),
+        re.IGNORECASE,
+    )
     runtime=""
     if match:
         runtime = match.group(1).strip()

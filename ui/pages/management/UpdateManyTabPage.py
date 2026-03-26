@@ -1,6 +1,8 @@
-from PySide6.QtWidgets import QHBoxLayout, QVBoxLayout
-from PySide6.QtCore import Slot,QThreadPool
+from PySide6.QtWidgets import QVBoxLayout, QWidget
+from PySide6.QtCore import Slot, QThreadPool
 import logging
+
+from ui.myads.workspace_manager import WorkspaceManager, Placement, ContentConfig
 from core.crawler.download import update_title_story_db
 from core.crawler.javtxt import top_actresses
 from darkeye_ui import LazyWidget
@@ -26,20 +28,42 @@ class UpdateManyTabPage(LazyWidget):
         self.btn_update_needactress=Button("更新标记需要更新的女优数据")
         self.btn_update_needactress.setToolTip("把所有被标记为需要更新的女优一个一个进行数据更新")
 
+        self.btn_update_maker_by_knowledge=Button("根据番号前缀判断片商")
+        self.btn_update_maker_by_knowledge.setToolTip("根据番号前缀把，那些确定的片商都给改了")
+
         #self.btn_search_actor.clicked.connect(update_actor_db)
         self.btn_search_story.clicked.connect(update_title_story_db)
         self.btn_search_actress.clicked.connect(self.task_search_actress)
 
-        layout1=QHBoxLayout()
-        layout1.addWidget(self.btn_search_story)
-        #layout1.addWidget(self.btn_search_actor)
-        layout1.addWidget(self.btn_search_actress)
-        layout1.addWidget(self.btn_update_needactress)
-        mainlayout=QHBoxLayout(self)
-        mainlayout.addLayout(layout1)
+        left_panel = QWidget()
+        left_layout = QVBoxLayout(left_panel)
+        left_layout.setContentsMargins(8, 8, 8, 8)
+        left_layout.setSpacing(8)
+        left_layout.addWidget(self.btn_search_story)
+        left_layout.addWidget(self.btn_search_actress)
+        left_layout.addWidget(self.btn_update_needactress)
+        left_layout.addWidget(self.btn_update_maker_by_knowledge)
+        left_layout.addStretch()
+
         self.crawler_auto_page = CrawlerAutoPage()
-        mainlayout.addWidget(self.crawler_auto_page)
+
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        self._workspace_manager = WorkspaceManager(self)
+        main_layout.addWidget(self._workspace_manager.widget())
+        root = self._workspace_manager.get_root_pane()
+
+        def make_config(title: str, w: QWidget, closeable: bool = True) -> ContentConfig:
+            cfg = self._workspace_manager.create_content_config()
+            return cfg.set_window_title(title).set_widget(w).set_closeable(closeable)
+
+        pane_crawler = self._workspace_manager.split(root, Placement.Right, ratio=0.72)
+        self._workspace_manager.fill_pane(root, make_config("批量操作", left_panel, closeable=False))
+        self._workspace_manager.fill_pane(
+            pane_crawler, make_config("空字段补充爬取", self.crawler_auto_page, closeable=False)
+        )
         self.btn_update_needactress.clicked.connect(self.searchActressinfo)
+        self.btn_update_maker_by_knowledge.clicked.connect(self.task_update_maker_by_prefix)
         self.crawler_auto_page.btn_get_crawler.setToolTip("根据指定字段，补充爬取")
         self.crawler_auto_page.btn_get_crawler.clicked.connect(self.bulk_crawl_empty_fields)
 
@@ -51,6 +75,28 @@ class UpdateManyTabPage(LazyWidget):
         else:
             logging.error("更新失败")
 
+    @Slot()
+    def task_update_maker_by_prefix(self):
+        from core.crawler.Worker import Worker
+        from core.database.update import update_work_maker_from_prefix_relation
+
+        def _run():
+            return update_work_maker_from_prefix_relation()
+
+        worker = Worker(_run)
+        worker.signals.finished.connect(self._on_maker_prefix_update_finished)
+        QThreadPool.globalInstance().start(worker)
+        self.msg.show_info("开始", "正在按 prefix_maker_relation 回写片商…")
+
+    @Slot(object)
+    def _on_maker_prefix_update_finished(self, result):
+        from controller.GlobalSignalBus import global_signals
+
+        if result is None:
+            self.msg.show_info("错误", "更新失败，请查看日志")
+            return
+        global_signals.work_data_changed.emit()
+        self.msg.show_info("完成", str(result))
 
     @Slot()
     def searchActressinfo(self):
@@ -125,21 +171,31 @@ class UpdateManyTabPage(LazyWidget):
             return
 
         rows = get_works_for_bulk_crawl_fields()
-        serials_to_crawl: list[str] = []
+        manager = get_manager()
+        queued = 0
         for row in rows:
             serial = str(row.get("serial_number") or "").strip()
             if not serial:
                 continue
-            # OR 逻辑：任一勾选字段为空即入队
-            if any(self._is_row_empty_for_field(row, field) for field in selected_fields):
-                serials_to_crawl.append(serial)
+            per_work_fields = {
+                f
+                for f in selected_fields
+                if self._is_row_empty_for_field(row, f)
+            }
+            if not per_work_fields:
+                continue
+            before = len(manager.request_queue)
+            manager.start_crawl(
+                [serial], withGUI=False, selected_fields=per_work_fields
+            )
+            if len(manager.request_queue) > before:
+                queued += 1
 
-        if not serials_to_crawl:
-            self.msg.show_info("提示", "没有匹配到需要更新的作品")
+        if not queued:
+            self.msg.show_info("提示", "没有匹配到需要更新的作品（勾选字段在该批作品中均已非空）")
             return
 
-        get_manager().start_crawl(serials_to_crawl, withGUI=False, selected_fields=selected_fields)
-        self.msg.show_info("开始更新", f"已加入队列 {len(serials_to_crawl)} 条")
+        self.msg.show_info("开始更新", f"已加入队列 {queued} 条（每条仅爬取其空白勾选字段）")
 
 
 

@@ -11,6 +11,7 @@ from .image.ActressCard import ActressCard
 from .image.ActressAvatar import ActressAvatar
 from .image.CoverImage import CoverImage
 from .image.CoverDropWidget import CoverDropWidget
+from .image.FanartStripWidget import FanartStripWidget
 from .image.ActressAvatarDropWidget import ActressAvatarDropWidget
 from .image.ActorAvatar import ActorAvatar
 from .image.ActorCard import ActorCard

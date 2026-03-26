@@ -46,7 +46,7 @@ class ShelfPage(QWidget):
         self.actor = None
         self.title = None
         self.serial_number = None
-        self.studio = None
+        self.maker_id = None
         self.label_id = None
         self.series_id = None
         self._green_mode = False
@@ -231,7 +231,16 @@ class ShelfPage(QWidget):
         self.filter_timer.stop()
         self.apply_filter_real()
 
-    def load_with_params(self, work_id=None, serial_number=None, **kwargs):
+    def load_with_params(
+        self,
+        work_id=None,
+        serial_number=None,
+        director=None,
+        maker_id=None,
+        label_id=None,
+        series_id=None,
+        **kwargs,
+    ):
         target_work_id = work_id
         if target_work_id is None and serial_number:
             try:
@@ -239,21 +248,48 @@ class ShelfPage(QWidget):
             except Exception:
                 logging.exception("ShelfPage: failed to resolve work_id from serial_number")
                 return
-        if target_work_id is None:
+
+        if target_work_id is not None:
+            try:
+                target_work_id = int(target_work_id)
+            except (TypeError, ValueError):
+                return
+
+            self._clear_filters_for_jump()
+
+            if self.shelf_view.loadworkid(target_work_id):
+                return
+
+            # Delay one event-loop tick so a freshly lazy-loaded page can finish applying its initial data.
+            QTimer.singleShot(0, lambda wid=target_work_id: self.shelf_view.loadworkid(wid))
             return
 
-        try:
-            target_work_id = int(target_work_id)
-        except (TypeError, ValueError):
+        def _positive_id(v) -> int | None:
+            if v is None:
+                return None
+            try:
+                i = int(v)
+                return i if i > 0 else None
+            except (TypeError, ValueError):
+                return None
+
+        d = str(director).strip() if director is not None else ""
+        mid = _positive_id(maker_id)
+        lid = _positive_id(label_id)
+        sid = _positive_id(series_id)
+        if not d and mid is None and lid is None and sid is None:
             return
 
         self._clear_filters_for_jump()
-
-        if self.shelf_view.loadworkid(target_work_id):
-            return
-
-        # Delay one event-loop tick so a freshly lazy-loaded page can finish applying its initial data.
-        QTimer.singleShot(0, lambda wid=target_work_id: self.shelf_view.loadworkid(wid))
+        if d:
+            self.director_input.setText(d)
+        if mid is not None:
+            self.maker_selector.set_maker(mid)
+        if lid is not None:
+            self.label_selector.set_label(lid)
+        if sid is not None:
+            self.series_selector.set_series_id(sid)
+        self.apply_filter_real()
 
     @Slot()
     def _clear_all_search(self) -> None:
@@ -294,7 +330,7 @@ class ShelfPage(QWidget):
         self.actor = self.actor_input.text().strip()
         self.title = self.title_input.text().strip()
         self.serial_number = self.serial_number_input.text().strip()
-        self.studio = self.maker_selector.currentText().strip()
+        self.maker_id = self.maker_selector.get_maker()
         self.label_id = self.label_selector.get_label()
         self.series_id = self.series_selector.get_series_id()
         self.tag_ids = self.tagselector.get_selected_ids()
@@ -321,8 +357,6 @@ class ShelfPage(QWidget):
 SELECT 
     work.work_id
 FROM work
-LEFT JOIN 
-    prefix_maker_relation p ON p.prefix = SUBSTR(work.serial_number, 1, INSTR(work.serial_number, '-') - 1)
         """
         cte_parts = []
 
@@ -352,19 +386,6 @@ WHERE cn LIKE ? OR jp LIKE ?
             cte_parts.append(withsql)
             params.extend([f"%{self.actor}%", f"%{self.actor}%"])
 
-        if self.studio:
-            withsql = """
-filter_maker AS(
-SELECT 
-    DISTINCT maker_id
-FROM 
-    maker
-WHERE cn_name LIKE ? OR jp_name LIKE ?
-)
-"""
-            cte_parts.append(withsql)
-            params.extend([f"%{self.studio}%", f"%{self.studio}%"])
-
         cte_sql = ""
         if cte_parts:
             cte_sql = "WITH " + ",\n".join(cte_parts) + "\n"
@@ -391,10 +412,6 @@ JOIN filtered_actresses f ON actress.actress_id = f.actress_id
 JOIN work_actor_relation ON work_actor_relation.work_id=work.work_id
 JOIN filtered_actors fa ON fa.actor_id = work_actor_relation.actor_id
 """
-        if self.studio:
-            query += """
-JOIN filter_maker ON filter_maker.maker_id=p.maker_id
-"""
 
         if self.tag_ids:
             placeholders = ",".join("?" for _ in self.tag_ids)
@@ -420,6 +437,10 @@ JOIN filter_maker ON filter_maker.maker_id=p.maker_id
         if self.serial_number:
             query += "AND work.serial_number LIKE ?\n"
             params.append(f"%{self.serial_number}%")
+
+        if self.maker_id is not None:
+            query += "AND work.maker_id = ?\n"
+            params.append(self.maker_id)
 
         if self.title:
             query += "AND work.cn_title LIKE ?\n"
@@ -462,9 +483,9 @@ HAVING COUNT(DISTINCT wtr2.tag_id) = ?
             case "番号逆序":
                 order = "ORDER BY work.serial_number DESC\n"
             case "制作商顺序":
-                order = "ORDER BY p.maker_id IS NULL, p.maker_id, work.serial_number\n"
+                order = "ORDER BY work.maker_id IS NULL, work.maker_id, work.serial_number\n"
             case "制作商逆序":
-                order = "ORDER BY p.maker_id IS NULL DESC, p.maker_id DESC, work.serial_number DESC\n"
+                order = "ORDER BY work.maker_id IS NULL DESC, work.maker_id DESC, work.serial_number DESC\n"
             case "更新时间逆序":
                 order = "ORDER BY work.update_time DESC\n"
             case "更新时间顺序":

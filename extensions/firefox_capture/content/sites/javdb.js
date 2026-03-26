@@ -126,9 +126,9 @@
           data.release_date = getPanelValue("日期:");
           data.length = getPanelValue("時長:");
           data.director = getPanelValue("導演:");
-          data.maker = getPanelValue("片商:");
-          data.label = getPanelValue("發行:");
-          data.series=getPanelValue("系列:");
+          data.maker = getPanelValue("片商:")|| "----";
+          data.label = getPanelValue("發行:")|| "----";
+          data.series= getPanelValue("系列:") || "----";
 
           // 类别
           const genreBlock = Array.from(panelBlocks).find(block => {
@@ -170,7 +170,16 @@
               }
           }
 
-          // 封面
+          const previewTileRoot =
+              videoDetail.querySelector("div.tile-images.preview-images") ||
+              document.querySelector("div.tile-images.preview-images");
+          data.fanart = previewTileRoot
+              ? Array.from(previewTileRoot.querySelectorAll("a.tile-item[href]"))
+                    .map((a) => (a.getAttribute("href") || "").trim())
+                    .filter((h) => h && !h.startsWith("#"))
+              : [];
+
+          // 封面，这个不要封面，有水印，宁可空也不要水印
           //const imgElement = videoDetail.querySelector(".video-cover");
           //data.image = imgElement ? imgElement.src : "";
 

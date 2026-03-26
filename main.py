@@ -112,7 +112,9 @@ def _run_main_app():
     QSurfaceFormat.setDefaultFormat(fmt)
 
     profiler.measure_import("config")
-    from config import ICONS_PATH, is_first_lunch, set_first_luch
+    from config import ICONS_PATH, check_file, is_first_lunch, set_first_luch
+
+    check_file()
     profiler.checkpoint("Qt组件导入完成")
 
     # 创建应用和启动画面
@@ -195,6 +197,11 @@ def _run_main_app():
         with profiler.measure_execution("init_database", sync=True):
             init_database(DATABASE, PRIVATE_DATABASE)
     profiler.checkpoint("数据库初始化完成")
+
+    from core.database.db_queue import start_db_queue_worker, stop_db_queue_worker
+
+    start_db_queue_worker()
+    app.aboutToQuit.connect(stop_db_queue_worker)
 
     # 异步启动图初始化（后台进行）
     if show_splash and splash is not None:

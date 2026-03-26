@@ -94,6 +94,8 @@ def merge_crawl_results(results: Dict[str, dict], canonical_serial: str) -> Craw
 
     jp_title = javlib_result.get("title", javtxt_result.get("jp_title", ""))
 
+    fanart_list = javlib_result.get("fanart") or javdb_result.get("fanart") or []
+
     work_merge = {
         "serial_number": canonical_serial,
         "release_date": release_date,
@@ -110,6 +112,7 @@ def merge_crawl_results(results: Dict[str, dict], canonical_serial: str) -> Craw
         "cn_story": javtxt_result.get("cn_story", ""),
         "jp_story": javtxt_result.get("jp_story", ""),
         "cover_list": cover_list,
+        "fanart_list": fanart_list
     }
 
     try:
@@ -147,4 +150,5 @@ def merge_crawl_results(results: Dict[str, dict], canonical_serial: str) -> Craw
         maker=work_merge["maker"],
         series=work_merge["series"],
         label=work_merge["label"],
+        fanart_url_list=work_merge["fanart_list"],
     )

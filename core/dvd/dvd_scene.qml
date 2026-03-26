@@ -823,14 +823,14 @@ View3D {
                 }
             }
 
-            // 厂商
+            // 片商
             Row {
                 width: parent.width
                 spacing: 4
                 visible: typeof dvdBridge !== "undefined" && dvdBridge && dvdBridge.expandedWorkStudio
                     && dvdBridge.expandedWorkStudio.length > 0
                 Text {
-                    text: "厂商: "
+                    text: "片商: "
                     color: "#a0a8b8"
                     font.pixelSize: 12
                 }
@@ -842,16 +842,97 @@ View3D {
                         text: (typeof dvdBridge !== "undefined" && dvdBridge) ? dvdBridge.expandedWorkStudio : ""
                         color: "#e8ecf5"
                         font.pixelSize: 12
-                        font.underline: studioMouseArea.containsMouse
+                        font.underline: studioMouseArea.containsMouse && studioMouseArea.enabled
                     }
                     MouseArea {
                         id: studioMouseArea
                         anchors.fill: parent
                         hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
+                        enabled: typeof dvdBridge !== "undefined" && dvdBridge && dvdBridge.expandedWorkMakerId > 0
+                        cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
                         onClicked: {
                             if (typeof dvdBridge !== "undefined" && dvdBridge)
                                 dvdBridge.onStudioClicked()
+                        }
+                    }
+                }
+            }
+
+            // 厂牌（label）
+            Row {
+                width: parent.width
+                spacing: 4
+                visible: typeof dvdBridge !== "undefined" && dvdBridge && dvdBridge.expandedWorkLabel
+                    && dvdBridge.expandedWorkLabel.length > 0
+                Text {
+                    id: labelPrefix
+                    text: "厂牌: "
+                    color: "#a0a8b8"
+                    font.pixelSize: 12
+                }
+                Item {
+                    width: parent.width - labelPrefix.width - parent.spacing
+                    height: labelText.implicitHeight
+                    Text {
+                        id: labelText
+                        width: parent.width
+                        color: "#e8ecf5"
+                        font.pixelSize: 12
+                        wrapMode: Text.WordWrap
+                        elide: Text.ElideRight
+                        maximumLineCount: 2
+                        font.underline: labelMouseArea.containsMouse && labelMouseArea.enabled
+                        text: (typeof dvdBridge !== "undefined" && dvdBridge) ? dvdBridge.expandedWorkLabel : ""
+                    }
+                    MouseArea {
+                        id: labelMouseArea
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        enabled: typeof dvdBridge !== "undefined" && dvdBridge && dvdBridge.expandedWorkLabelId > 0
+                        cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                        onClicked: {
+                            if (typeof dvdBridge !== "undefined" && dvdBridge)
+                                dvdBridge.onLabelClicked()
+                        }
+                    }
+                }
+            }
+
+            // 系列（series）
+            Row {
+                width: parent.width
+                spacing: 4
+                visible: typeof dvdBridge !== "undefined" && dvdBridge && dvdBridge.expandedWorkSeries
+                    && dvdBridge.expandedWorkSeries.length > 0
+                Text {
+                    id: seriesPrefix
+                    text: "系列: "
+                    color: "#a0a8b8"
+                    font.pixelSize: 12
+                }
+                Item {
+                    width: parent.width - seriesPrefix.width - parent.spacing
+                    height: seriesText.implicitHeight
+                    Text {
+                        id: seriesText
+                        width: parent.width
+                        color: "#e8ecf5"
+                        font.pixelSize: 12
+                        wrapMode: Text.WordWrap
+                        elide: Text.ElideRight
+                        maximumLineCount: 2
+                        font.underline: seriesMouseArea.containsMouse && seriesMouseArea.enabled
+                        text: (typeof dvdBridge !== "undefined" && dvdBridge) ? dvdBridge.expandedWorkSeries : ""
+                    }
+                    MouseArea {
+                        id: seriesMouseArea
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        enabled: typeof dvdBridge !== "undefined" && dvdBridge && dvdBridge.expandedWorkSeriesId > 0
+                        cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                        onClicked: {
+                            if (typeof dvdBridge !== "undefined" && dvdBridge)
+                                dvdBridge.onSeriesClicked()
                         }
                     }
                 }

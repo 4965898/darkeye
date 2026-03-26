@@ -96,10 +96,11 @@ def get_workinfo_by_workid(work_id: int) -> dict:
     work.maker_id AS maker_id,
     work.label_id AS label_id,
     work.series_id AS series_id,
-    (SELECT cn_name FROM maker WHERE maker_id =p.maker_id) AS studio_name
+    work.fanart AS fanart,
+    (SELECT cn_name FROM maker WHERE maker_id = work.maker_id) AS studio_name,
+    (SELECT cn_name FROM label WHERE label_id = work.label_id) AS label_name,
+    (SELECT cn_name FROM series WHERE series_id = work.series_id) AS series_name
     FROM work
-    LEFT JOIN
-        prefix_maker_relation p ON p.prefix = SUBSTR(work.serial_number, 1, INSTR(work.serial_number, '-') - 1)
     WHERE work_id = ?
     '''
     with get_connection(DATABASE, True) as conn:
