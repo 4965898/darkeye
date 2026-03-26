@@ -36,6 +36,8 @@ View3D {
     property var actionAnchorByIndex: ({})
     // 展开态 title/story 的 front 面锚点映射，key=delegate index。
     property var frontInfoAnchorByIndex: ({})
+    // 完全展开后，光碟下方剧照 Python 叠层的 3D 锚点映射，key=delegate index。
+    property var fanartAnchorByIndex: ({})
     property int _pendingCollapseSelectedIndex: -1
     property real _pendingCollapseCloseSpeedMultiplier: 1.0
     property real wheelCloseAnimationSpeedMultiplier: 3.0
@@ -71,6 +73,17 @@ View3D {
             fullyExpandedTimer.stop()
             view3d.fullyExpandedDelegateIndex = -1
         }
+    }
+
+    property var _fanartStripAnchor: (fullyExpandedDelegateIndex >= 0)
+        ? fanartAnchorByIndex[fullyExpandedDelegateIndex]
+        : null
+    property point _fanartStripScreenPoint: _fanartStripAnchor
+        ? mapFrom3DScene(_fanartStripAnchor.scenePosition)
+        : Qt.point(-10000, -10000)
+    on_FanartStripScreenPointChanged: {
+        if (_fanartStripScreenPoint.x > -9999 && typeof dvdBridge !== "undefined" && dvdBridge && typeof dvdBridge.setFanartStripAnchor === "function")
+            dvdBridge.setFanartStripAnchor(_fanartStripScreenPoint.x, _fanartStripScreenPoint.y)
     }
 
     // 选中/展开变化时通知 Bridge，用于在左侧显示或隐藏力导向图。
@@ -336,6 +349,7 @@ View3D {
                         onItemChanged: {
                             view3d.actionAnchorByIndex[index] = null
                             view3d.frontInfoAnchorByIndex[index] = null
+                            view3d.fanartAnchorByIndex[index] = null
                             if (item) {
                                 if (typeof item.textureSource !== "undefined") item.textureSource = tex
                                 if (typeof item.delegateIndex !== "undefined") item.delegateIndex = index
@@ -343,6 +357,8 @@ View3D {
                                     view3d.actionAnchorByIndex[index] = item.actionAnchorNode
                                 if (typeof item.frontInfoAnchorNode !== "undefined")
                                     view3d.frontInfoAnchorByIndex[index] = item.frontInfoAnchorNode
+                                if (typeof item.fanartStripAnchorNode !== "undefined")
+                                    view3d.fanartAnchorByIndex[index] = item.fanartStripAnchorNode
                                 if (typeof item.cdClicked !== "undefined") {
                                     item.cdClicked.connect(function() {
                                         var vIdx = virtualIndex
@@ -385,6 +401,8 @@ View3D {
                         view3d.actionAnchorByIndex[index] = null
                     if (view3d.frontInfoAnchorByIndex[index])
                         view3d.frontInfoAnchorByIndex[index] = null
+                    if (view3d.fanartAnchorByIndex[index])
+                        view3d.fanartAnchorByIndex[index] = null
                 }
             }
         }

@@ -1,6 +1,7 @@
 """3D DVD 虚拟化书架视图，接收 work_ids 列表，按 3D 相机位置驱动可见范围加载。"""
 from __future__ import annotations
 
+import json
 import logging
 from pathlib import Path
 from time import perf_counter
@@ -8,6 +9,7 @@ from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Property, Qt, QObject, QUrl, Signal, Slot, QTimer
 from PySide6.QtGui import QCursor, QColor
+from PySide6.QtGui import QResizeEvent
 from PySide6.QtWidgets import (
     QApplication,
     QHBoxLayout,
@@ -19,7 +21,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtQuickWidgets import QQuickWidget
 
-from config import get_video_path, MESHES_PATH, MAPS_PATH, HDR_PATH, WORKCOVER_PATH
+from config import FANART_PATH, get_video_path, MESHES_PATH, MAPS_PATH, HDR_PATH, WORKCOVER_PATH
 from controller.MessageService import MessageBoxService
 from core.database.query import (
     get_workinfo_by_workid,
@@ -31,7 +33,8 @@ from core.database.query import (
 from core.database.query.private import query_work
 from core.database.insert import insert_liked_work
 from core.database.delete import delete_favorite_work
-from core.database.update import mark_delete
+from core.database.update import mark_delete, update_work_byhand_
+from ui.widgets.image.FanartStripWidget import FanartStripWidget
 from utils.utils import find_video, play_video, get_text_color_from_background
 
 if TYPE_CHECKING:
@@ -72,6 +75,10 @@ FORCEVIEW_HEIGHT = 560      # 高度与 DVD 视觉比例接近
 FORCEVIEW_GAP = 16          # 与 DVD 锚点（选中中心）的间距，避免贴边
 FORCEVIEW_LEFT_MARGIN = 8   # 相对视图左边缘的内边距
 FORCEVIEW_SHOW_DELAY_MS = 500  # DVD 选中动画时长，动画完成后再显示力导向图
+FANART_STRIP_MAX_WIDTH = 440
+FANART_STRIP_GAP_BELOW_ANCHOR = 10
+FANART_STRIP_MARGIN_H = 10
+FANART_STRIP_MIN_HEIGHT = 80
 
 
 def _expanded_entity_id(value) -> int:
@@ -444,6 +451,11 @@ class DvdBridge(QObject):
         """QML 传入选中 DVD 的 2D 投影坐标，用于将力导向图 overlay 定位到其左侧。"""
         self._view._update_forceview_geometry(screen_x, screen_y)
 
+    @Slot(float, float)
+    def setFanartStripAnchor(self, screen_x: float, screen_y: float) -> None:
+        """QML 传入光碟下方锚点的 2D 投影坐标，用于将剧照横条叠在 Quick 视图内、位于光碟下方。"""
+        self._view._update_fanart_strip_geometry(screen_x, screen_y)
+
 
 class DvdShelfView(QWidget):
     """3D DVD 书架视图，虚拟化加载，由 3D 场景内相机位置决定可见范围。
@@ -490,6 +502,8 @@ class DvdShelfView(QWidget):
         self._forceview: "ForceDirectedViewWidget | None" = None
         self._forceview_placeholder: QLabel | None = None
         self._last_forceview_anchor: tuple[float, float] | None = None
+        self._last_fanart_strip_anchor: tuple[float, float] | None = None
+        self._fanart_preview_work_id: int | None = None
         self._pending_forceview_work_id: int | None = None
         self._forceview_show_timer = QTimer(self)
         self._forceview_show_timer.setSingleShot(True)
@@ -506,6 +520,20 @@ class DvdShelfView(QWidget):
             else Qt.AlignCenter
         )
         forceview_container_layout.addWidget(self._forceview_placeholder)
+
+        self._fanart_strip_container = QWidget(self)
+        self._fanart_strip_container.setVisible(False)
+        fanart_layout = QVBoxLayout(self._fanart_strip_container)
+        fanart_layout.setContentsMargins(6, 4, 6, 4)
+        self._fanart_strip = FanartStripWidget(
+            FANART_PATH, legacy_cover_path=WORKCOVER_PATH, parent=self._fanart_strip_container
+        )
+        self._fanart_strip.set_can_add(False)
+        self._fanart_strip.set_preview_mode(True)
+        self._fanart_strip.set_preview_download_persist(
+            self._persist_fanart_preview_to_db
+        )
+        fanart_layout.addWidget(self._fanart_strip)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -666,6 +694,60 @@ class DvdShelfView(QWidget):
         self._forceview_container.setGeometry(left, top, w, h)
         self._forceview_container.raise_()
 
+    def _update_fanart_strip_geometry(self, screen_x: float, screen_y: float) -> None:
+        """根据 QML 光碟下方锚点，将剧照横条置于锚点以下、水平居中对齐（与力导图同属 QuickWidget 叠层）。"""
+        if screen_x < -9999 or screen_y < -9999:
+            return
+        self._last_fanart_strip_anchor = (screen_x, screen_y)
+        if not self._fanart_strip_container.isVisible():
+            return
+        view_w = self._quick_widget.width()
+        view_h = self._quick_widget.height()
+        anchor_x = int(screen_x)
+        anchor_y = int(screen_y)
+        w = min(
+            FANART_STRIP_MAX_WIDTH,
+            max(160, view_w - 2 * FANART_STRIP_MARGIN_H),
+        )
+        left = anchor_x - w // 2
+        left = max(
+            FANART_STRIP_MARGIN_H, min(left, view_w - w - FANART_STRIP_MARGIN_H)
+        )
+        hint_h = int(self._fanart_strip.sizeHint().height())
+        h = max(FANART_STRIP_MIN_HEIGHT, hint_h)
+        top = anchor_y + FANART_STRIP_GAP_BELOW_ANCHOR
+        top = max(0, min(top, view_h - h))
+        self._fanart_strip_container.setGeometry(left, top, w, h)
+        self._fanart_strip_container.raise_()
+
+    def _clear_fanart_strip_overlay(self) -> None:
+        self._last_fanart_strip_anchor = None
+        self._fanart_preview_work_id = None
+        self._fanart_strip.set_entries([])
+        self._fanart_strip_container.setVisible(False)
+
+    def _persist_fanart_preview_to_db(self, entries: list[dict]) -> None:
+        """DVD 预览条：下载成功后写回 work.fanart JSON。"""
+        wid = self._fanart_preview_work_id
+        if wid is None:
+            return
+        try:
+            raw = json.dumps(entries, ensure_ascii=False)
+        except (TypeError, ValueError):
+            logging.warning("DVD Fanart 预览写库：JSON 序列化失败")
+            return
+        if update_work_byhand_(int(wid), fanart=raw):
+            from controller.GlobalSignalBus import global_signals
+
+            global_signals.work_data_changed.emit()
+
+    def resizeEvent(self, event: QResizeEvent) -> None:
+        super().resizeEvent(event)
+        if self._forceview_container.isVisible() and self._last_forceview_anchor:
+            self._update_forceview_geometry(*self._last_forceview_anchor)
+        if self._fanart_strip_container.isVisible() and self._last_fanart_strip_anchor:
+            self._update_fanart_strip_geometry(*self._last_fanart_strip_anchor)
+
     def _init_forceview(self) -> None:
         """懒创建力导向图 widget，与 AddWorkTabPage3 逻辑对齐。"""
         if self._forceview is not None:
@@ -718,6 +800,7 @@ class DvdShelfView(QWidget):
         self._bridge.expandedWorkActors = []
         self._bridge.expandedWorkDirector = ""
         self._bridge.expandedWorkStudio = ""
+        self._clear_fanart_strip_overlay()
         self._jump_camera_to(0.0)
 
         N = len(self._work_ids)
@@ -928,6 +1011,18 @@ class DvdShelfView(QWidget):
     def _root_scene_object(self) -> QObject | None:
         return self._quick_widget.rootObject()
 
+    def _scene_dvd_fully_expanded(self) -> bool:
+        """与 dvd_scene.qml 一致：开盒动画结束且当前仍处于展开态。"""
+        root = self._root_scene_object()
+        if root is None:
+            return False
+        try:
+            fed = int(root.property("fullyExpandedDelegateIndex"))
+            ed = int(root.property("expandedDelegateIndex"))
+        except (TypeError, ValueError):
+            return False
+        return fed >= 0 and ed >= 0 and fed == ed
+
     def _set_scene_selection_state(
         self, selected_delegate_index: int, expanded_delegate_index: int
     ) -> None:
@@ -1071,6 +1166,7 @@ class DvdShelfView(QWidget):
             self._bridge.expandedWorkMakerId = -1
             self._bridge.expandedWorkLabelId = -1
             self._bridge.expandedWorkSeriesId = -1
+            self._clear_fanart_strip_overlay()
             return
 
         work_id = self._work_ids[virtual_index]
@@ -1105,6 +1201,28 @@ class DvdShelfView(QWidget):
         self._bridge.expandedWorkMakerId = _expanded_entity_id(info.get("maker_id"))
         self._bridge.expandedWorkLabelId = _expanded_entity_id(info.get("label_id"))
         self._bridge.expandedWorkSeriesId = _expanded_entity_id(info.get("series_id"))
+
+        fanart_entries: list[dict] = []
+        raw_fanart = info.get("fanart")
+        if isinstance(raw_fanart, str) and raw_fanart.strip():
+            try:
+                parsed = json.loads(raw_fanart)
+                if isinstance(parsed, list):
+                    fanart_entries = [e for e in parsed if isinstance(e, dict)]
+            except json.JSONDecodeError:
+                pass
+        self._fanart_preview_work_id = work_id
+        self._fanart_strip.set_entries(fanart_entries)
+        has_fanart = len(fanart_entries) > 0
+        show_fanart = has_fanart and self._scene_dvd_fully_expanded()
+        self._fanart_strip_container.setVisible(show_fanart)
+        if show_fanart:
+            self._fanart_strip_container.raise_()
+            if self._last_fanart_strip_anchor is not None:
+                self._update_fanart_strip_geometry(
+                    self._last_fanart_strip_anchor[0],
+                    self._last_fanart_strip_anchor[1],
+                )
 
     def _on_heart_clicked(self, virtual_index: int) -> None:
         """爱心点击：切换收藏状态，参考 SingleWorkPage.on_clicked_heart。"""

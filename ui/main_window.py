@@ -36,6 +36,12 @@ class MainWindow(QMainWindow):
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_memory)
         self.timer.start(1000)  # 1秒更新一次，减少标题栏重绘
+        # cpu_percent 的间隔统计绑定在 Process 实例上，必须长期复用同一对象
+        import os
+        import psutil
+
+        self._psutil_proc = psutil.Process(os.getpid())
+        self._psutil_proc.cpu_percent(interval=None)
 
         self.signal_connect()
 
@@ -278,12 +284,15 @@ class MainWindow(QMainWindow):
         """更新内存（仅在前台时更新标题，降低开销）"""
         if not self.isVisible() or not self.isActiveWindow():
             return
-        import psutil
-        import os
-        process = psutil.Process(os.getpid())
-        mem_main: int = process.memory_info().rss
+        mem_main: int = self._psutil_proc.memory_info().rss
         main_mb: float = mem_main / 1024 ** 2
-        self.setWindowTitle("暗之眼 " + "V" + APP_VERSION + f" 内存使用: {main_mb:.2f} MB")
+        cpu_pct: float = self._psutil_proc.cpu_percent(interval=None)
+        self.setWindowTitle(
+            "暗之眼 "
+            + "V"
+            + APP_VERSION
+            + f" 内存使用: {main_mb:.2f} MB  CPU: {cpu_pct:.1f}%"
+        )
 
     @Slot()
     def update_thread_count(self) -> None:

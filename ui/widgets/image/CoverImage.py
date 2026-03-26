@@ -122,7 +122,7 @@ class CoverImage(QLabel):
             event.accept()  # 消费掉右键事件
         if event.button() == Qt.MouseButton.LeftButton:
  
-            QTimer.singleShot(0, lambda:Router.instance().push("work", work_id=self._work_id))
+            QTimer.singleShot(0, lambda:Router.instance().push("shelf", work_id=self._work_id))
             
             logging.debug(f"跳转单个作品界面：ID:{self._work_id}")
             event.accept()  # 消费掉左键事件

@@ -3,7 +3,8 @@ from __future__ import annotations
 import copy
 import logging
 import os
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
+from functools import lru_cache
 import re
 import tempfile
 from pathlib import Path
@@ -152,6 +153,42 @@ def _thumb_path_for_entry(
     return None
 
 
+def _entry_has_url(entry: dict) -> bool:
+    return bool((entry.get("url") or "").strip())
+
+
+def _thumb_cache_token(path: str) -> tuple[str, int, int] | None:
+    try:
+        stat = Path(path).stat()
+    except OSError:
+        return None
+    return (path, stat.st_mtime_ns, stat.st_size)
+
+
+@lru_cache(maxsize=256)
+def _load_cached_thumb_pixmap(
+    path: str, mtime_ns: int, size: int
+) -> QPixmap | None:
+    del mtime_ns, size
+    pixmap = QPixmap(path)
+    if pixmap.isNull():
+        return None
+    return pixmap.scaled(
+        QSize(_THUMB_SIDE, _THUMB_SIDE),
+        Qt.AspectRatioMode.KeepAspectRatio,
+        Qt.TransformationMode.SmoothTransformation,
+    )
+
+
+def _thumb_pixmap_for_path(path: str | None) -> QPixmap | None:
+    if not path:
+        return None
+    token = _thumb_cache_token(path)
+    if token is None:
+        return None
+    return _load_cached_thumb_pixmap(*token)
+
+
 _DIALOG_PREVIEW = 600
 # 对话框预览：工作线程里先把长边压到此值以下，避免主线程解码/缩放超大图卡顿
 _PREVIEW_DECODE_MAX_SIDE = 1400
@@ -293,6 +330,7 @@ class FanartEditDialog(QDialog):
         parent: QWidget | None = None,
         *,
         auto_download_if_missing: bool = False,
+        url_read_only: bool = False,
     ) -> None:
         super().__init__(parent)
         self._entries = entries
@@ -307,9 +345,9 @@ class FanartEditDialog(QDialog):
             self._index = max(0, min(int(start_index), self._n - 1))
 
         self._download_busy = False
-        self._download_target_index: int | None = None
         self._btn_download_default_text = "下载"
         self._auto_download_if_missing = auto_download_if_missing
+        self._url_read_only = url_read_only
         self._preview_load_gen = 0
 
         self.setWindowTitle("Fanart")
@@ -339,6 +377,9 @@ class FanartEditDialog(QDialog):
 
         layout.addWidget(QLabel("图片网址："))
         self._url = LineEdit()
+        self._url.setReadOnly(url_read_only)
+        if url_read_only:
+            self._url.setToolTip("预览模式：网址由资料库提供，仅可下载到本地")
         url_row = QHBoxLayout()
         url_row.addWidget(self._url, 1)
         self._btn_download = Button(
@@ -388,7 +429,7 @@ class FanartEditDialog(QDialog):
         path = _thumb_path_for_entry(
             e, self._fanart_root, self._legacy_cover_root
         )
-        if path and Path(path).is_file():
+        if path:
             return
         self._start_fanart_download_async(self._index, url)
 
@@ -430,7 +471,6 @@ class FanartEditDialog(QDialog):
         if not (0 <= slot_index < self._n):
             return
         self._download_busy = True
-        self._download_target_index = slot_index
         self._btn_download.setEnabled(False)
         self._btn_download.setText("下载中…")
 
@@ -493,8 +533,8 @@ class FanartEditDialog(QDialog):
         path = _thumb_path_for_entry(
             e, self._fanart_root, self._legacy_cover_root
         )
-        has_url = bool((e.get("url") or "").strip())
-        if path and Path(path).is_file():
+        has_url = _entry_has_url(e)
+        if path:
             self._preview_load_gen += 1
             gen = self._preview_load_gen
             slot_index = self._index
@@ -713,12 +753,13 @@ class _FanartThumbCell(QFrame):
             return
         self._label.clear()
         if pix is not None and not pix.isNull():
-            scaled = pix.scaled(
-                QSize(_THUMB_SIDE, _THUMB_SIDE),
-                Qt.AspectRatioMode.KeepAspectRatio,
-                Qt.TransformationMode.SmoothTransformation,
-            )
-            self._label.setPixmap(scaled)
+            if pix.width() > _THUMB_SIDE or pix.height() > _THUMB_SIDE:
+                pix = pix.scaled(
+                    QSize(_THUMB_SIDE, _THUMB_SIDE),
+                    Qt.AspectRatioMode.KeepAspectRatio,
+                    Qt.TransformationMode.SmoothTransformation,
+                )
+            self._label.setPixmap(pix)
             self._label.setStyleSheet(
                 "QLabel { background-color: transparent; border: none; }"
             )
@@ -775,6 +816,10 @@ class FanartStripWidget(QWidget):
     默认仅显示缩略图；在缩略图或横条空白处长按约 0.45s 进入编辑模式：末尾出现虚线「+」格，
     每项右上角显示 × 可删。焦点离开本控件（及无模态框遮挡）后退出编辑模式并发出
     ``fanart_changed`` 以同步模型。非编辑模式下单击缩略图打开大图/网址编辑；编辑模式下单击仅选中，不打开大图。
+
+    **预览模式**（`set_preview_mode(True)`）：禁止长按进入编辑；单击仍打开大图对话框，
+    网址为只读，可从网址下载；下载成功后除 ``fanart_changed`` 外，若已设置
+    ``set_preview_download_persist``，会再调用该回调（用于浏览场景下写回数据库）。
     """
 
     fanart_changed = Signal(list)
@@ -795,6 +840,8 @@ class FanartStripWidget(QWidget):
         self._thumb_cells: list[_FanartThumbCell] = []
         self._selected_index: int | None = None
         self._can_add = True
+        self._preview_mode = False
+        self._preview_download_persist: Callable[[list[dict]], None] | None = None
         self._edit_mode = False
         self._suspend_leave_edit_for_modal = False
         self._pending_open_index: int | None = None
@@ -809,6 +856,7 @@ class FanartStripWidget(QWidget):
 
         self._scroll = _FanartHScrollArea()
         self._scroll.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self._scroll.setFrameShape(QFrame.Shape.NoFrame)
         self._scroll.setWidgetResizable(True)
         self._scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self._scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
@@ -828,17 +876,12 @@ class FanartStripWidget(QWidget):
 
         self._tail_cell: _FanartThumbCell | None = None
 
-        row = QHBoxLayout()
-        row.setContentsMargins(0, 0, 0, 0)
-        row.setAlignment(Qt.AlignmentFlag.AlignVCenter)
-        row.addWidget(self._scroll, 1)
-
         self.setSizePolicy(
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
         )
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
-        outer.addLayout(row, 1)
+        outer.addWidget(self._scroll, 1)
         self.setFocusPolicy(Qt.FocusPolicy.ClickFocus)
         QApplication.instance().focusObjectChanged.connect(
             self._on_app_focus_object_changed
@@ -853,6 +896,8 @@ class FanartStripWidget(QWidget):
         return max(40, QApplication.styleHints().mouseDoubleClickInterval() - 30)
 
     def _enter_edit_mode(self) -> None:
+        if self._preview_mode:
+            return
         if self._edit_mode:
             return
         self._cancel_pending_thumb_open()
@@ -921,10 +966,50 @@ class FanartStripWidget(QWidget):
         self._can_add = enabled
         self._sync_tail_cell_enabled()
 
+    def set_preview_mode(self, enabled: bool) -> None:
+        """预览模式：不可长按进入编辑；详見类文档。"""
+        self._preview_mode = bool(enabled)
+        if self._preview_mode:
+            self._leave_edit_mode(commit=False)
+
+    def set_preview_download_persist(
+        self, fn: Callable[[list[dict]], None] | None
+    ) -> None:
+        """浏览场景下，剧照下载成功后额外调用此回调传入当前条目列表（已含 ``file`` 等），用于写库。"""
+        self._preview_download_persist = fn
+
     def _sync_tail_cell_enabled(self) -> None:
         if self._tail_cell is None:
             return
         self._tail_cell.setEnabled(self._can_add)
+
+    def _thumb_payload_for_entry(self, entry: dict) -> tuple[QPixmap | None, bool]:
+        path = _thumb_path_for_entry(
+            entry, self._fanart_path, self._legacy_cover_path
+        )
+        return _thumb_pixmap_for_path(path), _entry_has_url(entry)
+
+    def _populate_thumb_cell(
+        self, cell: _FanartThumbCell, entry: dict, *, selected: bool
+    ) -> None:
+        pixmap, has_url = self._thumb_payload_for_entry(entry)
+        cell.set_thumb(pixmap, url_but_no_image=has_url)
+        cell.set_selected(selected)
+
+    def _refresh_thumb_cell(self, index: int) -> bool:
+        if not (0 <= index < len(self._entries)):
+            return False
+        if not (
+            index < len(self._thumb_cells)
+            and len(self._thumb_cells) == len(self._entries)
+        ):
+            return False
+        self._populate_thumb_cell(
+            self._thumb_cells[index],
+            self._entries[index],
+            selected=self._selected_index == index,
+        )
+        return True
 
     def set_entries(self, entries: list[dict]) -> None:
         self._cancel_pending_thumb_open()
@@ -984,16 +1069,9 @@ class FanartStripWidget(QWidget):
         self._thumb_cells.clear()
         for i, entry in enumerate(self._entries):
             cell = _FanartThumbCell()
-            path = _thumb_path_for_entry(
-                entry, self._fanart_path, self._legacy_cover_path
+            self._populate_thumb_cell(
+                cell, entry, selected=self._selected_index == i
             )
-            has_url = bool((entry.get("url") or "").strip())
-            if path:
-                pm = QPixmap(path)
-                cell.set_thumb(pm if not pm.isNull() else None, url_but_no_image=has_url)
-            else:
-                cell.set_thumb(None, url_but_no_image=has_url)
-            cell.set_selected(self._selected_index == i)
             cell.clicked.connect(lambda idx=i: self._on_thumb_cell_clicked(idx))
             cell.doubleClicked.connect(lambda idx=i: self._on_thumb_cell_double(idx))
             cell.longPressed.connect(self._enter_edit_mode)
@@ -1041,27 +1119,11 @@ class FanartStripWidget(QWidget):
         self._entries[index].update(fields)
         if LOCAL_ABS_KEY in self._entries[index]:
             del self._entries[index][LOCAL_ABS_KEY]
-        if (
-            index < len(self._thumb_cells)
-            and len(self._thumb_cells) == len(self._entries)
-        ):
-            entry = self._entries[index]
-            path = _thumb_path_for_entry(
-                entry, self._fanart_path, self._legacy_cover_path
-            )
-            has_url = bool((entry.get("url") or "").strip())
-            if path:
-                pm = QPixmap(path)
-                self._thumb_cells[index].set_thumb(
-                    pm if not pm.isNull() else None, url_but_no_image=has_url
-                )
-            else:
-                self._thumb_cells[index].set_thumb(
-                    None, url_but_no_image=has_url
-                )
-        else:
+        if not self._refresh_thumb_cell(index):
             self._rebuild_strip()
         self._emit()
+        if self._preview_mode and self._preview_download_persist is not None:
+            self._preview_download_persist(copy.deepcopy(self._entries))
 
     def _on_cell_select_only(self, index: int) -> None:
         self._selected_index = index
@@ -1102,6 +1164,7 @@ class FanartStripWidget(QWidget):
             legacy_cover_root=self._legacy_cover_path,
             parent=self,
             auto_download_if_missing=True,
+            url_read_only=self._preview_mode,
         )
         rc = dlg.exec()
         if rc == QDialog.DialogCode.Accepted:
