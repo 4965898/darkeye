@@ -1,5 +1,11 @@
 from PySide6.QtWidgets import (
-    QDialog,QVBoxLayout, QHBoxLayout, QTableWidgetItem, QHeaderView, QAbstractItemView
+    QDialog,
+    QVBoxLayout,
+    QHBoxLayout,
+    QTableWidgetItem,
+    QHeaderView,
+    QAbstractItemView,
+    QInputDialog,
 )
 from PySide6.QtCore import  Qt
 from PySide6.QtGui import QIcon
@@ -19,6 +25,7 @@ class AddQuickWork(QDialog):
         self.setWindowIcon(QIcon(str(ICONS_PATH / "film.png")))
         self.setFixedSize(400, 500)
         self.msg = MessageBoxService(self)
+        self._sort_ascending = True
 
         self.init_ui()
 
@@ -28,14 +35,20 @@ class AddQuickWork(QDialog):
         self.btn_add = Button("添加")
         self.btn_del = Button("删除")
         self.btn_clean = Button("去后缀")
+        self.btn_clean_prefix = Button("删前缀行")
+        self.btn_sort = Button("排序")
         
         self.btn_add.clicked.connect(self.add_row)
         self.btn_del.clicked.connect(self.delete_rows)
         self.btn_clean.clicked.connect(self.clean_suffix)
+        self.btn_clean_prefix.clicked.connect(self.clean_prefix)
+        self.btn_sort.clicked.connect(self.sort_rows)
         
         top_layout.addWidget(self.btn_add)
         top_layout.addWidget(self.btn_del)
         top_layout.addWidget(self.btn_clean)
+        top_layout.addWidget(self.btn_clean_prefix)
+        top_layout.addWidget(self.btn_sort)
 
         # 2. 中间列表区域
         self.table = TokenTableWidget()
@@ -107,6 +120,60 @@ class AddQuickWork(QDialog):
                     if new_text != original_text:
                         text_item.setText(new_text)
 
+    def clean_prefix(self):
+        """删前缀行：输入前缀字符串，删除已勾选且番号以此前缀开头的整行（前缀比较不区分大小写）。"""
+        prefix, ok = QInputDialog.getText(
+            self,
+            "删前缀行",
+            "输入前缀（删除已勾选且以此前缀开头的番号行）：",
+        )
+        if not ok:
+            return
+        prefix = prefix.strip()
+        if not prefix:
+            self.msg.show_warning("提示", "前缀不能为空")
+            return
+        plower = prefix.lower()
+        rows_to_delete = []
+        for row in range(self.table.rowCount()):
+            chk_item = self.table.item(row, 0)
+            if chk_item and chk_item.checkState() == Qt.Checked:
+                text_item = self.table.item(row, 1)
+                if text_item:
+                    original_text = text_item.text().strip()
+                    if original_text.lower().startswith(plower):
+                        rows_to_delete.append(row)
+        for row in reversed(rows_to_delete):
+            self.table.removeRow(row)
+
+    def sort_rows(self):
+        """按番号列排序当前所有行（点击在升序/降序间切换）。"""
+        rows = []
+        for row in range(self.table.rowCount()):
+            chk_item = self.table.item(row, 0)
+            text_item = self.table.item(row, 1)
+            if chk_item is None or text_item is None:
+                continue
+            rows.append(
+                {
+                    "checked": chk_item.checkState(),
+                    "text": text_item.text(),
+                }
+            )
+        rows.sort(key=lambda r: r["text"].strip().lower(), reverse=not self._sort_ascending)
+        self._sort_ascending = not self._sort_ascending
+
+        self.table.setRowCount(0)
+        for r in rows:
+            row = self.table.rowCount()
+            self.table.insertRow(row)
+            chk_item = QTableWidgetItem()
+            chk_item.setFlags(Qt.ItemIsUserCheckable | Qt.ItemIsEnabled | Qt.ItemIsSelectable)
+            chk_item.setCheckState(r["checked"])
+            self.table.setItem(row, 0, chk_item)
+            text_item = QTableWidgetItem(r["text"])
+            self.table.setItem(row, 1, text_item)
+
     def load_serials(self, serial_list):
         """加载番号列表到表格中"""
         self.table.setRowCount(0)  # 清空现有行
@@ -135,7 +202,7 @@ class AddQuickWork(QDialog):
                     serial = text_item.text().strip()
                     if serial:
                         serial_list.append(serial)
-        
+        logging.info(serial_list)
         if not serial_list:
             self.msg.show_warning("提示", "没有选中任何有效的番号")
             return
