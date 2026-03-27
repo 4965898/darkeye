@@ -6,9 +6,15 @@
 详见 docs/write_ops_signal_mapping.md 映射表。
 """
 import logging
+import random
+import time
+
+from utils.utils import translate_text_sync
+
 from config import DATABASE
 from .connection import get_connection
 from sqlite3 import Cursor,IntegrityError
+from .query.work import get_works_for_auto_cn_translation
 #----------------------------------------------------------------------------------------------------------
 #                                               公共数据库的更新
 #----------------------------------------------------------------------------------------------------------
@@ -902,3 +908,49 @@ def update_work_maker_from_prefix_relation() -> str:
     finally:
         cursor.close()
         conn.close()
+
+
+def batch_translate_missing_cn_fields() -> str:
+    """
+    后台批量翻译：jp_title→cn_title（缺省时）、jp_story→cn_story（缺省时）。
+    若某行 jp_title 与 jp_story 均无有效日文，则不会选中；翻译失败则跳过该字段写入。
+    调用后需 emit: global_signals.work_data_changed
+    """
+    rows = get_works_for_auto_cn_translation()
+    if not rows:
+        return "没有需要翻译的作品"
+
+    rows_touched = 0
+    n_cn_title = 0
+    n_cn_story = 0
+
+    for row in rows:
+        work_id = row.get("work_id")
+        if work_id is None:
+            continue
+        jp_t = (row.get("jp_title") or "").strip()
+        jp_s = (row.get("jp_story") or "").strip()
+        cn_t_existing = (row.get("cn_title") or "").strip()
+        cn_s_existing = (row.get("cn_story") or "").strip()
+
+        fields: dict[str, str] = {}
+        if jp_t and not cn_t_existing:
+            out = translate_text_sync(jp_t)
+            if out:
+                fields["cn_title"] = out
+                n_cn_title += 1
+        if jp_s and not cn_s_existing:
+            out_s = translate_text_sync(jp_s)
+            if out_s:
+                fields["cn_story"] = out_s
+                n_cn_story += 1
+
+        if fields and update_work_byhand_(int(work_id), **fields):
+            rows_touched += 1
+
+        time.sleep(random.uniform(0.35, 0.9))
+
+    return (
+        f"共 {len(rows)} 条待处理，已写入 {rows_touched} 条作品；"
+        f"补充 cn_title {n_cn_title} 项，cn_story {n_cn_story} 项"
+    )

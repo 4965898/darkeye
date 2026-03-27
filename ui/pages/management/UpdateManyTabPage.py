@@ -31,6 +31,12 @@ class UpdateManyTabPage(LazyWidget):
         self.btn_update_maker_by_knowledge=Button("根据番号前缀判断片商")
         self.btn_update_maker_by_knowledge.setToolTip("根据番号前缀把，那些确定的片商都给改了")
 
+        self.btn_batch_translate_cn = Button("一键翻译标题/简介")
+        self.btn_batch_translate_cn.setToolTip(
+            "后台执行：有日文标题且中文标题为空时翻译成 cn_title；"
+            "有日文简介且中文简介为空时翻译成 cn_story；二者皆无日文源的作品不会请求翻译。"
+        )
+
         #self.btn_search_actor.clicked.connect(update_actor_db)
         self.btn_search_story.clicked.connect(update_title_story_db)
         self.btn_search_actress.clicked.connect(self.task_search_actress)
@@ -43,6 +49,7 @@ class UpdateManyTabPage(LazyWidget):
         left_layout.addWidget(self.btn_search_actress)
         left_layout.addWidget(self.btn_update_needactress)
         left_layout.addWidget(self.btn_update_maker_by_knowledge)
+        left_layout.addWidget(self.btn_batch_translate_cn)
         left_layout.addStretch()
 
         self.crawler_auto_page = CrawlerAutoPage()
@@ -64,6 +71,7 @@ class UpdateManyTabPage(LazyWidget):
         )
         self.btn_update_needactress.clicked.connect(self.searchActressinfo)
         self.btn_update_maker_by_knowledge.clicked.connect(self.task_update_maker_by_prefix)
+        self.btn_batch_translate_cn.clicked.connect(self.task_batch_translate_cn)
         self.crawler_auto_page.btn_get_crawler.setToolTip("根据指定字段，补充爬取，该功能为对所有的片进行筛选，只对有空字段的进行爬取，而且只更新空字段")
         self.crawler_auto_page.btn_get_crawler.clicked.connect(self.bulk_crawl_empty_fields)
 
@@ -94,6 +102,26 @@ class UpdateManyTabPage(LazyWidget):
 
         if result is None:
             self.msg.show_info("错误", "更新失败，请查看日志")
+            return
+        global_signals.work_data_changed.emit()
+        self.msg.show_info("完成", str(result))
+
+    @Slot()
+    def task_batch_translate_cn(self):
+        from core.crawler.Worker import Worker
+        from core.database.update import batch_translate_missing_cn_fields
+
+        worker = Worker(batch_translate_missing_cn_fields)
+        worker.signals.finished.connect(self._on_batch_translate_finished)
+        QThreadPool.globalInstance().start(worker)
+        self.msg.show_info("开始", "正在后台翻译并写库，请稍候…")
+
+    @Slot(object)
+    def _on_batch_translate_finished(self, result):
+        from controller.GlobalSignalBus import global_signals
+
+        if result is None:
+            self.msg.show_info("错误", "批量翻译失败，请查看日志")
             return
         global_signals.work_data_changed.emit()
         self.msg.show_info("完成", str(result))
