@@ -6,22 +6,38 @@ import json
 import logging
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 
+from config import DATABASE, TEMP_PATH
 from controller.GlobalSignalBus import global_signals
+from core.crawler.download import download_image_with_retry
+from core.database.connection import get_connection
 from core.database.insert import (
+    InsertNewActor,
+    InsertNewActress,
     InsertNewLabel,
     InsertNewMaker,
     InsertNewSeries,
     InsertNewWorkByHand,
     insert_tag,
+    rename_save_image,
 )
-from core.database.query import get_tagid_by_keyword, get_workid_by_serialnumber
+from core.database.query import exist_actor, exist_actress, get_tagid_by_keyword, get_workid_by_serialnumber
 from core.database.query.work import (
     get_label_id_by_name,
     get_maker_id_by_name,
     get_series_id_by_name,
 )
+from core.database.update import update_actress_image
+
+
+@dataclass
+class NfoCastEntry:
+    """Kodi 风格 <actor>：name + 可选头像 thumb。"""
+
+    name: str
+    thumb: str
 
 
 @dataclass
@@ -39,6 +55,8 @@ class ParsedMovieNfo:
     genre_names: list[str]
     tag_names: list[str]  # 来自 <tag>，入库时解析为系列（首条非空）
     fanart_json: str | None
+    cast: list[NfoCastEntry]
+    work_thumb_candidates: list[str]  # movie 直接子级 <thumb>，用于作品封面
 
 
 def _text(root: ET.Element, tag: str) -> str:
@@ -56,6 +74,194 @@ def _parse_runtime(raw: str) -> int | None:
         return int(raw)
     except ValueError:
         return None
+
+
+def _parse_cast_entries(movie: ET.Element) -> list[NfoCastEntry]:
+    out: list[NfoCastEntry] = []
+    for node in movie.findall("actor"):
+        nm = _text(node, "name")
+        th = _text(node, "thumb")
+        nm = nm.strip()
+        if nm:
+            out.append(NfoCastEntry(name=nm, thumb=(th or "").strip()))
+    return out
+
+
+def _movie_level_thumb_candidates(movie: ET.Element) -> list[str]:
+    """仅 movie 直接子节点 <thumb>（不包含 fanart 内缩略图）。"""
+    urls: list[str] = []
+    for thumb in movie.findall("thumb"):
+        u = (thumb.text or "").strip()
+        if not u:
+            u = (thumb.get("preview") or "").strip()
+        if u:
+            urls.append(u)
+    return urls
+
+
+def _fallback_cover_thumb_from_cast(cast: list[NfoCastEntry]) -> str | None:
+    """无 movie 级 thumb 时：优先取已解析为女优的卡司的 thumb，再取首条非空头像。"""
+
+    for entry in cast:
+        thumb = (entry.thumb or "").strip()
+        if not thumb:
+            continue
+        name = (entry.name or "").strip()
+        if name and exist_actress(name) is not None:
+            return thumb
+    for entry in cast:
+        thumb = (entry.thumb or "").strip()
+        if thumb:
+            return thumb
+    return None
+
+
+def _is_large_thumb_path(path: str) -> bool:
+    """Jvedio 等：BigPic / large / 大图 视为封面大图。"""
+    low = path.lower().replace("\\", "/")
+    return "bigpic" in low or "largepic" in low or "/large/" in low or "大图" in path
+
+
+def _is_small_thumb_path(path: str) -> bool:
+    """小封面图路径：有大图时一律不采用。"""
+    low = path.lower().replace("\\", "/")
+    return "smallpic" in low or "small_pic" in low or "/small/" in low or "小图" in path
+
+
+def _pick_work_cover_source(candidates: list[str]) -> str | None:
+    """本地封面：有可用大图则只用大图，绝不再用小图；无大图再考虑中性路径、小图，最后 URL。"""
+    locals_ok: list[str] = []
+    remotes: list[str] = []
+    for c in candidates:
+        t = (c or "").strip()
+        low = t.lower()
+        if low.startswith("http://") or low.startswith("https://"):
+            remotes.append(t)
+            continue
+        if Path(t).is_file():
+            locals_ok.append(t)
+
+    large_locals = [p for p in locals_ok if _is_large_thumb_path(p)]
+    small_locals = [p for p in locals_ok if _is_small_thumb_path(p)]
+    neutral_locals = [p for p in locals_ok if p not in large_locals and p not in small_locals]
+
+    if large_locals:
+        # 同为大图时优先 BigPic，再其它 large
+        large_locals.sort(key=lambda p: (0 if "bigpic" in p.lower() else 1, p.lower()))
+        return large_locals[0]
+    if neutral_locals:
+        return neutral_locals[0]
+    if small_locals:
+        return small_locals[0]
+    if remotes:
+        return remotes[0]
+    return None
+
+
+def _prepare_local_image_path(src: str) -> str | None:
+    """供 rename_save_image 使用的本地绝对路径；http(s) 先下载到临时文件。"""
+    s = (src or "").strip()
+    if not s:
+        return None
+    low = s.lower()
+    if low.startswith("http://") or low.startswith("https://"):
+        TEMP_PATH.mkdir(parents=True, exist_ok=True)
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+        dest = TEMP_PATH / f"nfo_img_{ts}.jpg"
+        ok, _ = download_image_with_retry(s, str(dest), retries=1)
+        return str(dest.resolve()) if ok else None
+    p = Path(s)
+    return str(p.resolve()) if p.is_file() else None
+
+
+def _work_cover_filename(serial_number: str) -> str:
+    return serial_number.strip().lower().replace("-", "") + "pl.jpg"
+
+
+def _resolve_cast_from_nfo(cast: list[NfoCastEntry]) -> tuple[list[int], list[int], bool, bool]:
+    """按 JAV NFO 常见顺序：首个库外人员建为女优，之后库外人员建为男优。"""
+    actress_ids: list[int] = []
+    actor_ids: list[int] = []
+    seen_a: set[int] = set()
+    seen_o: set[int] = set()
+    actress_added = False
+    actor_added = False
+    first_unknown_as_actress = True
+
+    for entry in cast:
+        name = (entry.name or "").strip()
+        if not name:
+            continue
+        aid = exist_actress(name)
+        if aid is not None:
+            if aid not in seen_a:
+                seen_a.add(aid)
+                actress_ids.append(aid)
+            continue
+        oid = exist_actor(name)
+        if oid is not None:
+            if oid not in seen_o:
+                seen_o.add(oid)
+                actor_ids.append(oid)
+            continue
+        if first_unknown_as_actress:
+            if InsertNewActress(name, name):
+                actress_added = True
+            aid = exist_actress(name)
+            first_unknown_as_actress = False
+            if aid is not None and aid not in seen_a:
+                seen_a.add(aid)
+                actress_ids.append(aid)
+        else:
+            if InsertNewActor(name, name):
+                actor_added = True
+            oid = exist_actor(name)
+            if oid is not None and oid not in seen_o:
+                seen_o.add(oid)
+                actor_ids.append(oid)
+    return actress_ids, actor_ids, actress_added, actor_added
+
+
+def _update_actor_image_only(actor_id: int, image_filename: str) -> None:
+    conn = get_connection(DATABASE, False)
+    cursor = conn.cursor()
+    try:
+        cursor.execute("UPDATE actor SET image_url=? WHERE actor_id=?", (image_filename, actor_id))
+        conn.commit()
+    finally:
+        cursor.close()
+        conn.close()
+
+
+def _apply_cast_portraits(cast: list[NfoCastEntry]) -> tuple[bool, bool]:
+    """将各 <actor><thumb> 写入头像并移动到 actressimages/actorimages。"""
+    actress_image_touched = False
+    actor_image_touched = False
+    for entry in cast:
+        thumb = (entry.thumb or "").strip()
+        if not thumb:
+            continue
+        name = (entry.name or "").strip()
+        if not name:
+            continue
+        local = _prepare_local_image_path(thumb)
+        if not local:
+            logging.warning("NFO 头像无法解析或下载：%s", thumb[:80])
+            continue
+        aid = exist_actress(name)
+        if aid is not None:
+            dest_file = f"{aid}-{name}.jpg"
+            rename_save_image(local, dest_file, "actress")
+            update_actress_image(aid, dest_file)
+            actress_image_touched = True
+            continue
+        oid = exist_actor(name)
+        if oid is not None:
+            dest_file = f"{oid}-{name}.jpg"
+            rename_save_image(local, dest_file, "actor")
+            _update_actor_image_only(oid, dest_file)
+            actor_image_touched = True
+    return actress_image_touched, actor_image_touched
 
 
 def _collect_fanart_urls(movie: ET.Element) -> str | None:
@@ -118,6 +324,8 @@ def parse_movie_nfo(path: Path) -> tuple[ParsedMovieNfo | None, str | None]:
         genre_names=genre_names,
         tag_names=tag_names,
         fanart_json=_collect_fanart_urls(root),
+        cast=_parse_cast_entries(root),
+        work_thumb_candidates=_movie_level_thumb_candidates(root),
     )
     return parsed, None
 
@@ -210,6 +418,7 @@ def import_work_from_movie_nfo(path: Path) -> tuple[bool, str]:
         maker_id, label_id, maker_added, label_added = _resolve_maker_label(parsed.studio_raw)
         tag_ids, tag_added = _resolve_tag_names(list(dict.fromkeys(parsed.genre_names)))
         series_id, series_added = _resolve_series_from_nfo_tags(parsed.tag_names)
+        actress_ids, actor_ids, actress_added, actor_added = _resolve_cast_from_nfo(parsed.cast)
     except RuntimeError as e:
         return False, str(e)
 
@@ -221,11 +430,28 @@ def import_work_from_movie_nfo(path: Path) -> tuple[bool, str]:
         global_signals.series_data_changed.emit()
     if tag_added:
         global_signals.tag_data_changed.emit()
+    if actress_added:
+        global_signals.actress_data_changed.emit()
+    if actor_added:
+        global_signals.actor_data_changed.emit()
 
-    director = parsed.director.strip() or None
+    director = parsed.director.strip() or "----"
     jp_title = parsed.jp_title.strip() or None
     jp_story = parsed.jp_story.strip() or None
     notes = parsed.notes.strip() or None
+
+    cover_src = _pick_work_cover_source(parsed.work_thumb_candidates)
+    if not cover_src:
+        cover_src = _fallback_cover_thumb_from_cast(parsed.cast)
+    image_url: str | None = None
+    if cover_src:
+        local_cover = _prepare_local_image_path(cover_src)
+        if local_cover:
+            cover_name = _work_cover_filename(parsed.serial_number)
+            rename_save_image(local_cover, cover_name, "cover")
+            image_url = cover_name
+        else:
+            logging.warning("NFO 作品封面无法加载：%s", cover_src[:120])
 
     ok = InsertNewWorkByHand(
         parsed.serial_number,
@@ -233,13 +459,13 @@ def import_work_from_movie_nfo(path: Path) -> tuple[bool, str]:
         parsed.release_date,
         notes,
         parsed.runtime,
-        [],
-        [],
+        list(dict.fromkeys(actress_ids)),
+        list(dict.fromkeys(actor_ids)),
         None,
         None,
         jp_title,
         jp_story,
-        None,
+        image_url,
         tag_ids,
         maker_id,
         label_id,
@@ -251,4 +477,11 @@ def import_work_from_movie_nfo(path: Path) -> tuple[bool, str]:
         return False, "写入数据库失败"
 
     global_signals.work_data_changed.emit()
+
+    img_act, img_actor = _apply_cast_portraits(parsed.cast)
+    if img_act:
+        global_signals.actress_data_changed.emit()
+    if img_actor:
+        global_signals.actor_data_changed.emit()
+
     return True, f"已从 NFO 导入作品：{parsed.serial_number}"
