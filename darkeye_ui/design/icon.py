@@ -88,6 +88,8 @@ SVG_LOVE_OFF = '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" v
 SVG_LOVE_ON = '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><path d="m4.012 5.446a8.476 8.476 0 0 0 2.6e-6 11.99l11.99 11.99 11.99-11.99a8.476 8.476 0 0 0 0-11.99 8.476 8.476 0 0 0-11.99 0.0021 8.476 8.476 0 0 0-11.99-0.0021z" fill="#ff2a2a" stroke-width="0"/></svg>'
 
 
+SVG_LAYOUT_GRID='<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg>'
+SVG_LAYOUT_WATERFALL='<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>'
 
 BUILTIN_ICONS = {
     "x": SVG_X,
@@ -142,6 +144,9 @@ BUILTIN_ICONS = {
     "house": SVG_HOUSE,
     "love_off": SVG_LOVE_OFF,
     "love_on": SVG_LOVE_ON,
+
+    "layout_grid": SVG_LAYOUT_GRID,
+    "layout_waterfall": SVG_LAYOUT_WATERFALL,
 }
 
 

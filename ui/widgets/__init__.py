@@ -7,9 +7,10 @@ from .selectors.ActressSelector import ActressSelector
 from .selectors.ActorSelector import ActorSelector
 
 from .image.CoverCard import CoverCard
+from .image.CoverCard2 import CoverCard2
 from .image.ActressCard import ActressCard
 from .image.ActressAvatar import ActressAvatar
-from .image.CoverImage import CoverImage
+from .image.CoverImage import CoverImage, CoverImageFixed
 from .image.CoverDropWidget import CoverDropWidget
 from .image.FanartStripWidget import FanartStripWidget
 from .image.ActressAvatarDropWidget import ActressAvatarDropWidget

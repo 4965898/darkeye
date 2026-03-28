@@ -131,6 +131,18 @@ class LazyScrollArea(QScrollArea):
     def _apply_token_styles(self) -> None:
         self.setStyleSheet(_scrollbar_style_from_tokens(self._tokens()))
 
+    def set_column_width(self, column_width: int) -> None:
+        """更新瀑布流列宽并触发布局刷新。"""
+        if column_width <= 0:
+            self._logger.warning(
+                "LazyScrollArea.set_column_width: invalid column_width=%s, keep %s",
+                column_width,
+                self.waterfall_layout.column_width,
+            )
+            return
+        self.waterfall_layout.column_width = column_width
+        self.waterfall_layout.invalidate()
+
     def set_page_size(self, page_size: int) -> None:
         """设置每页加载的组件数量。"""
         if page_size <= 0:

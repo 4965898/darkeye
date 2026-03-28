@@ -1,6 +1,6 @@
 from PySide6.QtWidgets import QLabel
 from PySide6.QtGui import QMouseEvent,QPixmap,QImage
-from PySide6.QtCore import Qt,Signal,QRect,QThreadPool,QRunnable,SignalInstance,Slot,QTimer
+from PySide6.QtCore import Qt,Signal,QRect,QSize,QThreadPool,QRunnable,SignalInstance,Slot,QTimer
 import logging
 from utils.utils import mosaic_qimage
 from controller.GlobalSignalBus import global_signals
@@ -127,6 +127,59 @@ class CoverImage(QLabel):
             logging.debug(f"跳转单个作品界面：ID:{self._work_id}")
             event.accept()  # 消费掉左键事件
 
+
+class CoverImageFixed(QLabel):
+    """固定 120×81 缩略图，整图异步缩放适配，不区分 standard / 裁半逻辑。"""
+
+    jump_to_modify_work = Signal()
+    image_ready = Signal(QImage)
+    FIXED_SIZE = QSize(240, 162)
+
+    def __init__(self, image_path, work_id: int, standard: bool, green_mode=False, parent=None):
+        super().__init__(parent)
+        self.setStyleSheet("background-color: transparent;")
+        self.setAttribute(Qt.WA_TranslucentBackground, True)
+        self._path = image_path
+        self._work_id = work_id
+        self._masaic = green_mode
+        self.setFixedSize(self.FIXED_SIZE)
+        self.setAlignment(Qt.AlignCenter)
+        self.image_ready.connect(self._set_pixmap)
+        self._update_image()
+        global_signals.green_mode_changed.connect(self._update_masaic)
+
+    @Slot(bool)
+    def _update_masaic(self, is_masaic: bool):
+        self._masaic = is_masaic
+        self._update_image()
+
+    def _update_image(self):
+        self.setFixedSize(self.FIXED_SIZE)
+        self.clear()
+        if not self._path:
+            self.setText("无封面")
+            return
+        runnable = ImageLoaderRunnable2(self._path, 0.0, self.FIXED_SIZE, self.image_ready)
+        QThreadPool.globalInstance().start(runnable)
+
+    @Slot(QImage)
+    def _set_pixmap(self, img: QImage):
+        if img.isNull():
+            self.setText("无封面")
+        else:
+            if self._masaic:
+                img = mosaic_qimage(img)
+            self.setPixmap(QPixmap.fromImage(img))
+
+    def mouseReleaseEvent(self, event: QMouseEvent):
+        if event.button() == Qt.MouseButton.RightButton:
+            QTimer.singleShot(0, lambda: self.jump_to_modify_work.emit())
+            logging.debug("跳转到修改作品界面")
+            event.accept()
+        if event.button() == Qt.MouseButton.LeftButton:
+            QTimer.singleShot(0, lambda: Router.instance().push("shelf", work_id=self._work_id))
+            logging.debug(f"跳转单个作品界面：ID:{self._work_id}")
+            event.accept()
 
 
 # 废弃代码

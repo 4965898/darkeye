@@ -172,6 +172,17 @@ def set_theme_id(theme_id) -> None:
     settings.sync()
 
 
+def get_work_large_cover_view() -> bool:
+    '''作品页是否使用大图卡片（CoverCard2）瀑布列宽，默认标准视图'''
+    return settings.value("WorkPage/LargeCoverView", False, type=bool)
+
+
+def set_work_large_cover_view(enabled: bool) -> None:
+    '''持久化作品页封面视图模式'''
+    settings.setValue("WorkPage/LargeCoverView", enabled)
+    settings.sync()
+
+
 def get_custom_primary() -> str | None:
     '''从 .ini 读取自定义主色（仅亮色/暗色主题生效），不存在或为空则返回 None'''
     val = settings.value("App/CustomPrimary", "", type=str)

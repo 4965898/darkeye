@@ -2,10 +2,11 @@
 from PySide6.QtWidgets import QHBoxLayout, QWidget,QSizePolicy,QVBoxLayout
 from PySide6.QtCore import Slot,Qt,QTimer
 import sqlite3,logging
-from ui.widgets import CompleterLineEdit,CoverCard
-from darkeye_ui.components import LazyScrollArea
+from ui.widgets import CompleterLineEdit, CoverCard, CoverCard2
 from ui.basic import HorizontalScrollArea
-from config import DATABASE
+from darkeye_ui.components import LazyScrollArea
+from darkeye_ui.components.icon_push_button import IconPushButton
+from config import DATABASE, get_work_large_cover_view, set_work_large_cover_view
 from core.database.db_queue import submit_db_raw
 from core.database.query import get_actressname, get_unique_director, get_actorname, get_serial_number, get_maker_name, get_actor_allname, get_label_name, get_series_name
 from core.database.db_utils import attach_private_db,detach_private_db
@@ -44,6 +45,9 @@ class WorkPage(LazyWidget):
         self.label_id=None
         self.series_id=None
         self._green_mode=False#安全模式
+        self._large_cover_view=get_work_large_cover_view()# False: CoverCard + 窄列；True: CoverCard2 + 更宽列
+        self._work_column_standard=220
+        self._work_column_large=CoverCard2.CARD_WIDTH
 
         self.order="添加逆序"#排序的内在的值
         self.scope="公共库范围"
@@ -152,7 +156,7 @@ class WorkPage(LazyWidget):
         self.filter_layout = QHBoxLayout(self.filter_widget)  # 直接传入 widget
         self.filter_layout.setContentsMargins(10, 0, 10,0)
 
-        self.filter_layout.addWidget(scroll)
+        self.filter_layout.addWidget(scroll, 1)
 
         #self.filter_layout.addWidget(self.filter_btn)
         self.filter_layout.addWidget(self.btn_reload)
@@ -161,8 +165,13 @@ class WorkPage(LazyWidget):
         self.filter_layout.addWidget(self.scope_combo)
         self.filter_layout.addWidget(self.order_combo)
 
+        self.btn_cover_view=IconPushButton(icon_name="library_big",icon_size=22,out_size=28)
+        self._sync_cover_view_button()
+        self.filter_layout.addWidget(self.btn_cover_view)
+
         #加载影片的区域
-        self.lazy_area = LazyScrollArea(column_width=220)
+        _col = self._work_column_large if self._large_cover_view else self._work_column_standard
+        self.lazy_area = LazyScrollArea(column_width=_col)
         self.lazy_area.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         #self.lazy_area.verticalScrollBar().valueChanged.connect(self.handle_scroll)
         from ui.widgets.selectors.TagSelector5 import TagSelector5
@@ -227,6 +236,24 @@ class WorkPage(LazyWidget):
         global_signals.actor_data_changed.connect(self.actor_input.reload_items)
 
         self.btn_eraser.clicked.connect(self._clear_all_search)
+        self.btn_cover_view.clicked.connect(self._toggle_cover_view)
+
+    def _sync_cover_view_button(self) -> None:
+        if self._large_cover_view:
+            self.btn_cover_view.setToolTip("当前：大图卡片视图，点击切换为标准瀑布流")
+            self.btn_cover_view.set_icon_name("layout_grid")
+        else:
+            self.btn_cover_view.setToolTip("当前：标准卡片视图，点击切换为大图卡片")
+            self.btn_cover_view.set_icon_name("layout_waterfall")
+
+    @Slot()
+    def _toggle_cover_view(self) -> None:
+        self._large_cover_view = not self._large_cover_view
+        col = self._work_column_large if self._large_cover_view else self._work_column_standard
+        self.lazy_area.set_column_width(col)
+        self._sync_cover_view_button()
+        set_work_large_cover_view(self._large_cover_view)
+        self.lazy_area.reset()
 
     def load_with_params(self, actor_id=None, tag_id=None, serial_number=None, **kwargs):
         """
@@ -510,17 +537,24 @@ HAVING COUNT(DISTINCT wtr2.tag_id) = ?
         return submit_db_raw(_run_read).result()
 
     
-    def load_page(self, page_index: int, page_size: int) -> list[CoverCard]:
-        """返回一个页面的 CoverCard 列表，在这里进行实际的构造"""
+    def load_page(self, page_index: int, page_size: int) -> list | None:
+        """返回一个页面的封面卡片列表，在这里进行实际的构造"""
         data=self.load_data(page_index,page_size)
         if not data:
             return None
         result = []
         for serial_number, title, cover_path,tag_id,work_id,standard in data:
             color=CoverCard.backgroundcolor_from_tagid(tag_id)
-
-            card = CoverCard(title, cover_path, serial_number,work_id,bool(standard),color=color,green_mode=self._green_mode)#这里实际上创造出了信号，安全模式要从这里开始弄
-
+            if self._large_cover_view:
+                card = CoverCard2(
+                    title, cover_path, serial_number, work_id, bool(standard),
+                    color=color, green_mode=self._green_mode,
+                )
+            else:
+                card = CoverCard(
+                    title, cover_path, serial_number, work_id, bool(standard),
+                    color=color, green_mode=self._green_mode,
+                )
             result.append(card)
         return result
     
