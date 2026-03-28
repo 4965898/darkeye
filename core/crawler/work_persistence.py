@@ -106,6 +106,21 @@ class DataUpdate:
                         id = exist_actress(actress)
                         self.actress_ids.append(id)
                         global_signals.actress_data_changed.emit()
+                        #自动调用爬虫去更新女优
+                        from PySide6.QtCore import QThreadPool
+
+                        from core.crawler.Worker import Worker
+                        from core.crawler.minnanoav import SearchSingleActressInfo
+
+                        worker = Worker(
+                            lambda aid=id, nm=actress: SearchSingleActressInfo(aid, nm)
+                        )
+                        worker.signals.finished.connect(
+                            lambda ok: global_signals.actress_data_changed.emit()
+                            if ok
+                            else None
+                        )
+                        QThreadPool.globalInstance().start(worker)
                 else:
                     self.actress_ids.append(id)
 
