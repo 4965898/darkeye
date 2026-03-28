@@ -225,7 +225,7 @@ def run_update_check(
     notifier.result.connect(on_done)
 
     def worker():
-        from core.updater import check_for_updates
+        from utils.updater import check_for_updates
 
         res = check_for_updates(
             APP_VERSION,
