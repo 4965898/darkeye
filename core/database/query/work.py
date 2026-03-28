@@ -113,7 +113,7 @@ def get_workinfo_by_workid(work_id: int) -> dict:
 
 
 def get_workcardinfo_by_workid(work_id: int) -> dict:
-    """根据work_id获得单部作品的卡片数据"""
+    """根据work_id获得单部作品的卡片数据（standard 与 WorkPage.load_data 同规则）。"""
     query = """
 SELECT
     work.serial_number,
@@ -122,14 +122,12 @@ SELECT
     wtr.tag_id,
     work.work_id,
     CASE
-        WHEN (SELECT cn_name FROM maker WHERE maker_id =p.maker_id) IS NULL
+        WHEN (SELECT cn_name FROM maker WHERE maker_id = work.maker_id) IS NULL
         THEN 0
         ELSE 1
     END AS standard
 FROM work
 LEFT JOIN work_tag_relation wtr ON work.work_id = wtr.work_id AND wtr.tag_id IN (1, 2, 3)
-LEFT JOIN
-    prefix_maker_relation p ON p.prefix = SUBSTR(work.serial_number, 1, INSTR(work.serial_number, '-') - 1)
 WHERE work.work_id= ?
     """
     with get_connection(DATABASE, True) as conn:

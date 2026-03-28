@@ -1,6 +1,5 @@
 import logging
 import random
-import traceback
 from collections import deque
 from typing import Dict, Optional
 
@@ -72,13 +71,10 @@ class CrawlerManager2(QObject):
                 Qt.ConnectionType.QueuedConnection,
             )
 
-            try:
-                global_signals.downloadTaskFinished.connect(
-                    self._on_download_task_finished,
-                    Qt.ConnectionType.QueuedConnection,
-                )
-            except Exception:
-                logging.exception("连接 downloadTaskFinished 信号失败")
+            global_signals.downloadTaskFinished.connect(
+                self._on_download_task_finished,
+                Qt.ConnectionType.QueuedConnection,
+            )
 
             self._restore_unfinished_from_ini()
 
@@ -155,26 +151,20 @@ class CrawlerManager2(QObject):
     def terminate_crawl(self, *, clear_queue: bool = True):
         self._crawl_terminated = True
 
-        try:
-            if self.schedule_timer.isActive():
-                self.schedule_timer.stop()
-        except Exception:
-            logging.exception("终止爬虫调度器：停止 schedule_timer 失败")
+        if self.schedule_timer.isActive():
+            self.schedule_timer.stop()
 
         if clear_queue:
-            try:
-                dropped = len(self.request_queue)
-                dropped_serials = {item[0] for item in self.request_queue}
-                self.request_queue.clear()
-                logging.info(
-                    "爬虫调度器已终止：已丢弃未开始任务 %s 个；正在运行的任务将继续执行",
-                    dropped,
-                )
-                if dropped_serials:
-                    self._unfinished_serials.difference_update(dropped_serials)
-                    self._persist_unfinished_to_ini()
-            except Exception:
-                logging.exception("终止爬虫调度器：清空 request_queue 失败")
+            dropped = len(self.request_queue)
+            dropped_serials = {item[0] for item in self.request_queue}
+            self.request_queue.clear()
+            logging.info(
+                "爬虫调度器已终止：已丢弃未开始任务 %s 个；正在运行的任务将继续执行",
+                dropped,
+            )
+            if dropped_serials:
+                self._unfinished_serials.difference_update(dropped_serials)
+                self._persist_unfinished_to_ini()
         else:
             logging.info("爬虫调度器已终止：未清空队列（但也不会再调度）")
 
@@ -184,17 +174,14 @@ class CrawlerManager2(QObject):
     def resume_crawl(self):
         self._crawl_terminated = False
 
-        try:
-            if self.request_queue and not self.schedule_timer.isActive():
-                import time
+        if self.request_queue and not self.schedule_timer.isActive():
+            import time
 
-                now = time.time() * 1000
-                elapsed = now - self.last_schedule_time
-                min_interval = 12000
-                delay = int(min_interval - elapsed) if elapsed < min_interval else 0
-                self._schedule_next(delay)
-        except Exception:
-            logging.exception("恢复爬虫调度器失败")
+            now = time.time() * 1000
+            elapsed = now - self.last_schedule_time
+            min_interval = 12000
+            delay = int(min_interval - elapsed) if elapsed < min_interval else 0
+            self._schedule_next(delay)
 
     def drop_pending(self, serial: str) -> bool:
         serial = self._norm_serial(serial)
@@ -202,17 +189,14 @@ class CrawlerManager2(QObject):
             return False
 
         removed_from_queue = False
-        try:
-            new_q = deque()
-            while self.request_queue:
-                s, withGUI, selected_fields = self.request_queue.popleft()
-                if s == serial and not removed_from_queue:
-                    removed_from_queue = True
-                    continue
-                new_q.append((s, withGUI, selected_fields))
-            self.request_queue = new_q
-        except Exception:
-            logging.exception("drop_pending: 从 request_queue 移除失败")
+        new_q = deque()
+        while self.request_queue:
+            s, withGUI, selected_fields = self.request_queue.popleft()
+            if s == serial and not removed_from_queue:
+                removed_from_queue = True
+                continue
+            new_q.append((s, withGUI, selected_fields))
+        self.request_queue = new_q
 
         if serial in self._unfinished_serials:
             self._unfinished_serials.discard(serial)
@@ -225,36 +209,23 @@ class CrawlerManager2(QObject):
     def _norm_serial(self, serial: str) -> str:
         if serial is None:
             return ""
-        try:
-            return str(serial).strip()
-        except Exception as e:
-            logging.debug(
-                "_norm_serial: 无法规范化输入 %r: %s",
-                serial,
-                e,
-                exc_info=True,
-            )
-            return ""
+        return str(serial).strip()
 
     def _load_unfinished_from_ini(self) -> list[str]:
-        try:
-            from config import settings
+        from config import settings
 
-            raw = settings.value(self._persist_key_unfinished, "", type=str)
-            if not raw:
-                return []
-            parts = [p.strip() for p in str(raw).split(",") if p and str(p).strip()]
-            seen: set[str] = set()
-            out: list[str] = []
-            for p in parts:
-                if p in seen:
-                    continue
-                seen.add(p)
-                out.append(p)
-            return out
-        except Exception:
-            logging.exception("从 settings.ini 读取未完成任务失败")
+        raw = settings.value(self._persist_key_unfinished, "", type=str)
+        if not raw:
             return []
+        parts = [p.strip() for p in str(raw).split(",") if p and str(p).strip()]
+        seen: set[str] = set()
+        out: list[str] = []
+        for p in parts:
+            if p in seen:
+                continue
+            seen.add(p)
+            out.append(p)
+        return out
 
     def _persist_unfinished_to_ini(self) -> None:
         return
@@ -388,43 +359,34 @@ class CrawlerManager2(QObject):
     @timeit
     @Slot(str, str, dict)
     def on_result_received(self, source, serial, data):
-        try:
-            task = self.tasks.get(serial)
-            if not task:
-                logging.error("未找到任务 %s", serial)
+        task = self.tasks.get(serial)
+        if not task:
+            logging.error("未找到任务 %s", serial)
+            return
+
+        task.results[source] = data if isinstance(data, dict) else {}
+        task.pending_sources.discard(source)
+        logging.info(
+            "已接收 %s 的结果:\n 剩余待处理: %s",
+            source,
+            task.pending_sources,
+        )
+        key = (source, serial)
+        if key in self._source_relays:
+            del self._source_relays[key]
+
+        if not task.pending_sources:
+            task.workflow_state = CrawlWorkflowState.MERGING
+            if task.cancel_requested:
+                if serial in self.tasks:
+                    del self.tasks[serial]
                 return
-
-            task.results[source] = data if isinstance(data, dict) else {}
-            task.pending_sources.discard(source)
-            logging.info(
-                "已接收 %s 的结果:\n 剩余待处理: %s",
-                source,
-                task.pending_sources,
+            worker = Worker(lambda: (serial, self._do_merge_only(serial)))
+            worker.signals.finished.connect(
+                self._on_merge_worker_finished,
+                Qt.ConnectionType.QueuedConnection,
             )
-            key = (source, serial)
-            if key in self._source_relays:
-                del self._source_relays[key]
-
-            if not task.pending_sources:
-                task.workflow_state = CrawlWorkflowState.MERGING
-                if task.cancel_requested:
-                    if serial in self.tasks:
-                        del self.tasks[serial]
-                    return
-                worker = Worker(lambda: (serial, self._do_merge_only(serial)))
-                worker.signals.finished.connect(
-                    self._on_merge_worker_finished,
-                    Qt.ConnectionType.QueuedConnection,
-                )
-                self._merge_pool.start(worker)
-        except Exception as e:
-            logging.error(
-                "on_result_received 崩溃 [source=%s serial=%s]: %s\n%s",
-                source,
-                serial,
-                e,
-                traceback.format_exc(),
-            )
+            self._merge_pool.start(worker)
 
     def _do_merge_only(self, serial: str):
         task = self.tasks.get(serial)
@@ -434,40 +396,31 @@ class CrawlerManager2(QObject):
 
     @Slot(object)
     def _on_merge_worker_finished(self, result):
-        try:
-            if result is None:
-                return
-            if isinstance(result, tuple) and len(result) == 2:
-                serial, final_data = result
-            else:
-                final_data = result
-                serial = (
-                    getattr(final_data, "serial_number", None) if final_data else None
-                )
-            if not serial:
-                return
-            if not final_data:
-                if serial in self.tasks:
-                    del self.tasks[serial]
-                return
-            task = self.tasks.get(serial)
-            if not task or task.cancel_requested:
-                if serial in self.tasks:
-                    del self.tasks[serial]
-                return
-            task.workflow_state = CrawlWorkflowState.PERSISTING
-            DataUpdate(
-                final_data,
-                self,
-                withGUI=task.withGUI,
-                selected_fields=task.selected_fields,
-            )
-        except Exception as e:
-            logging.error(
-                "_on_merge_worker_finished 崩溃: %s\n%s",
-                e,
-                traceback.format_exc(),
-            )
+        if result is None:
+            return
+        if isinstance(result, tuple) and len(result) == 2:
+            serial, final_data = result
+        else:
+            final_data = result
+            serial = getattr(final_data, "serial_number", None) if final_data else None
+        if not serial:
+            return
+        if not final_data:
+            if serial in self.tasks:
+                del self.tasks[serial]
+            return
+        task = self.tasks.get(serial)
+        if not task or task.cancel_requested:
+            if serial in self.tasks:
+                del self.tasks[serial]
+            return
+        task.workflow_state = CrawlWorkflowState.PERSISTING
+        DataUpdate(
+            final_data,
+            self,
+            withGUI=task.withGUI,
+            selected_fields=task.selected_fields,
+        )
 
 
 _crawler_manager2: Optional["CrawlerManager2"] = None

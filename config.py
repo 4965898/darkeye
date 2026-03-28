@@ -267,6 +267,17 @@ def get_latest_json_url() -> str:
         if url:
             return url
         logging.warning("update.ini 中 LatestJsonUrl 为空，使用内置默认更新地址")
-    except Exception:
-        logging.exception("读取 resources/config/update.ini 失败，使用内置默认更新地址")
+    except OSError:
+        logging.exception(
+            "读取 resources/config/update.ini 时发生路径/权限等系统错误，"
+            "使用内置默认更新地址"
+        )
+    except UnicodeDecodeError:
+        logging.exception(
+            "resources/config/update.ini 无法按 UTF-8 解码，使用内置默认更新地址"
+        )
+    except configparser.Error:
+        logging.exception(
+            "resources/config/update.ini 解析失败（格式无效），使用内置默认更新地址"
+        )
     return DEFAULT_LATEST_JSON_URL

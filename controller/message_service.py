@@ -1,5 +1,4 @@
 # 这个依赖注入使用，但是现在还是有问题
-import logging
 from typing import TYPE_CHECKING, Optional
 
 from PySide6.QtWidgets import QMessageBox
@@ -61,16 +60,9 @@ class MessageBoxService(IMessageService):
     def __init__(self, parent=None, theme_manager: Optional["ThemeManager"] = None):
         self.parent = parent
         if theme_manager is None:
-            try:
-                from controller.app_context import get_theme_manager
+            from controller.app_context import get_theme_manager
 
-                theme_manager = get_theme_manager()
-            except Exception as e:
-                logging.debug(
-                    "MessageBoxService: 获取主题管理器失败，将使用默认令牌: %s",
-                    e,
-                    exc_info=True,
-                )
+            theme_manager = get_theme_manager()
         self._theme_manager = theme_manager
 
     def _tokens(self) -> ThemeTokens:

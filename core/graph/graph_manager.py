@@ -125,8 +125,6 @@ class GraphManager(QObject):
         """
         后台初始化逻辑
         """
-        import networkx as nx
-
         try:
             logging.info("开始初始化图")
 
@@ -139,13 +137,9 @@ class GraphManager(QObject):
             # 4.自然语言处理作品的文本，发现连接，后面两步很困难，先不做
             # 5.图形处理发现作品封面的相似点，发现连接
 
-            try:
-                from core.graph.graph import generate_graph
+            from core.graph.graph import generate_graph
 
-                self.G = generate_graph()
-            except Exception as e:
-                logging.error(f"Error generating base graph: {e}")
-                self.G = nx.Graph()  # Fallback
+            self.G = generate_graph()
 
             # 2. 从数据库加载 notes 并解析 [[]] 引用，叠加到基图中
             self._augment_with_story_relations()
@@ -173,58 +167,54 @@ class GraphManager(QObject):
         """
         从数据库加载数据，解析story中的 [[]] 引用，并在基图上添加引用关系边
         """
-        try:
-            rows = get_work_notes_rows()
-            logging.info(
-                f"Loaded {len(rows)} works with stories from database for augmentation."
-            )
+        rows = get_work_notes_rows()
+        logging.info(
+            f"Loaded {len(rows)} works with stories from database for augmentation."
+        )
 
-            # 缓存 serial_number -> work_id 的映射，避免重复查询数据库
-            serial_map = get_serial_number_map()
+        # 缓存 serial_number -> work_id 的映射，避免重复查询数据库
+        serial_map = get_serial_number_map()
 
-            for row in rows:
-                source_work_id = row[0]
-                source_serial = row[1]
-                notes = row[2]
+        for row in rows:
+            source_work_id = row[0]
+            source_serial = row[1]
+            notes = row[2]
 
-                # 构造符合基图规范的 Source 节点 ID (w + work_id)
-                source_node_id = f"w{source_work_id}"
+            # 构造符合基图规范的 Source 节点 ID (w + work_id)
+            source_node_id = f"w{source_work_id}"
 
-                # 仅当基图中存在该节点时才处理（generate_graph 应该包含了所有作品）
-                if not self.G.has_node(source_node_id):
-                    continue
+            # 仅当基图中存在该节点时才处理（generate_graph 应该包含了所有作品）
+            if not self.G.has_node(source_node_id):
+                continue
 
-                # 解析引用
-                links = parse_wikilinks(notes)
-                if not links:
-                    continue
+            # 解析引用
+            links = parse_wikilinks(notes)
+            if not links:
+                continue
 
-                for target_serial, alias in links:
-                    # 查找目标作品的 work_id
-                    target_work_id = serial_map.get(target_serial)
+            for target_serial, alias in links:
+                # 查找目标作品的 work_id
+                target_work_id = serial_map.get(target_serial)
 
-                    if target_work_id is None:
-                        # 尝试补救查询
-                        target_work_id = get_workid_by_serialnumber(target_serial)
+                if target_work_id is None:
+                    # 尝试补救查询
+                    target_work_id = get_workid_by_serialnumber(target_serial)
 
-                    if target_work_id:
-                        # 构造 Target 节点 ID
-                        target_node_id = f"w{target_work_id}"
+                if target_work_id:
+                    # 构造 Target 节点 ID
+                    target_node_id = f"w{target_work_id}"
 
-                        # 确保目标节点也在图中
-                        if self.G.has_node(target_node_id):
-                            # 避免自环
-                            if source_node_id != target_node_id:
-                                # 检查边是否存在
-                                if not self.G.has_edge(source_node_id, target_node_id):
-                                    # 添加边，标记类型为 'reference' 以区别于参演关系
-                                    self.G.add_edge(
-                                        source_node_id, target_node_id, type="reference"
-                                    )
-                                    # logging.debug(f"Added reference edge: {source_serial} -> {target_serial}")
-
-        except Exception as e:
-            logging.error(f"Error augmenting graph with notes relations: {e}")
+                    # 确保目标节点也在图中
+                    if self.G.has_node(target_node_id):
+                        # 避免自环
+                        if source_node_id != target_node_id:
+                            # 检查边是否存在
+                            if not self.G.has_edge(source_node_id, target_node_id):
+                                # 添加边，标记类型为 'reference' 以区别于参演关系
+                                self.G.add_edge(
+                                    source_node_id, target_node_id, type="reference"
+                                )
+                                # logging.debug(f"Added reference edge: {source_serial} -> {target_serial}")
 
     def get_graph(self):
         """
@@ -245,13 +235,10 @@ class GraphManager(QObject):
         """
         在主线程中处理信号连接，由 _connectSignalsRequested 信号触发
         """
-        try:
-            from controller.global_signal_bus import global_signals
+        from controller.global_signal_bus import global_signals
 
-            global_signals.workDataChanged.connect(self.update_recent_changes)
-            logging.info("绑定 workDataChanged -> update_recent_changes")
-        except Exception as e:
-            logging.error(f"绑定信号失败: {e}")
+        global_signals.workDataChanged.connect(self.update_recent_changes)
+        logging.info("绑定 workDataChanged -> update_recent_changes")
 
     def update_recent_changes(self, limit: int = 3):
         """
@@ -262,13 +249,8 @@ class GraphManager(QObject):
             self.initialize()
             return
         logging.info(f"更新图关系")
-        rows = []
-        try:
-            rows = get_recent_work_notes_rows(limit)
-            if not rows:
-                return
-        except Exception as e:
-            logging.error(f"Error updating recent changes: {e}")
+        rows = get_recent_work_notes_rows(limit)
+        if not rows:
             return
 
         serial_map = get_serial_number_map()

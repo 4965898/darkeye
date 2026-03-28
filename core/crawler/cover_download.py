@@ -68,43 +68,34 @@ class SequentialDownloader(QObject):
         self.image_filename = image_filename
         self._current_index = 0
 
-        try:
-            if self.task_id:
-                from controller.global_signal_bus import global_signals
+        if self.task_id:
+            from controller.global_signal_bus import global_signals
 
-                total = self.total or len(self.urls)
-                global_signals.downloadTaskStarted.emit(self.task_id, int(total))
-        except Exception:
-            logging.exception("发射 downloadTaskStarted 信号失败")
+            total = self.total or len(self.urls)
+            global_signals.downloadTaskStarted.emit(self.task_id, int(total))
 
         self._try_next()
 
     def _emit_progress(self, msg: str):
         if not self.task_id:
             return
-        try:
-            from controller.global_signal_bus import global_signals
+        from controller.global_signal_bus import global_signals
 
-            total = self.total or (self._current_index or 0)
-            global_signals.downloadTaskProgress.emit(
-                self.task_id, int(self._current_index), int(total), msg
-            )
-        except Exception:
-            logging.exception("发射 downloadTaskProgress 信号失败")
+        total = self.total or (self._current_index or 0)
+        global_signals.downloadTaskProgress.emit(
+            self.task_id, int(self._current_index), int(total), msg
+        )
 
     def _try_next(self):
         if not self.urls:
             self.finished.emit(False, "所有地址均下载失败")
-            try:
-                if self.task_id:
-                    from controller.global_signal_bus import global_signals
+            if self.task_id:
+                from controller.global_signal_bus import global_signals
 
-                    self._emit_progress("所有地址均下载失败")
-                    global_signals.downloadTaskFinished.emit(
-                        self.task_id, False, "所有地址均下载失败"
-                    )
-            except Exception:
-                logging.exception("发射 downloadTaskFinished 失败(全部失败)")
+                self._emit_progress("所有地址均下载失败")
+                global_signals.downloadTaskFinished.emit(
+                    self.task_id, False, "所有地址均下载失败"
+                )
             return
 
         from core.crawler.download import download_image
@@ -136,17 +127,13 @@ class SequentialDownloader(QObject):
             if success:
                 logging.info("成功下载图片到临时地址%s", self.save_path)
                 self.finished.emit(True, str(self.save_path))
-                try:
-                    if self.task_id:
-                        from controller.global_signal_bus import global_signals
+                if self.task_id:
+                    from controller.global_signal_bus import global_signals
 
-                        self._emit_progress("封面下载完成")
-                        total = self.total or self._current_index
-                        global_signals.downloadTaskFinished.emit(
-                            self.task_id, True, "封面下载完成"
-                        )
-                except Exception:
-                    logging.exception("发射 downloadTaskFinished 信号失败(成功)")
+                    self._emit_progress("封面下载完成")
+                    global_signals.downloadTaskFinished.emit(
+                        self.task_id, True, "封面下载完成"
+                    )
             else:
                 self._emit_progress(f"下载失败，尝试下一个地址 ({e})")
                 self._try_next()
