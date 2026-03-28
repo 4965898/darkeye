@@ -5,13 +5,13 @@ from PySide6.QtOpenGLWidgets import QOpenGLWidget
 import logging
 
 from config import ICONS_PATH, APP_VERSION, set_max_window
-from controller.ShortcutRegistry import ShortcutRegistry
-from controller.ShortcutBindings import (
+from controller.shortcut_registry import ShortcutRegistry
+from controller.shortcut_bindings import (
     setup_mainwindow_actions,
 )  # 这个准备数据的操作是可以放在后台的但是QAction一定要放主线程
 from darkeye_ui.components import Sidebar
 from ui.navigation.router import Router
-from controller.GlobalSignalBus import global_signals
+from controller.global_signal_bus import global_signals
 
 
 class MainWindow(QMainWindow):
@@ -65,7 +65,7 @@ class MainWindow(QMainWindow):
     @Slot()
     def _ensure_crawler_manager_initialized(self) -> None:
         # 必须在主线程首次创建（CrawlerManager.get_manager 内部会校验）
-        from core.crawler.CrawlerManager import get_manager
+        from core.crawler.crawler_manager import get_manager
 
         self._crawler_manager = get_manager()
 
@@ -105,7 +105,7 @@ class MainWindow(QMainWindow):
         # 1. 定义工厂函数
         def create_home():
             # from ui.pages.CoverBrowser import CoverBrowser
-            # from core.recommendation.Recommend import random_rec
+            # from core.recommendation.recommend import random_rec
             # return CoverBrowser(random_rec())
             from ui.pages.HomePage import HomePage
 

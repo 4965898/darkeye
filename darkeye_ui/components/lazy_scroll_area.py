@@ -86,7 +86,7 @@ class LazyScrollArea(QScrollArea):
         self._apply_token_styles()
 
         try:
-            from controller.MessageService import MessageBoxService
+            from controller.message_service import MessageBoxService
 
             self.msg = MessageBoxService(self)
         except ImportError as exc:

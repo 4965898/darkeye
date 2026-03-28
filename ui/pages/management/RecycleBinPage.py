@@ -6,7 +6,7 @@ from config import DATABASE
 from ui.basic import ModelSearch
 from ui.base.SqliteQueryTableModel import SqliteQueryTableModel
 from darkeye_ui import LazyWidget
-from controller.MessageService import MessageBoxService
+from controller.message_service import MessageBoxService
 from darkeye_ui.components.token_table_view import TokenTableView
 from darkeye_ui.components.button import Button
 from darkeye_ui.components.input import LineEdit

@@ -20,9 +20,9 @@ if hasattr(os, "add_dll_directory"):
 from cpp_bindings.forced_direct_view.PyForceView import ForceViewOpenGL
 from core.graph.graph_session import GraphViewSession
 from core.graph.graph_filter import PassThroughFilter, EgoFilter
-from core.graph.ForceViewSettingsPanel import ForceViewSettingsPanel
+from core.graph.force_view_settings_panel import ForceViewSettingsPanel
 from darkeye_ui.components.state_toggle_button import StateToggleButton
-from core.graph.ImageOverlayWidget import ImageOverlayWidget
+from core.graph.image_overlay_widget import ImageOverlayWidget
 
 
 class ForceDirectedViewWidget(QWidget):
@@ -120,9 +120,7 @@ class ForceDirectedViewWidget(QWidget):
 
         self.panel.radiusFactorChanged.connect(self.view.setRadiusFactor)
         self.panel.linkWidthFactorChanged.connect(self.view.setSideWidthFactor)
-        self.panel.textThresholdFactorChanged.connect(
-            self.view.setTextThresholdFactor
-        )
+        self.panel.textThresholdFactorChanged.connect(self.view.setTextThresholdFactor)
         self.panel.nodeColorGroupChanged.connect(self._on_nodeColorGroupChanged)
 
         self.panel.restartRequested.connect(self.view.restartSimulation)

@@ -1,7 +1,7 @@
 import re
 import requests
 from bs4 import BeautifulSoup
-from utils.utils import covert_fanza, serial_number_equal
+from utils.utils import convert_fanza, serial_number_equal
 import logging
 from core.database.update import update_work_javtxt
 from core.database.query import (
@@ -202,7 +202,7 @@ def top_actresses():
             if InsertNewActress(actress, actress):
                 logging.info(f"添加热门女优{actress}")
 
-            from controller.GlobalSignalBus import global_signals
+            from controller.global_signal_bus import global_signals
 
             global_signals.actressDataChanged.emit()
         else:

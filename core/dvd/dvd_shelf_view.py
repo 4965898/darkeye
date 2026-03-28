@@ -30,7 +30,7 @@ from config import (
     HDR_PATH,
     WORKCOVER_PATH,
 )
-from controller.MessageService import MessageBoxService
+from controller.message_service import MessageBoxService
 from core.database.query import (
     get_workinfo_by_workid,
     get_works_for_dvd,
@@ -46,7 +46,7 @@ from ui.widgets.image.FanartStripWidget import FanartStripWidget
 from utils.utils import find_video, play_video, get_text_color_from_background
 
 if TYPE_CHECKING:
-    from core.graph.ForceDirectedViewWidget import ForceDirectedViewWidget
+    from core.graph.force_directed_view_widget import ForceDirectedViewWidget
 
 
 def path_to_file_url(path: Path) -> str:
@@ -784,7 +784,7 @@ class DvdShelfView(QWidget):
             logging.warning("DVD Fanart 预览写库：JSON 序列化失败")
             return
         if update_work_byhand_(int(wid), fanart=raw):
-            from controller.GlobalSignalBus import global_signals
+            from controller.global_signal_bus import global_signals
 
             global_signals.workDataChanged.emit()
 
@@ -800,7 +800,7 @@ class DvdShelfView(QWidget):
         if self._forceview is not None:
             return
         try:
-            from core.graph.ForceDirectedViewWidget import ForceDirectedViewWidget
+            from core.graph.force_directed_view_widget import ForceDirectedViewWidget
 
             self._forceview = ForceDirectedViewWidget()
         except Exception as e:
@@ -1297,7 +1297,7 @@ class DvdShelfView(QWidget):
         else:
             insert_liked_work(work_id)
         self._bridge.set_expanded_favorited(not is_fav)
-        from controller.GlobalSignalBus import global_signals
+        from controller.global_signal_bus import global_signals
 
         global_signals.likeWorkChanged.emit()
 
@@ -1323,7 +1323,7 @@ class DvdShelfView(QWidget):
         if msg.ask_yes_no("确认删除", "确定要删除该作品吗？"):
             if mark_delete(work_id):
                 msg.show_info("成功", "已标记删除")
-                from controller.GlobalSignalBus import global_signals
+                from controller.global_signal_bus import global_signals
 
                 global_signals.workDataChanged.emit()
 

@@ -53,7 +53,7 @@ from darkeye_ui.design.icon import (
     SVG_ARROW_LEFT,
     SVG_ARROW_RIGHT,
 )
-from core.crawler.Worker import Worker
+from core.crawler.worker import Worker
 from core.crawler.download import download_image_with_retry
 from core.database.insert import rename_save_image
 

@@ -19,7 +19,7 @@ from PySide6.QtWidgets import (
 import logging
 
 from config import BASE_DIR, DATABASE, ICONS_PATH
-from controller.MessageService import MessageBoxService
+from controller.message_service import MessageBoxService
 from core.database.connection import get_connection
 from core.database.query import get_maker_name
 from ui.basic import ModelSearch
@@ -311,7 +311,7 @@ class StudioManagementPage(LazyWidget):
             import_maker_prefix_json(Path(file_path))
             self.msg.show_info("导入成功", "片商前缀数据已从 JSON 导入。")
             self.refresh_data()
-            from controller.GlobalSignalBus import global_signals
+            from controller.global_signal_bus import global_signals
 
             global_signals.makerDataChanged.emit()
             global_signals.workDataChanged.emit()
@@ -336,11 +336,13 @@ class StudioManagementPage(LazyWidget):
         self.view1.setStyleSheet("")
         self.view2.setStyleSheet("")
         # view.setStyleSheet("border: 2px solid blue;")
-        view.setStyleSheet("""
+        view.setStyleSheet(
+            """
         QTableView{
             border: 2px solid orange;
         }
-        """)
+        """
+        )
         model, view = self.get_current_model_and_view()
         self.searchWidget.set_model_view(model, view)
 
@@ -393,7 +395,7 @@ class StudioManagementPage(LazyWidget):
                 )
             else:
                 QMessageBox.information(self, "提示", "保存成功")
-                from controller.GlobalSignalBus import global_signals
+                from controller.global_signal_bus import global_signals
 
                 global_signals.makerDataChanged.emit()
                 global_signals.workDataChanged.emit()
@@ -453,7 +455,7 @@ class StudioManagementPage(LazyWidget):
 
         self.refresh_data()
         QMessageBox.information(self, "提示", "片商重定向成功")
-        from controller.GlobalSignalBus import global_signals
+        from controller.global_signal_bus import global_signals
 
         global_signals.makerDataChanged.emit()
         global_signals.workDataChanged.emit()

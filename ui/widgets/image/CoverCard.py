@@ -46,13 +46,15 @@ class CoverCard(QWidget):
         if green_mode:  # 新创造的修改
             self.title_label.setText(replace_sensitive(title))
 
-        self.title_label.setStyleSheet("""
+        self.title_label.setStyleSheet(
+            """
             QLabel {
                 font-size: 14px;           /* 字号 */
                 font-family: 'Microsoft YaHei';      /* 字体 */
                 font-weight: bold;         /* 粗体，可选 normal、bold、100-900 */
             }
-        """)
+        """
+        )
         self.serial_number = serial_number
         self.serial_number_label = ClickableLabel(serial_number)
 
@@ -63,13 +65,15 @@ class CoverCard(QWidget):
         self.title_label.setFixedWidth(210)
 
         self.serial_number_label.setAlignment(Qt.AlignCenter)
-        self.serial_number_label.setStyleSheet("""
+        self.serial_number_label.setStyleSheet(
+            """
             QLabel {
                 font-size: 16px;           /* 字号 */
                 font-family: 'Microsoft YaHei';      /* 字体 */
                 font-weight: bold;         /* 粗体，可选 normal、bold、100-900 */
             }
-        """)
+        """
+        )
 
         layout = QVBoxLayout(self)
         w = self.width() * 0.15
@@ -92,7 +96,7 @@ class CoverCard(QWidget):
             )
         )
 
-        from controller.GlobalSignalBus import global_signals
+        from controller.global_signal_bus import global_signals
 
         global_signals.greenModeChanged.connect(self._update_green_mode)
         global_signals.workDataChanged.connect(self._update_card)

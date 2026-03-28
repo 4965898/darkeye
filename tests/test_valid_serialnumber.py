@@ -26,7 +26,7 @@ def test_is_valid_serialnumber(code, expected):
     assert is_valid_serialnumber(code) == expected
 
 
-from utils.utils import covert_fanza
+from utils.utils import convert_fanza
 
 
 @pytest.mark.parametrize(
@@ -41,5 +41,5 @@ from utils.utils import covert_fanza
         ("abc-DEF", "abc00def"),
     ],
 )
-def test_covert_fanza(input_code, expected):
-    assert covert_fanza(input_code) == expected
+def test_convert_fanza(input_code, expected):
+    assert convert_fanza(input_code) == expected

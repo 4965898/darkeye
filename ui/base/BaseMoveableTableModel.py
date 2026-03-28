@@ -67,9 +67,7 @@ class BaseMoveableTableModel(QAbstractTableModel):
         if source_row == destination_row:
             return False
 
-        if 0 <= source_row < len(self._data) and 0 <= destination_row < len(
-            self._data
-        ):
+        if 0 <= source_row < len(self._data) and 0 <= destination_row < len(self._data):
             # 移动数据
             row_data = self._data.pop(source_row)
             self._data.insert(destination_row, row_data)

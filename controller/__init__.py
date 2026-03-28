@@ -6,9 +6,9 @@ controller 包（应用壳层：全局上下文、信号、快捷键、弹窗服
 
 请在使用处显式导入，例如：
 - from controller.app_context import get_theme_manager, set_theme_manager
-- from controller.GlobalSignalBus import global_signals
-- from controller.MessageService import MessageBoxService
-- from controller.ShortcutRegistry import ShortcutRegistry
+- from controller.global_signal_bus import global_signals
+- from controller.message_service import MessageBoxService
+- from controller.shortcut_registry import ShortcutRegistry
 """
 
 __all__ = []

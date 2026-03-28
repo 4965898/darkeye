@@ -4,10 +4,10 @@
 """
 
 masturbationsql = """masturbation_count AS(--按照有work_id撸管记录，统计每部作品撸了几次
-SELECT 
-	mas.work_id AS work_id,
+SELECT
+    mas.work_id AS work_id,
     w.serial_number AS serial_number,
-	count(mas.work_id)AS masturbation_count
+    count(mas.work_id)AS masturbation_count
 FROM priv.masturbation mas
 LEFT JOIN work w ON mas.work_id=w.work_id
 WHERE mas.work_id is not NULL AND mas.work_id !=''
@@ -21,7 +21,7 @@ SELECT
     -- 当前使用现用名
     (SELECT cn FROM actress_name WHERE actress_id = a.actress_id AND name_type = 1) AS actress_name,
     COUNT(m.work_id) AS num,
-	MAX(m.start_time) AS latest_masturbate_time
+    MAX(m.start_time) AS latest_masturbate_time
 FROM 
     actress a
 LEFT JOIN work_actress_relation war ON a.actress_id = war.actress_id

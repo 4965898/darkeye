@@ -11,7 +11,7 @@ from PySide6.QtCore import Qt, QObject, Signal, Property, Slot
 import logging
 
 from darkeye_ui import LazyWidget
-from controller.MessageService import MessageBoxService, IMessageService
+from controller.message_service import MessageBoxService, IMessageService
 from ui.basic import MovableTableView
 from core.database.query import get_actor_allname, get_serial_number
 from darkeye_ui.components.button import Button
@@ -114,9 +114,7 @@ class ViewModel(QObject):
             self.model._actor_name = value
             self.actorNameChanged.emit(value)
 
-    actor_name = Property(
-        list, get_actor_name, set_actor_name, notify=actorNameChanged
-    )
+    actor_name = Property(list, get_actor_name, set_actor_name, notify=actorNameChanged)
 
     def get_notes(self):
         return self.model._notes

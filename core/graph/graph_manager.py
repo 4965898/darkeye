@@ -246,7 +246,7 @@ class GraphManager(QObject):
         在主线程中处理信号连接，由 _connectSignalsRequested 信号触发
         """
         try:
-            from controller.GlobalSignalBus import global_signals
+            from controller.global_signal_bus import global_signals
 
             global_signals.workDataChanged.connect(self.update_recent_changes)
             logging.info("绑定 workDataChanged -> update_recent_changes")

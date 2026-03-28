@@ -5,7 +5,7 @@
 import re
 import requests
 from bs4 import BeautifulSoup
-from utils.utils import covert_fanza
+from utils.utils import convert_fanza
 import logging
 
 
@@ -17,10 +17,10 @@ def search_work(serial_number: str) -> BeautifulSoup | None:
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
     }
     if serial_number.startswith(tuple(["ABF", "FFT", "ABW", "BGN", "GNI"])):
-        url_list = [base + serial_number, base + covert_fanza(serial_number)]
+        url_list = [base + serial_number, base + convert_fanza(serial_number)]
     else:
         url_list = [
-            base + covert_fanza(serial_number),
+            base + convert_fanza(serial_number),
             base + serial_number,
         ]  # 这个要判断好像是ABF等蚊香社开头的就不需要转换直接上,现在问题是有的BGN是大写的，有的是小写的，这个非常的坑
 

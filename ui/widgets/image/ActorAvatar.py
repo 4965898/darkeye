@@ -16,7 +16,7 @@ class ActorAvatar(OctImage):
         self._actor_id = actor_id
 
     def mouseReleaseEvent(self, event: QMouseEvent):
-        from controller.GlobalSignalBus import global_signals
+        from controller.global_signal_bus import global_signals
 
         if event.button() == Qt.MouseButton.RightButton:
             # QTimer.singleShot(0, lambda: global_signals.modify_actor_clicked.emit(self._actor_id))

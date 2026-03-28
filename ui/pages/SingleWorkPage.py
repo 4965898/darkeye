@@ -132,7 +132,7 @@ class Cover(QLabel):
 class WorkInfo(TransparentWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
-        from controller.MessageService import MessageBoxService
+        from controller.message_service import MessageBoxService
 
         self.msg = MessageBoxService(self)
 
@@ -413,14 +413,14 @@ class WorkInfo(TransparentWidget):
         else:
             """删除"""
             delete_favorite_work(self._work_id)
-        from controller.GlobalSignalBus import global_signals
+        from controller.global_signal_bus import global_signals
 
         global_signals.likeWorkChanged.emit()
 
     @Slot()
     def on_modify_clicked(self):
         """点击了修改按钮"""
-        # from controller.GlobalSignalBus import global_signals
+        # from controller.global_signal_bus import global_signals
         if self._work_id is None:
             return
         # global_signals.modify_work_clicked.emit(self.serial_number.text().strip())

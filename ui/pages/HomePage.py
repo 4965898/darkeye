@@ -5,9 +5,9 @@ import sqlite3
 import logging
 
 from config import DATABASE
-from controller.GlobalSignalBus import global_signals
+from controller.global_signal_bus import global_signals
 from core.database.db_utils import attach_private_db, detach_private_db
-from core.dvd.DvdShelfView import DvdShelfView
+from core.dvd.dvd_shelf_view import DvdShelfView
 
 
 class HomePage(QWidget):

@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Optional
 
 from config import WORKCOVER_PATH, TEMP_PATH
-from controller.MessageService import MessageBoxService
+from controller.message_service import MessageBoxService
 
 if TYPE_CHECKING:
     from darkeye_ui.design.theme_manager import ThemeManager

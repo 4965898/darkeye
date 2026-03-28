@@ -32,7 +32,7 @@ print(
 # from config import ICONS_PATH,set_size_pos,get_size_pos,is_max_window,set_max_window
 from ui.widgets import CoverBrowser
 
-# from core.recommendation.Recommend import recommend_start, random_rec
+# from core.recommendation.recommend import recommend_start, random_rec
 # import logging
 # from qframelesswindow import FramelessWindow, TitleBar, StandardTitleBar
 

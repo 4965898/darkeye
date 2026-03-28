@@ -6,8 +6,8 @@ from typing import Dict, Optional
 
 from PySide6.QtCore import QObject, QThread, QThreadPool, QTimer, Qt, Signal, Slot
 
-from controller.GlobalSignalBus import global_signals
-from core.crawler.Worker import Worker
+from controller.global_signal_bus import global_signals
+from core.crawler.worker import Worker
 from core.crawler.crawler_relays import ResultRelay
 from core.crawler.crawler_task import CrawlerTask, CrawlWorkflowState
 from core.crawler.cover_download import SequentialDownloader
@@ -15,7 +15,7 @@ from core.crawler.merge_service import merge_crawl_results
 from core.crawler.work_persistence import DataUpdate
 from utils.utils import timeit
 
-# 兼容旧 import：其他模块可能 from CrawlerManager import DataUpdate / CrawlerTask 等
+# 兼容旧 import：其他模块可能 from crawler_manager import DataUpdate / CrawlerTask 等
 __all__ = [
     "CrawlerManager2",
     "CrawlerTask",

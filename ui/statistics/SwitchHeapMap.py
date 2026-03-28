@@ -247,12 +247,14 @@ class ButtonList(QScrollArea):
     def __init__(self, items: list[str]):
         super().__init__()
         self.setWidgetResizable(True)  # 关键：内容自动适应
-        self.setStyleSheet("""
+        self.setStyleSheet(
+            """
             QScrollBar:vertical, QScrollBar:horizontal {
                 width: 0px;
                 height: 0px;
             }
-        """)
+        """
+        )
 
         self.setFrameShape(QScrollArea.NoFrame)  # 去掉外框
         self.setAttribute(Qt.WA_TranslucentBackground)  # 支持透明

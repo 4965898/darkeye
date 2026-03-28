@@ -51,13 +51,13 @@ average_age_per_work AS (--辅助计算年龄的表
 ),
 actress_list AS(--计算女优出演的名单
 SELECT
-	w.work_id,
+    w.work_id,
     GROUP_CONCAT(
         (SELECT cn FROM actress_name WHERE actress_id = a.actress_id AND(name_type=1)),
         ','
     ) AS actress_list,
-	GROUP_CONCAT(war.job,',') AS job,
-	GROUP_CONCAT(war.state,',') AS state
+    GROUP_CONCAT(war.job,',') AS job,
+    GROUP_CONCAT(war.state,',') AS state
 FROM
     work w
 LEFT JOIN 
@@ -68,7 +68,7 @@ GROUP BY w.work_id
 ),
 actor_list AS(--男优名单
 SELECT
-	w.work_id,
+    w.work_id,
     GROUP_CONCAT(
         (SELECT cn FROM actor_name WHERE actor_id=war1.actor_id),
         ','
@@ -82,9 +82,9 @@ LEFT JOIN
 GROUP BY w.work_id
 ),
 studio_list AS(--片商表
-SELECT 
-	w.work_id,
-	(SELECT cn_name FROM maker WHERE maker_id =p.maker_id) AS studio_name
+SELECT
+    w.work_id,
+    (SELECT cn_name FROM maker WHERE maker_id =p.maker_id) AS studio_name
 FROM 
     work w
 INNER JOIN 
@@ -93,20 +93,20 @@ WHERE
     w.serial_number LIKE '%-%'
 )
 SELECT --水平计算表，然后统一合并
-	w.work_id,
+    w.work_id,
     w.serial_number AS serial_number,
     w.director AS director,
-	w.release_date AS release_date,
-	(SELECT actress_list FROM actress_list WHERE work_id=w.work_id)AS actress,
-	(SELECT avg_age_at_release FROM average_age_per_work WHERE work_id=w.work_id)AS avg_age,
-	(SELECT state FROM actress_list WHERE work_id=w.work_id)AS state,
-	(SELECT actor_list FROM actor_list WHERE work_id=w.work_id)AS actor,
-	w.notes AS notes,
-	w.cn_title,
-	w.cn_story,
-	w.jp_title,
-	w.jp_story,
-	(SELECT studio_name FROM studio_list WHERE work_id=w.work_id)AS studio
+    w.release_date AS release_date,
+    (SELECT actress_list FROM actress_list WHERE work_id=w.work_id)AS actress,
+    (SELECT avg_age_at_release FROM average_age_per_work WHERE work_id=w.work_id)AS avg_age,
+    (SELECT state FROM actress_list WHERE work_id=w.work_id)AS state,
+    (SELECT actor_list FROM actor_list WHERE work_id=w.work_id)AS actor,
+    w.notes AS notes,
+    w.cn_title,
+    w.cn_story,
+    w.jp_title,
+    w.jp_story,
+    (SELECT studio_name FROM studio_list WHERE work_id=w.work_id)AS studio
 FROM 
     work w;
         """

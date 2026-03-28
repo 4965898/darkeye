@@ -134,17 +134,23 @@ class ClosableTabBar(QTabBar):
                     "background: transparent; min-width: 0px; min-height: 0px; }\n"
                 )
             if i == current:
-                btn.setStyleSheet(base_style + """
+                btn.setStyleSheet(
+                    base_style
+                    + """
                     QToolButton { opacity: 1; }
                     QToolButton:hover { background-color: #e0e0e0; border-radius: 2px; }
                     QToolButton:pressed { background-color: #c0c0c0; }
-                    """)
+                    """
+                )
             else:
-                btn.setStyleSheet(base_style + """
+                btn.setStyleSheet(
+                    base_style
+                    + """
                     QToolButton { opacity: 0; }
                     QToolButton:hover { background-color: #e0e0e0; border-radius: 2px; opacity: 1; }
                     QToolButton:pressed { background-color: #c0c0c0; opacity: 1; }
-                    """)
+                    """
+                )
 
 
 class DraggableTabBar(ClosableTabBar):

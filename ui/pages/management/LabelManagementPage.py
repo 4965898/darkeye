@@ -17,7 +17,7 @@ from PySide6.QtWidgets import (
 import logging
 
 from config import BASE_DIR, DATABASE, ICONS_PATH
-from controller.MessageService import MessageBoxService
+from controller.message_service import MessageBoxService
 from core.database.connection import get_connection
 from core.database.query import get_label_name
 from ui.basic import ModelSearch
@@ -230,7 +230,7 @@ class LabelManagementPage(LazyWidget):
             import_label_json(Path(file_path))
             self.msg.show_info("导入成功", "厂牌数据已从 JSON 导入。")
             self.refresh_data()
-            from controller.GlobalSignalBus import global_signals
+            from controller.global_signal_bus import global_signals
 
             global_signals.labelDataChanged.emit()
             global_signals.workDataChanged.emit()
@@ -262,7 +262,7 @@ class LabelManagementPage(LazyWidget):
             )
             return
         QMessageBox.information(self, "提示", "保存成功")
-        from controller.GlobalSignalBus import global_signals
+        from controller.global_signal_bus import global_signals
 
         global_signals.labelDataChanged.emit()
         global_signals.workDataChanged.emit()
@@ -302,7 +302,7 @@ class LabelManagementPage(LazyWidget):
 
         self.refresh_data()
         QMessageBox.information(self, "提示", "厂牌重定向成功")
-        from controller.GlobalSignalBus import global_signals
+        from controller.global_signal_bus import global_signals
 
         global_signals.labelDataChanged.emit()
         global_signals.workDataChanged.emit()

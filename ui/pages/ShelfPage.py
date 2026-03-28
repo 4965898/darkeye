@@ -25,7 +25,7 @@ from core.database.query import (
 )
 from ui.basic import HorizontalScrollArea
 from ui.widgets import CompleterLineEdit
-from core.dvd.DvdShelfView import DvdShelfView
+from core.dvd.dvd_shelf_view import DvdShelfView
 from ui.widgets.selectors.TagSelector5 import TagSelector5
 from darkeye_ui.components.label import Label
 from darkeye_ui.components.rotate_button import RotateButton
@@ -76,7 +76,8 @@ class ShelfPage(QWidget):
         filterwidget.setFixedHeight(32)
         filterwidget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         scroll.setWidget(filterwidget)
-        scroll.setStyleSheet("""
+        scroll.setStyleSheet(
+            """
     QScrollArea {
         border: none;
         background: transparent;
@@ -84,7 +85,8 @@ class ShelfPage(QWidget):
     QScrollBar {
         background: transparent;
     }
-""")
+"""
+        )
 
         self.story_input = LineEdit()
         self.title_input = LineEdit()
@@ -205,7 +207,7 @@ class ShelfPage(QWidget):
         self.scope_combo.currentTextChanged.connect(self.apply_filter)
         self.tagselector.selectionChanged.connect(self.apply_filter)
 
-        from controller.GlobalSignalBus import global_signals
+        from controller.global_signal_bus import global_signals
 
         global_signals.greenModeChanged.connect(self.update_green_mode)
         global_signals.workDataChanged.connect(self.reload_input)

@@ -135,7 +135,8 @@ class AvPage(LazyWidget):
         else:
             handle = "#cccccc"
             handle_hover = "#888888"
-        self._splitter.setStyleSheet(f"""
+        self._splitter.setStyleSheet(
+            f"""
             QSplitter::handle {{
                 background: {handle};
                 width: 1px;
@@ -146,7 +147,8 @@ class AvPage(LazyWidget):
             QSplitter::handle:hover {{
                 background: {handle_hover};
             }}
-        """)
+        """
+        )
 
     def showEvent(self, event):
         super().showEvent(event)

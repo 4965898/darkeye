@@ -15,7 +15,7 @@ from PySide6.QtCore import QUrl
 
 from config import MESHES_PATH, MAPS_PATH
 from core.database.query import get_works_for_dvd, get_work_ids_with_cover
-from core.dvd.DvdShelfView import cover_url_to_texture_url, path_to_file_url
+from core.dvd.dvd_shelf_view import cover_url_to_texture_url, path_to_file_url
 
 
 class Work:

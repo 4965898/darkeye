@@ -5,7 +5,7 @@ from PySide6.QtGui import QIcon
 from config import ICONS_PATH
 from core.database.insert import insert_lovemaking_record
 from darkeye_ui.components import HeartRatingWidget
-from controller.MessageService import MessageBoxService
+from controller.message_service import MessageBoxService
 from darkeye_ui.components.label import Label
 from darkeye_ui.components.input import TextEdit
 from darkeye_ui.components import TokenDateTimeEdit
@@ -62,7 +62,7 @@ class AddMakeLoveDialog(QDialog):
         # 非空检测后插入数据
         if insert_lovemaking_record(time, rating, comment):
             self.msg.show_info("提示", "成功提交一次做爱记录")
-            from controller.GlobalSignalBus import global_signals
+            from controller.global_signal_bus import global_signals
 
             global_signals.lovemakingChanged.emit()
             self.accept()  # 关闭对话框

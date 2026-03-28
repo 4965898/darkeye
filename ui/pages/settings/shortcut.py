@@ -4,7 +4,7 @@ from PySide6.QtWidgets import QVBoxLayout, QHBoxLayout, QWidget
 from PySide6.QtGui import QKeySequence
 from darkeye_ui.components import Label, Button
 from darkeye_ui.components.token_key_sequence_edit import TokenKeySequenceEdit
-from controller.ShortcutRegistry import ShortcutRegistry
+from controller.shortcut_registry import ShortcutRegistry
 
 
 class ShortcutSettingRow(QWidget):

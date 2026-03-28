@@ -67,13 +67,15 @@ class CoverCard2(QWidget):
         self.image_label.setFocusPolicy(Qt.FocusPolicy.NoFocus)
 
         self.title_label = Label(_title_for_label(title, green_mode))
-        self.title_label.setStyleSheet("""
+        self.title_label.setStyleSheet(
+            """
             QLabel {
                 font-size: 12px;
                 font-family: 'Microsoft YaHei';
                 font-weight: bold;
             }
-        """)
+        """
+        )
         self.serial_number = serial_number
         self.serial_number_label = ClickableLabel(serial_number)
         self.serial_number_label.setFocusPolicy(Qt.FocusPolicy.NoFocus)
@@ -88,13 +90,15 @@ class CoverCard2(QWidget):
         self.serial_number_label.setAlignment(Qt.AlignCenter)
         self.serial_number_label.setFixedHeight(_SERIAL_H)
         self.serial_number_label.setFixedWidth(_IMG_W)
-        self.serial_number_label.setStyleSheet("""
+        self.serial_number_label.setStyleSheet(
+            """
             QLabel {
                 font-size: 13px;
                 font-family: 'Microsoft YaHei';
                 font-weight: bold;
             }
-        """)
+        """
+        )
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(_MARGIN_H, _MARGIN_TOP, _MARGIN_H, _MARGIN_BOTTOM)
@@ -119,7 +123,7 @@ class CoverCard2(QWidget):
                 "work_edit", serial_number=self.serial_number
             )
         )
-        from controller.GlobalSignalBus import global_signals
+        from controller.global_signal_bus import global_signals
 
         global_signals.greenModeChanged.connect(self._update_green_mode)
         global_signals.workDataChanged.connect(self._update_card)

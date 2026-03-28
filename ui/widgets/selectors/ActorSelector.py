@@ -4,7 +4,7 @@ from PySide6.QtCore import Qt, QItemSelection, Signal, Slot
 import sqlite3
 import logging
 from config import DATABASE
-from controller.MessageService import MessageBoxService
+from controller.message_service import MessageBoxService
 
 from darkeye_ui.components.label import Label
 from darkeye_ui.components.input import LineEdit
@@ -93,7 +93,7 @@ class ActorSelector(QWidget):
         main_layout.addLayout(btn_actor_layout)
         main_layout.addWidget(self.receive_actor_view)
 
-        from controller.GlobalSignalBus import global_signals
+        from controller.global_signal_bus import global_signals
 
         global_signals.actorDataChanged.connect(self.refresh_right_list)
 
@@ -103,10 +103,10 @@ class ActorSelector(QWidget):
         #数据库有没有被正确的读取是一个问题，数据库的版本与软件的版本要对上
         """
         query = """
-SELECT 
-	a.actor_id,
-	actor_name.cn AS cn_name,
-	actor_name.jp AS jp_name 
+SELECT
+    a.actor_id,
+    actor_name.cn AS cn_name,
+    actor_name.jp AS jp_name
 FROM actor a
 JOIN actor_name ON actor_name.actor_id=a.actor_id
 """

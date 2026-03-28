@@ -5,7 +5,7 @@ from datetime import datetime
 
 from PySide6.QtCore import QObject
 
-from controller.GlobalSignalBus import global_signals
+from controller.global_signal_bus import global_signals
 from core.database.db_queue import submit_db_raw
 from core.database.insert import (
     InsertNewWork,
@@ -118,7 +118,7 @@ class DataUpdate:
                         # 自动调用爬虫去更新女优
                         from PySide6.QtCore import QThreadPool
 
-                        from core.crawler.Worker import Worker
+                        from core.crawler.worker import Worker
                         from core.crawler.minnanoav import SearchSingleActressInfo
 
                         worker = Worker(
@@ -126,9 +126,7 @@ class DataUpdate:
                         )
                         worker.signals.finished.connect(
                             lambda ok: (
-                                global_signals.actressDataChanged.emit()
-                                if ok
-                                else None
+                                global_signals.actressDataChanged.emit() if ok else None
                             )
                         )
                         QThreadPool.globalInstance().start(worker)

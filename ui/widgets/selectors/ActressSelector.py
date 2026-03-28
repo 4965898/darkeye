@@ -4,7 +4,7 @@ from PySide6.QtCore import Qt, QItemSelection, Signal, Slot
 import sqlite3, logging
 
 from config import DATABASE
-from controller.MessageService import MessageBoxService
+from controller.message_service import MessageBoxService
 
 from darkeye_ui.components.label import Label
 from darkeye_ui.components.input import LineEdit
@@ -91,7 +91,7 @@ class ActressSelector(QWidget):
         main_layout.addLayout(btn_actress_layout)
         main_layout.addWidget(self.receive_actress_view)
 
-        from controller.GlobalSignalBus import global_signals
+        from controller.global_signal_bus import global_signals
 
         global_signals.actressDataChanged.connect(self.refresh_right_list)
 

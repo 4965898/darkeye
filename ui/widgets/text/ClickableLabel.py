@@ -1,7 +1,7 @@
 from PySide6.QtWidgets import QApplication, QSizePolicy
 from PySide6.QtCore import Qt, Signal, QTimer, QPoint, QSize, Slot, QThreadPool
 from PySide6.QtGui import QMouseEvent
-from controller.GlobalSignalBus import global_signals
+from controller.global_signal_bus import global_signals
 from darkeye_ui.components.label import Label
 
 
@@ -47,7 +47,7 @@ class ClickableLabel(Label):
     def search_actress_info(self, id):
         # 开始后台线程
         from core.crawler.minnanoav import SearchSingleActressInfo
-        from core.crawler.Worker import Worker
+        from core.crawler.worker import Worker
 
         worker = Worker(
             lambda id=id: SearchSingleActressInfo(id, self.text())
@@ -74,14 +74,16 @@ class ClickableLabel(Label):
         self._copy_tip = Label("复制成功", main_window)
         self._copy_tip.setWindowFlags(Qt.ToolTip | Qt.FramelessWindowHint)
         self._copy_tip.setAttribute(Qt.WA_TranslucentBackground)
-        self._copy_tip.setStyleSheet("""
+        self._copy_tip.setStyleSheet(
+            """
             QLabel {
                 font-weight: bold;
                 font-size: 20px;
                 padding: 10px 20px;
                 border-radius: 12px;
             }
-        """)
+        """
+        )
 
         self._copy_tip.adjustSize()
 

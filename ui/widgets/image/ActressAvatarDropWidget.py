@@ -13,7 +13,7 @@ from datetime import datetime
 from pathlib import Path
 
 from config import ACTRESSIMAGES_PATH, TEMP_PATH, ACTORIMAGES_PATH
-from controller.MessageService import MessageBoxService
+from controller.message_service import MessageBoxService
 from darkeye_ui.components.label import Label
 
 
@@ -43,14 +43,16 @@ class ActressAvatarDropWidget(Label):
         self.setAcceptDrops(True)  # 允许拖放
         self.setText(self.show_text)
         self.setAlignment(Qt.AlignCenter)
-        self.setStyleSheet("""
+        self.setStyleSheet(
+            """
         Label {
             border: 2px dashed gray;
             font-size: 16px;
             padding: 0px;
             margin: 0px;
         }
-        """)
+        """
+        )
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self._original_pixmap = None  # 保存原始图像,这个是个QPixmap对象
         self._path = None  # 这个是核心

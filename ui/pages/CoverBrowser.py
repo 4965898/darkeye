@@ -88,7 +88,8 @@ class InfoOverlay(QWidget):
 
         # 创建一个“浮层”控件
         self.work_name = QLabel("夫妻交换，仅限周末，妻子被其他人插入")
-        self.work_name.setStyleSheet("""
+        self.work_name.setStyleSheet(
+            """
             QLabel {
                 font-size: 32px;           /* 字号 */
                 font-family: 'Microsoft YaHei';      /* 字体 */
@@ -96,11 +97,13 @@ class InfoOverlay(QWidget):
                 color: white;
                 background-color: rgba(0, 0, 0, 0);
             }
-        """)
+        """
+        )
         self.work_name.setWordWrap(True)
 
         self.FANHAO = QLabel("番号:")
-        self.FANHAO.setStyleSheet("""
+        self.FANHAO.setStyleSheet(
+            """
             QLabel {
                 font-size: 18px;           /* 字号 */
                 font-family: 'Microsoft YaHei';      /* 字体 */
@@ -108,10 +111,12 @@ class InfoOverlay(QWidget):
                 color: grey;
                 background-color: rgba(0, 0, 0, 0);
             }
-        """)
+        """
+        )
 
         self.serial_number = QLabel("番号:IPX-247")
-        self.serial_number.setStyleSheet("""
+        self.serial_number.setStyleSheet(
+            """
             QLabel {
                 font-size: 18px;           /* 字号 */
                 font-family: 'Microsoft YaHei';      /* 字体 */
@@ -119,12 +124,14 @@ class InfoOverlay(QWidget):
                 color: grey;
                 background-color: rgba(0, 0, 0, 0);
             }
-        """)
+        """
+        )
 
         self.story = QLabel(
             "夫妻交换，仅限周末，妻子被其他人插入的夜晚，因为矛盾等等的因素"
         )
-        self.story.setStyleSheet("""
+        self.story.setStyleSheet(
+            """
             QLabel {
                 font-size: 16px;           /* 字号 */
                 font-family: 'Microsoft YaHei';      /* 字体 */
@@ -132,12 +139,14 @@ class InfoOverlay(QWidget):
                 color: white;
                 background-color: rgba(0, 0, 0, 0);
             }
-        """)
+        """
+        )
         self.story.setWordWrap(True)
         self.story.setMaximumHeight(200)
 
         self.TIME = QLabel("发行日期:")
-        self.TIME.setStyleSheet("""
+        self.TIME.setStyleSheet(
+            """
             QLabel {
                 font-size: 18px;           /* 字号 */
                 font-family: 'Arial';      /* 字体 */
@@ -145,10 +154,12 @@ class InfoOverlay(QWidget):
                 color: grey;
                 background-color: rgba(0, 0, 0, 0);
             }
-        """)
+        """
+        )
 
         self.time = QLabel("发行日期:2020-05-20")
-        self.time.setStyleSheet("""
+        self.time.setStyleSheet(
+            """
             QLabel {
                 font-size: 18px;           /* 字号 */
                 font-family: 'Arial';      /* 字体 */
@@ -156,9 +167,11 @@ class InfoOverlay(QWidget):
                 color: grey;
                 background-color: rgba(0, 0, 0, 0);
             }
-        """)
+        """
+        )
         self.actress = QLabel("女优:")
-        self.actress.setStyleSheet("""
+        self.actress.setStyleSheet(
+            """
             QLabel {
                 font-size: 18px;           /* 字号 */
                 font-family: 'Arial';      /* 字体 */
@@ -166,10 +179,12 @@ class InfoOverlay(QWidget):
                 color: grey;
                 background-color: rgba(0, 0, 0, 0);
             }
-        """)
+        """
+        )
 
         self.btn_start = QPushButton("开始观看")
-        self.btn_start.setStyleSheet("""
+        self.btn_start.setStyleSheet(
+            """
             QPushButton {
                 color: white;
                 background-color: red;
@@ -179,7 +194,8 @@ class InfoOverlay(QWidget):
                 border-radius: 10px;  
                 text-align: center; /* 水平居中 */     
             }
-        """)
+        """
+        )
         self.btn_start.setFixedSize(60, 30)
         self.btn_start.setCursor(Qt.PointingHandCursor)
 
@@ -277,7 +293,8 @@ class InfoOverlay(QWidget):
                 widget.deleteLater()
 
         self.tag = QLabel("标签:")
-        self.tag.setStyleSheet("""
+        self.tag.setStyleSheet(
+            """
             QLabel {
                 font-size: 18px;           /* 字号 */
                 font-family: 'Arial';      /* 字体 */
@@ -285,7 +302,8 @@ class InfoOverlay(QWidget):
                 color: grey;
                 background-color: rgba(0, 0, 0, 0);
             }
-        """)
+        """
+        )
         self.tag_layout.addWidget(self.tag)
         # 2. 动态创建按钮并添加
         # logging.debug(tag_list)
@@ -380,13 +398,15 @@ class CoverBrowser(QWidget):
             )
         )
         self.next_button.setIconSize(QSize(48, 48))
-        self.next_button.setStyleSheet("""
+        self.next_button.setStyleSheet(
+            """
             QPushButton {
                 background-color: transparent;
                 border: none;
                 padding-left: 0px;
             }
-        """)
+        """
+        )
 
         # 按钮的外观设置
         self.prev_button.setSizePolicy(
@@ -399,13 +419,15 @@ class CoverBrowser(QWidget):
             )
         )
         self.prev_button.setIconSize(QSize(48, 48))
-        self.prev_button.setStyleSheet("""
+        self.prev_button.setStyleSheet(
+            """
             QPushButton {
                 background-color: transparent;
                 border: none;
                 padding-left: 0px;
             }
-        """)
+        """
+        )
 
         self.prev_button.clicked.connect(self.prev_image)
         self.next_button.clicked.connect(self.next_image)
@@ -461,11 +483,11 @@ class CoverBrowser(QWidget):
 
     def load_current_image(self, animate=True):
         """加载当前的图片"""
-        from utils.utils import AlternativeQPixmap  # 这个目前还是有点问题
+        from utils.utils import alternative_qpixmap  # 这个目前还是有点问题
 
         work = self.works[self.current_index]
         path = str(WORKCOVER_PATH / work["image_url"])
-        # pixmap = AlternativeQPixmap(path)
+        # pixmap = alternative_qpixmap(path)
         from PySide6.QtGui import QImage
 
         imgmap = QImage(path)
@@ -561,7 +583,7 @@ class CoverBrowser(QWidget):
         self.update_tag()
 
     def refresh_CoverBroswer(self):
-        from core.recommendation.Recommend import random_rec
+        from core.recommendation.recommend import random_rec
 
         self.update_works(random_rec())
 
@@ -583,7 +605,7 @@ class CoverTagButton(QPushButton):
         self.clicked.connect(self.emit_with_id)
 
     def emit_with_id(self):
-        # from controller.GlobalSignalBus import global_signals
+        # from controller.global_signal_bus import global_signals
         # global_signals.tag_clicked.emit(self.tag_id)#发送给那些需要重新加载的东西
         from ui.navigation.router import Router
 
@@ -600,7 +622,8 @@ class ActressButton(QPushButton):
         # 连接点击信号到内部槽，发出带id的信号
         self.clicked.connect(self.emit_with_id)
         self.setCursor(Qt.PointingHandCursor)
-        self.setStyleSheet("""
+        self.setStyleSheet(
+            """
             QPushButton {
                 background-color: transparent;
                 color: white;
@@ -616,7 +639,8 @@ class ActressButton(QPushButton):
             QPushButton:pressed {
                 background-color: #2e7d32;
             }
-        """)
+        """
+        )
 
     def emit_with_id(self):
 

@@ -156,9 +156,7 @@ class GraphViewSession(QObject):
 
         self.sub_G = self.apply_filter(G)
 
-        self.dataReady.emit(
-            {"cmd": "load_graph", "graph": self.sub_G, "modify": False}
-        )
+        self.dataReady.emit({"cmd": "load_graph", "graph": self.sub_G, "modify": False})
 
     def _on_global_diff(self, global_diff_list: list):
         """增量加载，后面的图是增量式的，原来的点与边保持不变，增加新的点与边后模拟,global_diff_list是全局图的增量diff,这个暂时不用"""

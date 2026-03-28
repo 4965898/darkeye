@@ -7,14 +7,14 @@ root_dir = Path(__file__).resolve().parents[2]  # 上两级
 sys.path.insert(0, str(root_dir))
 
 
-from core.crawler.Worker import Worker
+from core.crawler.worker import Worker
 from PySide6.QtCore import QThreadPool
 from server.bridge import bridge
 
 
 def jump_to_fanza(serial_number):
     """启动浏览器插件爬虫进行爬取"""
-    from core.crawler.Worker import Worker
+    from core.crawler.worker import Worker
 
     web = "fanza"
     from core.crawler.jump import send_crawler_request

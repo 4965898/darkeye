@@ -12,7 +12,7 @@ class ForceDirectPage(LazyWidget):
     def _lazy_load(self):
         logging.info("----------力导向图界面----------")
 
-        from core.graph.ForceDirectedViewWidget import ForceDirectedViewWidget
+        from core.graph.force_directed_view_widget import ForceDirectedViewWidget
 
         mainlayout = QVBoxLayout()
         self.setLayout(mainlayout)

@@ -15,7 +15,7 @@ from ui.widgets.StatsOverviewCards import StatsOverviewCards
 from ui.basic.Effect import ShadowEffectMixin
 from darkeye_ui import LazyWidget
 from ui.statistics import SwitchHeapMap
-from controller.GlobalSignalBus import global_signals
+from controller.global_signal_bus import global_signals
 from darkeye_ui.components.transparent_widget import TransparentWidget
 from darkeye_ui.components.label import Label
 from darkeye_ui.design.tokens import ThemeTokens, LIGHT_TOKENS

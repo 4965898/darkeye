@@ -21,7 +21,7 @@ from ui.pages.management.UpdateManyTabPage import UpdateManyTabPage
 
 import logging
 
-from controller.MessageService import MessageBoxService
+from controller.message_service import MessageBoxService
 
 from darkeye_ui.components.token_tab_widget import TokenTabWidget
 
@@ -164,7 +164,8 @@ class ManagementPage(QWidget):
         layout.addWidget(spacer)
 
         toolbar.setObjectName("managementPageToolbar")
-        toolbar.setStyleSheet("""
+        toolbar.setStyleSheet(
+            """
             #managementPageToolbar QToolButton {
                 padding: 0px 0px;
                 background: #F0F0F0;
@@ -174,6 +175,7 @@ class ManagementPage(QWidget):
             #managementPageToolbar QToolButton:hover {
                 background: #D8EAF9;
             }
-        """)
+        """
+        )
 
         return toolbar

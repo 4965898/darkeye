@@ -39,7 +39,8 @@ class CollapsibleSection(QWidget):
         self.toggle_btn.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
         # self.toggle_btn.setArrowType(Qt.ArrowType.RightArrow)
         self.toggle_btn.setIcon(QIcon(str(ICONS_PATH / "arrow-right.svg")))
-        self.toggle_btn.setStyleSheet("""
+        self.toggle_btn.setStyleSheet(
+            """
             QToolButton {
                 border: none;
                 background: #f0f0f0;
@@ -50,7 +51,8 @@ class CollapsibleSection(QWidget):
             QToolButton:checked {
                 background: #e0e0e0;
             }
-        """)
+        """
+        )
         self.toggle_btn.toggled.connect(self.toggle_content)
 
         # 内容区域

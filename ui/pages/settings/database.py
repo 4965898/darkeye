@@ -19,7 +19,7 @@ from config import (
     REQUIRED_PRIVATE_DB_VERSION,
 )
 from darkeye_ui.components import Label, Button
-from controller.MessageService import MessageBoxService
+from controller.message_service import MessageBoxService
 
 
 def _get_detected_db_version(db_path) -> str:

@@ -299,13 +299,15 @@ class TitleBarButton(QPushButton):
                 bg_color = "transparent"
             icon_color = "#FFFFFF"
 
-        self.setStyleSheet(f"""
+        self.setStyleSheet(
+            f"""
             QPushButton {{
                 background-color: {bg_color};
                 border: none;
                 border-radius: 0px;
             }}
-        """)
+        """
+        )
 
     def enterEvent(self, event):
         self._is_hovered = True
@@ -356,7 +358,7 @@ class TitleBar(QWidget):
 
     def _init_ui(self):
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(8, 0, 0, 0)
+        layout.set_contentsMargins(8, 0, 0, 0)
         layout.setSpacing(0)
 
         # Logo
@@ -368,12 +370,14 @@ class TitleBar(QWidget):
 
         # 标题
         self._title_label = QLabel()
-        self._title_label.setStyleSheet("""
+        self._title_label.setStyleSheet(
+            """
             QLabel {
                 color: #FFFFFF;
                 font-size: 12px;
             }
-        """)
+        """
+        )
         layout.addWidget(self._title_label)
 
         # 弹性空间
@@ -411,11 +415,11 @@ class TitleBar(QWidget):
         """设置窗口标题"""
         self._title_label.setText(title)
 
-    def setMaximizedState(self, maximized: bool):
+    def set_maximized_state(self, maximized: bool):
         """设置最大化状态"""
         self._max_btn.set_maximized_state(maximized)
 
-    def isInTitleBarArea(self, pos: QPoint) -> bool:
+    def is_in_title_bar_area(self, pos: QPoint) -> bool:
         """检查位置是否在标题栏区域（排除按钮）"""
         # 检查是否在按钮上
         for btn in [self._min_btn, self._max_btn, self._close_btn]:
@@ -427,7 +431,7 @@ class TitleBar(QWidget):
     def mousePressEvent(self, event: QMouseEvent):
         """鼠标按下"""
         if event.button() == Qt.LeftButton:
-            if self.isInTitleBarArea(event.position().toPoint()):
+            if self.is_in_title_bar_area(event.position().toPoint()):
                 self._drag_start_pos = event.globalPosition().toPoint()
                 self._is_dragging = True
         super().mousePressEvent(event)
@@ -458,7 +462,7 @@ class TitleBar(QWidget):
     def mouseDoubleClickEvent(self, event: QMouseEvent):
         """双击标题栏"""
         if event.button() == Qt.LeftButton:
-            if self.isInTitleBarArea(event.position().toPoint()):
+            if self.is_in_title_bar_area(event.position().toPoint()):
                 self.maximizeClicked.emit()
         super().mouseDoubleClickEvent(event)
 
@@ -481,7 +485,7 @@ class FramelessWidget(QWidget):
 
                 content = QWidget()
                 # ... 设置 content 内容 ...
-                self.setContent(content)
+                self.set_content(content)
     """
 
     # 边框拖拽区域大小
@@ -510,7 +514,7 @@ class FramelessWidget(QWidget):
     def _init_ui(self):
         """初始化 UI 布局"""
         self._main_layout = QVBoxLayout(self)
-        self._main_layout.setContentsMargins(0, 0, 0, 0)
+        self._main_layout.set_contentsMargins(0, 0, 0, 0)
         self._main_layout.setSpacing(0)
 
         # 标题栏
@@ -523,18 +527,20 @@ class FramelessWidget(QWidget):
         # 内容区域容器
         self._content_container = QWidget()
         self._content_layout = QVBoxLayout(self._content_container)
-        self._content_layout.setContentsMargins(0, 0, 0, 0)
+        self._content_layout.set_contentsMargins(0, 0, 0, 0)
         self._content_layout.setSpacing(0)
         self._main_layout.addWidget(self._content_container, 1)
 
         # 设置默认背景色
-        self.setStyleSheet("""
+        self.setStyleSheet(
+            """
             FramelessWidget {
                 background-color: #1E1E1E;
             }
-        """)
+        """
+        )
 
-    def setContent(self, widget: QWidget):
+    def set_content(self, widget: QWidget):
         """设置窗口内容"""
         # 清除旧内容
         while self._content_layout.count():
@@ -555,7 +561,7 @@ class FramelessWidget(QWidget):
         super().setWindowIcon(icon)
         self._title_bar.setWindowIcon(icon)
 
-    def setIconsPath(self, path: str):
+    def set_icons_path(self, path: str):
         """设置图标路径"""
         self._icons_path = path
 
@@ -647,13 +653,13 @@ class FramelessWidget(QWidget):
         if not self._is_maximized:
             self._normal_geometry = self.geometry()
         self._is_maximized = True
-        self._title_bar.setMaximizedState(True)
+        self._title_bar.set_maximized_state(True)
         super().showMaximized()
 
     def showNormal(self):
         """还原窗口"""
         self._is_maximized = False
-        self._title_bar.setMaximizedState(False)
+        self._title_bar.set_maximized_state(False)
         super().showNormal()
         if self._normal_geometry:
             self.setGeometry(self._normal_geometry)
@@ -707,17 +713,17 @@ class FramelessWidget(QWidget):
         if title_bar_rect.contains(local_pos):
             # 转换为标题栏本地坐标
             title_bar_pos = self._title_bar.mapFromParent(local_pos)
-            if self._title_bar.isInTitleBarArea(title_bar_pos):
+            if self._title_bar.is_in_title_bar_area(title_bar_pos):
                 return HTCAPTION
 
         return HTCLIENT
 
-    def _handle_getminmaxinfo(self, lParam: int):
+    def _handle_getminmaxinfo(self, l_param: int) -> None:
         """处理 WM_GETMINMAXINFO 消息 - 多屏最大化支持"""
         if not self._hwnd:
             return
 
-        info = ctypes.cast(lParam, POINTER(MINMAXINFO)).contents
+        info = ctypes.cast(l_param, POINTER(MINMAXINFO)).contents
 
         # 获取当前屏幕信息
         monitor = MonitorFromWindow(self._hwnd, MONITOR_DEFAULTTONEAREST)
@@ -734,13 +740,13 @@ class FramelessWidget(QWidget):
             info.ptMaxSize.x = work_rect.right - work_rect.left
             info.ptMaxSize.y = work_rect.bottom - work_rect.top
 
-    def _handle_dpichanged(self, wParam: int, lParam: int):
+    def _handle_dpichanged(self, w_param: int, l_param: int) -> None:
         """处理 WM_DPICHANGED 消息 - DPI 自适应"""
-        new_dpi = wParam >> 16  # HIWORD
+        new_dpi = w_param >> 16  # HIWORD
         self._dpi_scale = new_dpi / 96.0
 
         # 获取系统建议的新窗口矩形
-        rect = ctypes.cast(lParam, POINTER(RECT)).contents
+        rect = ctypes.cast(l_param, POINTER(RECT)).contents
 
         # 调整窗口大小和位置
         SetWindowPos(
@@ -753,7 +759,7 @@ class FramelessWidget(QWidget):
             SWP_NOZORDER,
         )
 
-    def nativeEvent(self, eventType: QByteArray, message: int) -> tuple:
+    def nativeEvent(self, event_type: QByteArray, message: int) -> tuple:
         """处理 Windows 原生事件"""
         try:
             msg = ctypes.wintypes.MSG.from_address(int(message))
@@ -798,12 +804,12 @@ class FramelessWidget(QWidget):
             w_param = msg.wParam
             if w_param == SIZE_MAXIMIZED:
                 self._is_maximized = True
-                self._title_bar.setMaximizedState(True)
+                self._title_bar.set_maximized_state(True)
             elif w_param == SIZE_RESTORED:
                 self._is_maximized = False
-                self._title_bar.setMaximizedState(False)
+                self._title_bar.set_maximized_state(False)
 
-        return super().nativeEvent(eventType, message)
+        return super().nativeEvent(event_type, message)
 
     def showEvent(self, event):
         """窗口显示事件"""
@@ -828,7 +834,7 @@ class FramelessWidget(QWidget):
             # 同步最大化状态
             is_max = self.windowState() & Qt.WindowMaximized
             self._is_maximized = bool(is_max)
-            self._title_bar.setMaximizedState(self._is_maximized)
+            self._title_bar.set_maximized_state(self._is_maximized)
         super().changeEvent(event)
 
 
@@ -867,12 +873,14 @@ class FramelessWidgetFallback(QWidget):
         # 主容器（带阴影边距）
         self._main_container = QWidget(self)
         self._main_container.setObjectName("mainContainer")
-        self._main_container.setStyleSheet("""
+        self._main_container.setStyleSheet(
+            """
             #mainContainer {
                 background-color: #1E1E1E;
                 border-radius: 0px;
             }
-        """)
+        """
+        )
 
         # 添加阴影效果
         shadow = QGraphicsDropShadowEffect(self)
@@ -883,14 +891,14 @@ class FramelessWidgetFallback(QWidget):
 
         # 主布局
         outer_layout = QVBoxLayout(self)
-        outer_layout.setContentsMargins(
+        outer_layout.set_contentsMargins(
             self.SHADOW_WIDTH, self.SHADOW_WIDTH, self.SHADOW_WIDTH, self.SHADOW_WIDTH
         )
         outer_layout.addWidget(self._main_container)
 
         # 内部布局
         self._main_layout = QVBoxLayout(self._main_container)
-        self._main_layout.setContentsMargins(0, 0, 0, 0)
+        self._main_layout.set_contentsMargins(0, 0, 0, 0)
         self._main_layout.setSpacing(0)
 
         # 标题栏
@@ -903,10 +911,10 @@ class FramelessWidgetFallback(QWidget):
         # 内容区域
         self._content_container = QWidget()
         self._content_layout = QVBoxLayout(self._content_container)
-        self._content_layout.setContentsMargins(0, 0, 0, 0)
+        self._content_layout.set_contentsMargins(0, 0, 0, 0)
         self._main_layout.addWidget(self._content_container, 1)
 
-    def setContent(self, widget: QWidget):
+    def set_content(self, widget: QWidget):
         """设置内容"""
         while self._content_layout.count():
             item = self._content_layout.takeAt(0)
@@ -932,18 +940,18 @@ class FramelessWidgetFallback(QWidget):
         if not self._is_maximized:
             self._normal_geometry = self.geometry()
         self._is_maximized = True
-        self._title_bar.setMaximizedState(True)
+        self._title_bar.set_maximized_state(True)
 
         # 移除阴影边距
-        self.layout().setContentsMargins(0, 0, 0, 0)
+        self.layout().set_contentsMargins(0, 0, 0, 0)
         super().showMaximized()
 
     def showNormal(self):
         self._is_maximized = False
-        self._title_bar.setMaximizedState(False)
+        self._title_bar.set_maximized_state(False)
 
         # 恢复阴影边距
-        self.layout().setContentsMargins(
+        self.layout().set_contentsMargins(
             self.SHADOW_WIDTH, self.SHADOW_WIDTH, self.SHADOW_WIDTH, self.SHADOW_WIDTH
         )
         super().showNormal()
@@ -1099,18 +1107,20 @@ if __name__ == "__main__":
     # 创建测试内容
     content = QWidget()
     content_layout = QVBoxLayout(content)
-    content_layout.setContentsMargins(20, 20, 20, 20)
+    content_layout.set_contentsMargins(20, 20, 20, 20)
     content_layout.setSpacing(15)
 
     # 标题
     title = QLabel("无边框窗口测试")
-    title.setStyleSheet("""
+    title.setStyleSheet(
+        """
         QLabel {
             color: #FFFFFF;
             font-size: 24px;
             font-weight: bold;
         }
-    """)
+    """
+    )
     content_layout.addWidget(title)
 
     # 功能说明
@@ -1135,7 +1145,8 @@ if __name__ == "__main__":
     btn_layout = QHBoxLayout()
 
     test_btn = QPushButton("测试按钮")
-    test_btn.setStyleSheet("""
+    test_btn.setStyleSheet(
+        """
         QPushButton {
             background-color: #0078D4;
             color: white;
@@ -1150,7 +1161,8 @@ if __name__ == "__main__":
         QPushButton:pressed {
             background-color: #006CBD;
         }
-    """)
+    """
+    )
     test_btn.clicked.connect(lambda: print("按钮点击"))
     btn_layout.addWidget(test_btn)
 
@@ -1175,7 +1187,7 @@ if __name__ == "__main__":
     content_layout.addStretch()
 
     # 设置内容
-    window.setContent(content)
+    window.set_content(content)
 
     # 显示窗口
     window.show()

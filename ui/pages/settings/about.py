@@ -29,7 +29,7 @@ from config import (
 )
 from darkeye_ui.components import Label, Button
 from darkeye_ui.components.token_radio_button import TokenRadioButton
-from controller.MessageService import MessageBoxService
+from controller.message_service import MessageBoxService
 
 URLOPEN_TIMEOUT_SECONDS = 8
 OVERALL_TIMEOUT_SECONDS = 12

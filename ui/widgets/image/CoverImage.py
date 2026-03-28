@@ -13,7 +13,7 @@ from PySide6.QtCore import (
 )
 import logging
 from utils.utils import mosaic_qimage
-from controller.GlobalSignalBus import global_signals
+from controller.global_signal_bus import global_signals
 from ui.navigation.router import Router
 
 

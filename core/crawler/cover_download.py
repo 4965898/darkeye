@@ -3,7 +3,7 @@ from collections import deque
 
 from PySide6.QtCore import QObject, QThreadPool, Signal, Slot, Qt
 
-from core.crawler.Worker import Worker
+from core.crawler.worker import Worker
 
 
 class DownloadRelay(QObject):
@@ -70,7 +70,7 @@ class SequentialDownloader(QObject):
 
         try:
             if self.task_id:
-                from controller.GlobalSignalBus import global_signals
+                from controller.global_signal_bus import global_signals
 
                 total = self.total or len(self.urls)
                 global_signals.downloadTaskStarted.emit(self.task_id, int(total))
@@ -83,7 +83,7 @@ class SequentialDownloader(QObject):
         if not self.task_id:
             return
         try:
-            from controller.GlobalSignalBus import global_signals
+            from controller.global_signal_bus import global_signals
 
             total = self.total or (self._current_index or 0)
             global_signals.downloadTaskProgress.emit(
@@ -97,7 +97,7 @@ class SequentialDownloader(QObject):
             self.finished.emit(False, "所有地址均下载失败")
             try:
                 if self.task_id:
-                    from controller.GlobalSignalBus import global_signals
+                    from controller.global_signal_bus import global_signals
 
                     self._emit_progress("所有地址均下载失败")
                     global_signals.downloadTaskFinished.emit(
@@ -138,7 +138,7 @@ class SequentialDownloader(QObject):
                 self.finished.emit(True, str(self.save_path))
                 try:
                     if self.task_id:
-                        from controller.GlobalSignalBus import global_signals
+                        from controller.global_signal_bus import global_signals
 
                         self._emit_progress("封面下载完成")
                         total = self.total or self._current_index

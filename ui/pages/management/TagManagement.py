@@ -16,11 +16,11 @@ from core.database.query import get_tag_type_dict, get_unique_tag_type
 from darkeye_ui.components.color_picker import ColorPicker
 import logging
 from darkeye_ui import LazyWidget
-from controller.MessageService import MessageBoxService, IMessageService
+from controller.message_service import MessageBoxService, IMessageService
 from ui.widgets.text.VerticalTagLabel2 import VerticalTagLabel, VShowTagLabel
 from ui.basic import EditableTableView
 from ui.dialogs import TagTypeModifyDialog
-from controller.GlobalSignalBus import global_signals
+from controller.global_signal_bus import global_signals
 from darkeye_ui.components.label import Label
 from darkeye_ui.components.button import Button
 from darkeye_ui.components.token_group_box import TokenGroupBox
@@ -44,12 +44,14 @@ class SignalTagView(QWidget):
         self.setFixedWidth(60)
         self.setMinimumHeight(100)
         self.setObjectName("SignalTagView")  # 给外层起名字
-        self.setStyleSheet("""
+        self.setStyleSheet(
+            """
             #SignalTagView {
                 border-radius: 12px;
                 border: 3px dashed #cccccc;
             }
-        """)
+        """
+        )
         self.mainlayout = QHBoxLayout(self)
 
 
@@ -159,9 +161,7 @@ class ViewModel(QObject):
             self.model._tag_detail = clean_value
             self.tagDetailChanged.emit(clean_value)
 
-    tag_detail = Property(
-        str, get_tag_detail, set_tag_detail, notify=tagDetailChanged
-    )
+    tag_detail = Property(str, get_tag_detail, set_tag_detail, notify=tagDetailChanged)
 
     # --- tag_redirect_tag_id property ---
     def get_tag_redirect_tag_id(self) -> int | None:

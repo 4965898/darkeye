@@ -406,9 +406,7 @@ class ForceViewSettingsPanel(QScrollArea):
         )
 
         # Physics parameters
-        self.many_body_strength.valueChanged.connect(
-            self.manyBodyStrengthChanged.emit
-        )
+        self.many_body_strength.valueChanged.connect(self.manyBodyStrengthChanged.emit)
         self.center_strength.valueChanged.connect(
             lambda x: self.centerStrengthChanged.emit(float(x) / 1000.0)
         )

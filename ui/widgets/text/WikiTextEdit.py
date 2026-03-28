@@ -44,11 +44,13 @@ class ImagePreviewWindow(QWidget):
         layout.addWidget(self.image_label)
 
         # 设置样式：白色背景，带边框和阴影
-        self.setStyleSheet("""
+        self.setStyleSheet(
+            """
             background-color: #333333;
             border: 1px solid #555555;
             border-radius: 4px;
-        """)
+        """
+        )
 
         self.current_path = None
 
@@ -167,7 +169,7 @@ class WikiTextEdit(TextEdit):
 
         self.func = None
         self._current_selected_text = None
-        from controller.GlobalSignalBus import global_signals
+        from controller.global_signal_bus import global_signals
 
         global_signals.workDataChanged.connect(self._on_model_changed)
 
@@ -264,7 +266,8 @@ class WikiTextEdit(TextEdit):
         # 1. 设置背景色和圆角
         # 2. 增加 padding 来撑大行高（行间距）
         # 3. 设置选中和悬停效果
-        popup.setStyleSheet("""
+        popup.setStyleSheet(
+            """
             QListView {
                 background-color: #FFFFFF;
                 color: #111111;
@@ -303,7 +306,8 @@ class WikiTextEdit(TextEdit):
             QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
                 height: 0px;
             }
-        """)
+        """
+        )
 
     def mousePressEvent(self, event):
         """处理鼠标点击事件，检测是否点击了 [[链接]]"""

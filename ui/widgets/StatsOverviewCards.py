@@ -15,7 +15,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, QThreadPool, QRunnable, QObject, Signal, Slot
 
 from darkeye_ui.components.label import Label
-from controller.GlobalSignalBus import global_signals
+from controller.global_signal_bus import global_signals
 from core.database.query import get_dashboard_stats
 
 # 统计卡片 label -> get_dashboard_stats 返回的键

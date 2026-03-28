@@ -614,9 +614,9 @@ def update_tag_alias(cursor: Cursor, tag_alias: list[dict], tag_id):
     # 先取原来的
     cursor.execute(
         f"""
-SELECT 
-	tag_id
-FROM tag 
+SELECT
+    tag_id
+FROM tag
 WHERE redirect_tag_id=?""",
         (tag_id,),
     )
@@ -1034,11 +1034,13 @@ def update_work_maker_from_prefix_relation() -> str:
         if not prefix_to_maker:
             return "prefix_maker_relation 为空，未执行更新"
 
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT work_id, serial_number, maker_id
             FROM work
             WHERE IFNULL(is_deleted, 0) = 0
-            """)
+            """
+        )
         updates: list[tuple[int, int]] = []
         for work_id, serial_number, cur_maker in cursor.fetchall():
             prefix = _serial_prefix_for_maker_lookup(serial_number)

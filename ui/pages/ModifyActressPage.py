@@ -12,7 +12,7 @@ import logging
 
 
 from darkeye_ui import LazyWidget
-from controller.MessageService import MessageBoxService, IMessageService
+from controller.message_service import MessageBoxService, IMessageService
 
 from ui.basic import MovableTableView
 from core.database.query import get_actress_allname, get_serial_number
@@ -101,9 +101,7 @@ class ViewModel(QObject):
             self.model._actress_id = value
             self.actressIdChanged.emit(value)
 
-    actress_id = Property(
-        int, get_actress_id, set_actress_id, notify=actressIdChanged
-    )
+    actress_id = Property(int, get_actress_id, set_actress_id, notify=actressIdChanged)
 
     def get_height(self):
         return self.model._height
@@ -174,9 +172,7 @@ class ViewModel(QObject):
             self.model._debut_date = value
             self.debutDateChanged.emit(value)
 
-    debut_date = Property(
-        str, get_debut_date, set_debut_date, notify=debutDateChanged
-    )
+    debut_date = Property(str, get_debut_date, set_debut_date, notify=debutDateChanged)
 
     def get_need_update(self):
         return self.model._need_update
@@ -198,9 +194,7 @@ class ViewModel(QObject):
             self.model._image_urlA = value
             self.imageUrlAChanged.emit(value)
 
-    image_urlA = Property(
-        str, get_image_urlA, set_image_urlA, notify=imageUrlAChanged
-    )
+    image_urlA = Property(str, get_image_urlA, set_image_urlA, notify=imageUrlAChanged)
 
     def get_actress_name(self):
         # logging.debug("读取actress_name数据")
@@ -260,9 +254,7 @@ class ViewModel(QObject):
             self.model._minnano_id = normalized
             self.minnanoIdChanged.emit(normalized)
 
-    minnano_id = Property(
-        str, get_minnano_id, set_minnano_id, notify=minnanoIdChanged
-    )
+    minnano_id = Property(str, get_minnano_id, set_minnano_id, notify=minnanoIdChanged)
 
     def load(self, actress_id: int):
         """加载"""
@@ -329,7 +321,7 @@ class ViewModel(QObject):
     def clawer_update(self):
         """爬虫更新单个女优的数据，是直接更新，而不是写界面后提交"""
         from core.crawler.minnanoav import SearchSingleActressInfo
-        from core.crawler.Worker import Worker
+        from core.crawler.worker import Worker
 
         # taskmanager=TaskManager.instance()
         # task=taskmanager.add_task("爬虫更新单个女优数据")
@@ -457,7 +449,7 @@ class ViewModel(QObject):
     @Slot(bool)
     def on_result(self, result: bool, actressName: str):  # Qsignal回传信息
         pass
-        # from controller.GlobalSignalBus import global_signals
+        # from controller.global_signal_bus import global_signals
         # taskmanager=TaskManager.instance()
         # if result:
         #    taskmanager.complete_task(task,"查询完成")
@@ -476,7 +468,7 @@ class ViewModel(QObject):
         success, message = delete_actress(self.actress_id)
         if success:
             self.msg.show_info("提示", message)
-            from controller.GlobalSignalBus import global_signals
+            from controller.global_signal_bus import global_signals
 
             global_signals.actressDataChanged.emit()
         else:

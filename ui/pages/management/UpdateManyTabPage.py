@@ -17,7 +17,7 @@ class UpdateManyTabPage(LazyWidget):
 
     def _lazy_load(self):
         logging.info("----------加载批量更新窗口----------")
-        from controller.MessageService import MessageBoxService
+        from controller.message_service import MessageBoxService
 
         self.msg = MessageBoxService(self)
 
@@ -101,7 +101,7 @@ class UpdateManyTabPage(LazyWidget):
 
     @Slot()
     def task_update_maker_by_prefix(self):
-        from core.crawler.Worker import Worker
+        from core.crawler.worker import Worker
         from core.database.update import update_work_maker_from_prefix_relation
 
         def _run():
@@ -114,7 +114,7 @@ class UpdateManyTabPage(LazyWidget):
 
     @Slot(object)
     def _on_maker_prefix_update_finished(self, result):
-        from controller.GlobalSignalBus import global_signals
+        from controller.global_signal_bus import global_signals
 
         if result is None:
             self.msg.show_info("错误", "更新失败，请查看日志")
@@ -124,7 +124,7 @@ class UpdateManyTabPage(LazyWidget):
 
     @Slot()
     def task_batch_translate_cn(self):
-        from core.crawler.Worker import Worker
+        from core.crawler.worker import Worker
         from core.database.update import batch_translate_missing_cn_fields
 
         worker = Worker(batch_translate_missing_cn_fields)
@@ -134,7 +134,7 @@ class UpdateManyTabPage(LazyWidget):
 
     @Slot(object)
     def _on_batch_translate_finished(self, result):
-        from controller.GlobalSignalBus import global_signals
+        from controller.global_signal_bus import global_signals
 
         if result is None:
             self.msg.show_info("错误", "批量翻译失败，请查看日志")
@@ -146,7 +146,7 @@ class UpdateManyTabPage(LazyWidget):
     def search_actress_info(self):
         # 开始后台线程
         from core.crawler.minnanoav import actress_need_update, SearchActressInfo
-        from core.crawler.Worker import Worker
+        from core.crawler.worker import Worker
 
         if actress_need_update():
             worker = Worker(SearchActressInfo)  # 传一个函数名进去
@@ -206,7 +206,7 @@ class UpdateManyTabPage(LazyWidget):
     @Slot()
     def bulk_crawl_empty_fields(self):
         from core.database.query.work import get_works_for_bulk_crawl_fields
-        from core.crawler.CrawlerManager import get_manager
+        from core.crawler.crawler_manager import get_manager
 
         selected_fields = self._get_selected_crawler_fields()
         logging.info("批量空值爬虫触发，勾选字段: %s", sorted(selected_fields))

@@ -42,10 +42,12 @@ def get_dashboard_stats() -> dict:
             result["tag_count"] = cursor.fetchone()[0]
 
             # 近 30 天新增作品
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT COUNT(*) FROM work
                 WHERE create_time >= date('now', '-30 day')
-                """)
+                """
+            )
             result["recent_30_days"] = cursor.fetchone()[0]
 
             # 收藏作品、收藏女优（需附加私有库）

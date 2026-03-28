@@ -37,7 +37,8 @@ class StateToggleButton(QPushButton):
         self.setFixedSize(outsize, outsize)
 
         if hoverable:
-            self.setStyleSheet("""
+            self.setStyleSheet(
+                """
             QPushButton {
                 border: none;
                 background: transparent;
@@ -46,15 +47,18 @@ class StateToggleButton(QPushButton):
             QPushButton:hover {
                 background-color: lightgray; /* 悬停时灰色背景 */
             }
-            """)
+            """
+            )
         else:
-            self.setStyleSheet("""
+            self.setStyleSheet(
+                """
             QPushButton {
                 border: none;
                 background: transparent;
                 border-radius: 6px;   /* 圆角半径 */
             }
-            """)
+            """
+            )
         # 连接点击事件
         self.clicked.connect(self.toggle_state)
 

@@ -85,12 +85,14 @@ class WaterfallLayoutApp(QWidget):
             )
 
             # 设置标签的样式
-            label.setStyleSheet(f"""
+            label.setStyleSheet(
+                f"""
                 background-color: {random_color.name()};
                 color: white;
                 border: 1px solid gray;
                 padding: 10px;
-            """)
+            """
+            )
             label.setAlignment(Qt.AlignCenter)
             label.setMinimumSize(QSize(200, random_height))  # 设置最小尺寸
 

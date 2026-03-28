@@ -11,7 +11,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QIcon
 from config import ICONS_PATH
 import logging, re
-from controller.MessageService import MessageBoxService
+from controller.message_service import MessageBoxService
 
 from darkeye_ui.components.button import Button
 from darkeye_ui.components.token_table_widget import TokenTableWidget
@@ -219,7 +219,7 @@ class AddQuickWork(QDialog):
             return
 
         # 通过惰性单例获取 CrawlerManager 启动后台任务
-        from core.crawler.CrawlerManager import get_manager
+        from core.crawler.crawler_manager import get_manager
 
         get_manager().start_crawl(serial_list)
 

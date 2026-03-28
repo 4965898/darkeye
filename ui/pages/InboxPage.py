@@ -12,7 +12,7 @@ from PySide6.QtWidgets import (
     QAbstractItemView,
 )
 
-from controller.GlobalSignalBus import global_signals
+from controller.global_signal_bus import global_signals
 from core.crawler.crawler_task import CrawlWorkflowState
 from darkeye_ui.components import Label, TokenListView
 
@@ -43,7 +43,7 @@ class InboxPage(QWidget):
     爬虫任务 Inbox：仅只读展示。
 
     三列：待爬队列、进行中（元数据/入库/封面）、已完成（以下载收尾信号为准）。
-    数据与 :class:`core.crawler.CrawlerManager.CrawlerManager2` 的队列及任务字典对齐。
+    数据与 :class:`core.crawler.crawler_manager.CrawlerManager2` 的队列及任务字典对齐。
     """
 
     def __init__(self, parent: QWidget | None = None) -> None:
@@ -156,7 +156,7 @@ class InboxPage(QWidget):
     @Slot()
     def _poll_crawler_snapshot(self) -> None:
         try:
-            from core.crawler.CrawlerManager import get_manager
+            from core.crawler.crawler_manager import get_manager
 
             manager = get_manager()
         except Exception:

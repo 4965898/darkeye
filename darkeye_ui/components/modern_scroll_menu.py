@@ -113,7 +113,8 @@ class ModernScrollMenu(QWidget):
     def _apply_token_styles(self) -> None:
         t = self._tokens()
         self.setStyleSheet(f"background-color: {t.color_bg};")
-        self.nav_container.setStyleSheet(f"""
+        self.nav_container.setStyleSheet(
+            f"""
             QPushButton {{
                 border: none; background-color: transparent; color: {t.color_text_placeholder};
                 padding: 10px 15px; font-size: 15px; border-bottom: {t.border_width} solid transparent;
@@ -121,7 +122,8 @@ class ModernScrollMenu(QWidget):
             }}
             QPushButton:hover {{ color: {t.color_text}; }}
             QPushButton:checked {{ color: {t.color_primary}; font-weight: bold; border-bottom: {t.border_width} solid {t.color_primary}; }}
-        """)
+        """
+        )
         for lbl in self._title_labels:
             lbl.setStyleSheet(
                 f"font-size: 18px; font-weight: bold; color: {t.color_text}; "

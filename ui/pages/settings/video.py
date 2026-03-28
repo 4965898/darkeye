@@ -8,7 +8,7 @@ from PySide6.QtCore import Slot
 
 from config import get_video_path
 from darkeye_ui.components import Label, Button
-from controller.MessageService import MessageBoxService
+from controller.message_service import MessageBoxService
 from ui.basic import MultiplePathManagement
 
 

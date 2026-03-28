@@ -93,25 +93,37 @@ class SingleActressInfo(QWidget):
         """对控件美化。ClickableLabel 颜色由主题 Label#DesignLabel 控制，此处只设字体，避免写死 color 以随主题变色。"""
         # self.name_widget.setStyleSheet("background-color:#FFFFFF ;")
 
-        self.cn_name.setStyleSheet("""
+        self.cn_name.setStyleSheet(
+            """
         font-size:30px;
         font-weight:bold;
-""")
-        self.jp_name.setStyleSheet("""
+"""
+        )
+        self.jp_name.setStyleSheet(
+            """
         font-size:16px;
-""")
-        self.en_name.setStyleSheet("""
+"""
+        )
+        self.en_name.setStyleSheet(
+            """
         font-size:16px;
-""")
-        self.kana_name.setStyleSheet("""
+"""
+        )
+        self.kana_name.setStyleSheet(
+            """
         font-size:16px;
-""")
-        self.birthday.setStyleSheet("""
+"""
+        )
+        self.birthday.setStyleSheet(
+            """
         font-size:16px;
-""")
-        self.debutday.setStyleSheet("""
+"""
+        )
+        self.debutday.setStyleSheet(
+            """
         font-size:16px;
-""")
+"""
+        )
 
     def update(self, actress_id):
         """传入一个actress_id并更新整个页面"""
@@ -329,7 +341,7 @@ class SingleActressInfo(QWidget):
     def on_clicked_heart(self):
         from core.database.insert import insert_liked_actress
         from core.database.delete import delete_favorite_actress
-        from controller.GlobalSignalBus import global_signals
+        from controller.global_signal_bus import global_signals
 
         if self.heart.get_state():
             """添加到喜欢"""

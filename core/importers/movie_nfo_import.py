@@ -10,7 +10,7 @@ from datetime import datetime
 from pathlib import Path
 
 from config import DATABASE, TEMP_PATH
-from controller.GlobalSignalBus import global_signals
+from controller.global_signal_bus import global_signals
 from core.crawler.download import download_image_with_retry
 from core.database.connection import get_connection
 from core.database.insert import (

@@ -106,8 +106,8 @@ def generate_similar_graph() -> nx.Graph:
     work_tag_relation wtr
     JOIN priv.favorite_work fw ON fw.work_id=wtr.work_id
     JOIN tag ON tag.tag_id=wtr.tag_id
-	JOIN tag_type ON tag_type.tag_type_id=tag.tag_type_id
-	WHERE tag_type.tag_type_id  IN(1,3,7,8)
+    JOIN tag_type ON tag_type.tag_type_id=tag.tag_type_id
+    WHERE tag_type.tag_type_id  IN(1,3,7,8)
     """
     cursor.execute(q1)
     work_tags_list = cursor.fetchall()

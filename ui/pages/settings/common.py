@@ -9,7 +9,7 @@ from darkeye_ui.design import ThemeId
 from config import get_theme_id, set_theme_id, get_custom_primary, set_custom_primary
 from controller.app_context import get_theme_manager
 from main import apply_theme
-from controller.GlobalSignalBus import global_signals
+from controller.global_signal_bus import global_signals
 
 # 主题下拉选项与 ThemeId 顺序一致
 THEME_OPTIONS = [

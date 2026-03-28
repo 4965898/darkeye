@@ -101,7 +101,7 @@ class VerticalTagLabel(TokenVLabel):
 
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
-            # from controller.GlobalSignalBus import global_signals
+            # from controller.global_signal_bus import global_signals
             # global_signals.tag_clicked.emit(self.tag_id)#跳转信号
             from ui.navigation.router import Router
 
@@ -170,7 +170,7 @@ class VerticalActressLabel(TokenVLabel):
 
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
-            # from controller.GlobalSignalBus import global_signals
+            # from controller.global_signal_bus import global_signals
             # global_signals.actress_clicked.emit(self._actress_id)
             # 使用路由替代信号跳转
             from ui.navigation.router import Router
@@ -208,7 +208,7 @@ class VerticalActorLabel(TokenVLabel):
 
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
-            from controller.GlobalSignalBus import global_signals
+            from controller.global_signal_bus import global_signals
 
             # global_signals.actor_clicked.emit(self._actor_id)
             # 使用路由替代信号跳转

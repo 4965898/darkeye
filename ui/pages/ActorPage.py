@@ -82,7 +82,7 @@ class ActorPage(LazyWidget):
         self.btn_reload.clicked.connect(self.refresh)
         self.order_combo.activated.connect(self.apply_filter)
         self.actorname_input.textChanged.connect(self.apply_filter)
-        from controller.GlobalSignalBus import global_signals
+        from controller.global_signal_bus import global_signals
 
         global_signals.actorDataChanged.connect(self.actorname_input.reload_items)
         self.btn_eraser.clicked.connect(self._clear_all_search)

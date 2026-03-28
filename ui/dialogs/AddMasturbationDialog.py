@@ -9,7 +9,7 @@ from core.database.query import (
 import logging
 from config import ICONS_PATH
 from PySide6.QtGui import QIcon
-from controller.MessageService import MessageBoxService
+from controller.message_service import MessageBoxService
 from darkeye_ui.components.label import Label
 from darkeye_ui.components.button import Button
 from darkeye_ui.components.input import TextEdit
@@ -110,7 +110,7 @@ class AddMasturbationDialog(QDialog):
             work_id, serial_number, time, rating, tool, comment
         ):
             self.msg.show_info("提示", "成功提交一次自慰记录")
-            from controller.GlobalSignalBus import global_signals
+            from controller.global_signal_bus import global_signals
 
             global_signals.masterbationChanged.emit()
             self.accept()  # 关闭对话框

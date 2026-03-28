@@ -24,7 +24,7 @@ def is_valid_serialnumber(code: str) -> bool:
     return bool(re.match(pattern, code.upper()))
 
 
-def covert_fanza(serial_number: str) -> str:
+def convert_fanza(serial_number: str) -> str:
     """将传统的番号转化成fanza番号模式
     例如 IPX-247   ---->   ipx00247
     """
@@ -74,7 +74,7 @@ def extract_serial_from_string(text: str) -> str | None:
 
 
 # 图片相关
-def AlternativeQPixmap(image_path):
+def alternative_qpixmap(image_path):
     # 临时的代替方法，什么时候QImage能直接加载jpg图片这个就不用了
     # mide537这个图片有问题，需要测试
     image = Image.open(image_path).convert("RGB")
@@ -686,7 +686,7 @@ def find_video(
 
     serial_number_list = [
         serial_number,
-        covert_fanza(serial_number),
+        convert_fanza(serial_number),
         convert_special_serialnumber(serial_number),
     ]
 
@@ -776,7 +776,7 @@ def text2tag_id_list(text: str) -> list:
                 match = True
 
         if match:
-            for v in (value if isinstance(value, list) else [value]):
+            for v in value if isinstance(value, list) else [value]:
                 tag_id = get_tagid_by_keyword(v, match_hole_word=True)
                 if tag_id is not None:
                     tag_id_set.add(tag_id)

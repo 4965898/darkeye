@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Callable
 
 from config import CRAWLER_NAV_BUTTONS_PATH
-from utils.utils import covert_fanza
+from utils.utils import convert_fanza
 
 
 class CrawlerAutoPage(QWidget):
@@ -73,7 +73,7 @@ def _apply_serial_transform(serial: str, transform: str | None) -> str:
     if not transform:
         return serial
     if transform == "fanza":
-        return covert_fanza(serial)
+        return convert_fanza(serial)
     if transform == "supjav":
         return (
             serial.split("-")[-1]

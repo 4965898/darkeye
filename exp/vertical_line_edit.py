@@ -1,15 +1,15 @@
-# vertical_line_edit.py
+"""竖排 LineEdit 实验组件（IME、光标、旋转绘制英文等）。"""
 
-from PySide6.QtWidgets import QWidget
+from PySide6.QtCore import QPointF, QRectF, QSize, Qt, QTimer
 from PySide6.QtGui import (
-    QPainter,
-    QFont,
-    QColor,
-    QKeyEvent,
-    QGuiApplication,
     QClipboard,
+    QColor,
+    QFont,
+    QGuiApplication,
+    QKeyEvent,
+    QPainter,
 )
-from PySide6.QtCore import Qt, QTimer, QRectF, QPointF, QSize
+from PySide6.QtWidgets import QWidget
 
 
 class VerticalLineEdit(QWidget):
@@ -44,7 +44,7 @@ class VerticalLineEdit(QWidget):
     def text(self):
         return "".join(self._chars)
 
-    def setText(self, s: str):
+    def set_text(self, s: str) -> None:
         self._chars = list(s)
         self._cursor_index = len(self._chars)
         self._preedit = ""

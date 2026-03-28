@@ -60,7 +60,8 @@ class PlotTabPage(LazyWidget):
         splitter = QSplitter()
         splitter.setStretchFactor(0, 1)  # 左侧拉伸因子
         splitter.setStretchFactor(1, 9)  # 右侧拉伸因子
-        splitter.setStyleSheet("""
+        splitter.setStyleSheet(
+            """
                                 QSplitter::handle {
                                     background: #cccccc;
                                     width: 1px;
@@ -72,7 +73,8 @@ class PlotTabPage(LazyWidget):
                                     background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
                                                             stop:0 #888, stop:1 #666);
                                 }
-                            """)
+                            """
+        )
         splitter.addWidget(left_widget)
         splitter.addWidget(right_widget)
         # 设置分隔器可以响应鼠标拖动

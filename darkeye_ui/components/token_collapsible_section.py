@@ -72,7 +72,8 @@ class TokenCollapsibleSection(QWidget):
 
     def _apply_token_styles(self) -> None:
         t = self._tokens()
-        self.toggle_btn.setStyleSheet(f"""
+        self.toggle_btn.setStyleSheet(
+            f"""
             QToolButton {{
                 border: none;
                 background: {t.color_bg_page};
@@ -84,7 +85,8 @@ class TokenCollapsibleSection(QWidget):
             QToolButton:checked {{
                 background: {t.color_bg_input};
             }}
-        """)
+        """
+        )
         self._update_icon(self._is_expanded)
 
     def toggle_content(self, checked: bool) -> None:

@@ -31,13 +31,15 @@ class ActorCard(QWidget):
 
         self.image_label = ActorAvatar(self._path, self._actor_id)
         self.name_label = ClickableLabel(name)
-        self.name_label.setStyleSheet("""
+        self.name_label.setStyleSheet(
+            """
             QLabel {
                 font-size: 14px;           /* 字号 */
                 font-family: 'Microsoft YaHei';      /* 字体 */
                 font-weight: bold;         /* 粗体，可选 normal、bold、100-900 */
             }                      
-        """)
+        """
+        )
 
         self.image_label.setFixedSize(self._d, self._d)  # 封面尺寸
         self.image_label.setAlignment(Qt.AlignCenter)

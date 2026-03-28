@@ -34,10 +34,10 @@ from typing import TYPE_CHECKING, Optional
 from config import ICONS_PATH
 from core.database.query import get_tags, get_tagid_by_keyword
 
-from controller.MessageService import MessageBoxService
+from controller.message_service import MessageBoxService
 from darkeye_ui.components import TokenVerticalTabBar
 from ui.base import SearchLineBase
-from controller.GlobalSignalBus import global_signals
+from controller.global_signal_bus import global_signals
 from utils.utils import (
     timeit,
     get_text_color_from_background,
@@ -513,7 +513,8 @@ class FloatingPanel(QWidget):
             QSizePolicy.Expanding, QSizePolicy.Expanding
         )
 
-        self.tag_emit_tabwidget.setStyleSheet("""
+        self.tag_emit_tabwidget.setStyleSheet(
+            """
             QTabWidget {
                 border: none;
                 background: transparent;
@@ -524,7 +525,8 @@ class FloatingPanel(QWidget):
                 margin: 0;
                 padding: 0;
             }
-        """)
+        """
+        )
 
     def animate_width(self, target_width, duration=300):
         self.anim = QVariantAnimation(
@@ -553,12 +555,14 @@ class TagSelector5(QWidget):
         self.setCursor(
             QCursor(QPixmap(Path(ICONS_PATH / "mouse_off.png")), hotX=32, hotY=32)
         )
-        self.setStyleSheet("""
+        self.setStyleSheet(
+            """
             QTabWidget::pane, QScrollArea, QFrame {
                 border: none;
                 background: transparent;
             }
-        """)
+        """
+        )
 
         self.enbale_mutex_check = enbale_mutex_check
         self.msg = MessageBoxService(self)
@@ -659,21 +663,25 @@ class TagSelector5(QWidget):
         """根据当前主题令牌设置单个 View 的边框与背景。"""
         if self._theme_manager is not None:
             t = self._theme_manager.tokens()
-            view.setStyleSheet(f"""
+            view.setStyleSheet(
+                f"""
                 QGraphicsView {{
                     border: {t.border_width} dashed {t.color_border};
                     border-radius: {t.radius_md};
                     background: {t.color_bg};
                 }}
-            """)
+            """
+            )
         else:
-            view.setStyleSheet("""
+            view.setStyleSheet(
+                """
                 QGraphicsView {
                     border: 2px dashed #ccc;
                     border-radius: 8px;
                     background: #ffffff;
                 }
-            """)
+            """
+            )
 
     def _get_title_item_token_colors(self) -> tuple[str, str]:
         """从设计令牌获取标题项的背景色和边框色。"""
@@ -1029,7 +1037,8 @@ class TagSelector5(QWidget):
             return
         if self._theme_manager is not None:
             t = self._theme_manager.tokens()
-            self.panel.tag_emit_tabwidget.setStyleSheet(f"""
+            self.panel.tag_emit_tabwidget.setStyleSheet(
+                f"""
                 QTabWidget::pane {{
                     border: none;
                     border-radius: 0;
@@ -1057,7 +1066,8 @@ class TagSelector5(QWidget):
                     color: {t.color_text_inverse};
                     font-weight: bold;
                 }}
-            """)
+            """
+            )
             # VerticalTabBar 自绘文字，需通过 dynamic property 传入颜色才能按令牌显示
             tab_bar = self.panel.tag_emit_tabwidget.tabBar()
             tab_bar.setProperty("tabTextColor", t.color_text)
@@ -1066,7 +1076,8 @@ class TagSelector5(QWidget):
             tab_bar.style().polish(tab_bar)
             tab_bar.update()
         else:
-            self.panel.tag_emit_tabwidget.setStyleSheet("""
+            self.panel.tag_emit_tabwidget.setStyleSheet(
+                """
                 QTabWidget::pane {
                     border: none;
                     border-radius: 0;
@@ -1094,7 +1105,8 @@ class TagSelector5(QWidget):
                     color: #ffffff;
                     font-weight: bold;
                 }
-            """)
+            """
+            )
             tab_bar = self.panel.tag_emit_tabwidget.tabBar()
             tab_bar.setProperty("tabTextColor", "#999")
             tab_bar.setProperty("tabTextColorSelected", "#ffffff")

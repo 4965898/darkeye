@@ -4,7 +4,7 @@ from core.database.insert import InsertNewActor
 from config import ICONS_PATH
 from PySide6.QtGui import QIcon
 from core.crawler.jump import jump_avdanyuwiki
-from controller.MessageService import MessageBoxService
+from controller.message_service import MessageBoxService
 from darkeye_ui.components.label import Label
 from darkeye_ui.components.input import LineEdit
 from darkeye_ui.components.button import Button
@@ -51,7 +51,7 @@ class AddActorDialog(QDialog):
                     "添加新男优成功", f"中文名: {cnName}\n日文名: {jpName}"
                 )
                 self.success.emit(True)
-                from controller.GlobalSignalBus import global_signals
+                from controller.global_signal_bus import global_signals
 
                 global_signals.actorDataChanged.emit()
             else:

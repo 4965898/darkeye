@@ -151,10 +151,12 @@ def rebuild_privatelink():
             )
 
             # 1. 更新 favorite_actress表中的actress_id：按 jp_name 在公库查找或新建，更新 priv.favorite_actress.actress_id
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT favorite_actress_id, actress_id, jp_name
                 FROM priv.favorite_actress
-            """)
+            """
+            )
             actress_rows = cursor.fetchall()
             logging.info("需要检查 favorite_actress 行数: %d", len(actress_rows))
 
@@ -204,10 +206,12 @@ def rebuild_privatelink():
                     )
 
             # 2. 重建 favorite_work：按 serial_number 在公库中查找或新建 work，更新 priv.favorite_work.work_id
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT favorite_work_id, work_id, serial_number
                 FROM priv.favorite_work
-            """)
+            """
+            )
             work_rows = cursor.fetchall()
             logging.info("需要检查 favorite_work 行数: %d", len(work_rows))
 
@@ -250,10 +254,12 @@ def rebuild_privatelink():
                     )
 
             # 3. 重建 masturbation：按 serial_number 解析公库 work_id，不存在则新建 work，更新 priv.masturbation.work_id
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT masturbation_id, work_id, serial_number
                 FROM priv.masturbation
-            """)
+            """
+            )
             mas_rows = cursor.fetchall()
             logging.info("需要检查 masturbation 行数: %d", len(mas_rows))
 
@@ -332,7 +338,8 @@ def export_maker_prefix_json(json_path: str | Path) -> Path:
 
     with get_connection(DATABASE, readonly=True) as conn:
         cursor = conn.cursor()
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT
                 m.maker_id,
                 m.cn_name,
@@ -345,7 +352,8 @@ def export_maker_prefix_json(json_path: str | Path) -> Path:
             LEFT JOIN prefix_maker_relation AS pmr
                 ON m.maker_id = pmr.maker_id
             ORDER BY m.maker_id, pmr.prefix
-            """)
+            """
+        )
         rows = cursor.fetchall()
 
     makers: dict[int, dict] = {}
@@ -405,16 +413,18 @@ def import_maker_prefix_json(json_path: str | Path) -> None:
 
             cursor.execute("PRAGMA foreign_keys = OFF;")
             # 先新建maker_old
-            cursor.execute("""
+            cursor.execute(
+                """
                 CREATE TABLE IF NOT EXISTS maker_new(--制作商，一部片子只有一个制作商，一部制作商可以有多个作品。一部作品可以没有制作商
                     maker_id INTEGER PRIMARY KEY AUTOINCREMENT,--不重复主键
-                    cn_name TEXT,										--中文名
-                    jp_name TEXT,										--日文名
-                    aliases TEXT,										--别名,中间用,分开,用于重定向用。
-                    detail TEXT,                                       --其他信息
-                    logo_url TEXT										--logo地址
+                    cn_name TEXT,  -- 中文名
+                    jp_name TEXT,  -- 日文名
+                    aliases TEXT,  -- 别名,中间用,分开,用于重定向用。
+                    detail TEXT,  -- 其他信息
+                    logo_url TEXT  -- logo地址
                 );
-                """)
+                """
+            )
             # 清空关系表与 maker 表，准备按 JSON 重建
             cursor.execute("DELETE FROM prefix_maker_relation")
             cursor.execute(
@@ -455,7 +465,8 @@ def import_maker_prefix_json(json_path: str | Path) -> None:
                     )
 
             # 把被 work 引用但在 maker_new 中匹配不到的旧 maker 追加到 maker_new 末尾
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT INTO maker_new (cn_name, jp_name, aliases, detail, logo_url)
                 SELECT
                     m_old.cn_name,
@@ -478,10 +489,12 @@ def import_maker_prefix_json(json_path: str | Path) -> None:
                             ',' || m_old.cn_name || ','
                         ) > 0
                 )
-                """)
+                """
+            )
 
             # 用旧 maker 的数据去匹配 maker_new，重建 work.maker_id 指向
-            cursor.execute("""
+            cursor.execute(
+                """
                 UPDATE work
                 SET maker_id = (
                     SELECT m.maker_id
@@ -496,7 +509,8 @@ def import_maker_prefix_json(json_path: str | Path) -> None:
                     LIMIT 1
                 )
                 WHERE maker_id IS NOT NULL
-                """)
+                """
+            )
             cursor.execute("DROP TABLE maker")  # 把旧表删除了
             cursor.execute("ALTER TABLE maker_new RENAME TO maker")  # 把新表改名
 
@@ -516,11 +530,13 @@ def export_series_json(json_path: str | Path) -> Path:
 
     with get_connection(DATABASE, readonly=True) as conn:
         cursor = conn.cursor()
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT cn_name, jp_name, aliases, detail, related_series
             FROM series
             ORDER BY series_id
-            """)
+            """
+        )
         rows = cursor.fetchall()
 
     data = [
@@ -561,7 +577,8 @@ def import_series_json(json_path: str | Path) -> None:
         try:
             cursor.execute("PRAGMA foreign_keys = OFF;")
             cursor.execute("DROP TABLE IF EXISTS series_new")
-            cursor.execute("""
+            cursor.execute(
+                """
                 CREATE TABLE series_new(
                     series_id INTEGER PRIMARY KEY AUTOINCREMENT,
                     cn_name TEXT,
@@ -570,7 +587,8 @@ def import_series_json(json_path: str | Path) -> None:
                     detail TEXT,
                     related_series TEXT
                 );
-                """)
+                """
+            )
 
             for item in items:
                 if not isinstance(item, dict):
@@ -589,7 +607,8 @@ def import_series_json(json_path: str | Path) -> None:
                     ),
                 )
 
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT INTO series_new (cn_name, jp_name, aliases, detail, related_series)
                 SELECT
                     s_old.cn_name,
@@ -609,9 +628,11 @@ def import_series_json(json_path: str | Path) -> None:
                             ',' || s_old.cn_name || ','
                         ) > 0
                 )
-                """)
+                """
+            )
 
-            cursor.execute("""
+            cursor.execute(
+                """
                 UPDATE work
                 SET series_id = (
                     SELECT s.series_id
@@ -626,7 +647,8 @@ def import_series_json(json_path: str | Path) -> None:
                     LIMIT 1
                 )
                 WHERE series_id IS NOT NULL
-                """)
+                """
+            )
 
             cursor.execute("DROP TABLE series")
             cursor.execute("ALTER TABLE series_new RENAME TO series")
@@ -646,11 +668,13 @@ def export_label_json(json_path: str | Path) -> Path:
 
     with get_connection(DATABASE, readonly=True) as conn:
         cursor = conn.cursor()
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT cn_name, jp_name, aliases, detail
             FROM label
             ORDER BY label_id
-            """)
+            """
+        )
         rows = cursor.fetchall()
 
     data = [
@@ -690,7 +714,8 @@ def import_label_json(json_path: str | Path) -> None:
         try:
             cursor.execute("PRAGMA foreign_keys = OFF;")
             cursor.execute("DROP TABLE IF EXISTS label_new")
-            cursor.execute("""
+            cursor.execute(
+                """
                 CREATE TABLE label_new(
                     label_id INTEGER PRIMARY KEY AUTOINCREMENT,
                     cn_name TEXT,
@@ -698,7 +723,8 @@ def import_label_json(json_path: str | Path) -> None:
                     aliases TEXT,
                     detail TEXT
                 );
-                """)
+                """
+            )
 
             for item in items:
                 if not isinstance(item, dict):
@@ -716,7 +742,8 @@ def import_label_json(json_path: str | Path) -> None:
                     ),
                 )
 
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT INTO label_new (cn_name, jp_name, aliases, detail)
                 SELECT
                     l_old.cn_name,
@@ -735,9 +762,11 @@ def import_label_json(json_path: str | Path) -> None:
                             ',' || l_old.cn_name || ','
                         ) > 0
                 )
-                """)
+                """
+            )
 
-            cursor.execute("""
+            cursor.execute(
+                """
                 UPDATE work
                 SET label_id = (
                     SELECT l.label_id
@@ -752,7 +781,8 @@ def import_label_json(json_path: str | Path) -> None:
                     LIMIT 1
                 )
                 WHERE label_id IS NOT NULL
-                """)
+                """
+            )
 
             cursor.execute("DROP TABLE label")
             cursor.execute("ALTER TABLE label_new RENAME TO label")

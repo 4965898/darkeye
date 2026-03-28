@@ -27,7 +27,8 @@ class RotateButton(QPushButton):
         self.setFixedSize(outsize, outsize)
 
         if hoverable:
-            self.setStyleSheet("""
+            self.setStyleSheet(
+                """
             QPushButton {
                 border: none;
                 background: transparent;
@@ -36,15 +37,18 @@ class RotateButton(QPushButton):
             QPushButton:hover {
                 background-color: lightgray; /* 悬停时灰色背景 */
             }
-            """)
+            """
+            )
         else:
-            self.setStyleSheet("""
+            self.setStyleSheet(
+                """
             QPushButton {
                 border: none;
                 background: transparent;
                 border-radius: 6px;   /* 圆角半径 */
             }
-            """)
+            """
+            )
 
         self._angle = 0
         self.anim = QPropertyAnimation(self, b"angle", self)

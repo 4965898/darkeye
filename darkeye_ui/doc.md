@@ -168,8 +168,8 @@
 
 以下类存在于组件目录，但不在公共导出清单中：
 
-1. `AlphaSliderCustom`（`components/ColorSlider.py`）
-2. `TestWindow`（`components/ColorSlider.py`）
+1. `AlphaSliderCustom`（`components/color_slider.py`）
+2. `TestWindow`（`components/color_slider.py`）
 3. `CompleterLoaderRunnable`（`components/completer_line_edit.py`）
 4. `ImageLoaderRunnable`（`components/oct_image.py`）
 

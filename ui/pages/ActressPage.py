@@ -150,7 +150,7 @@ class ActressPage(LazyWidget):
         self.actressname_input.textChanged.connect(self.apply_filter)
         # self.lazy_area.verticalScrollBar().valueChanged.connect(self.handle_scroll)
 
-        from controller.GlobalSignalBus import global_signals
+        from controller.global_signal_bus import global_signals
 
         global_signals.actressDataChanged.connect(self.actressname_input.reload_items)
         global_signals.actressDataChanged.connect(self.cup_combo.reload_items)

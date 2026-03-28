@@ -80,7 +80,8 @@ class WorkPage(LazyWidget):
         filterwidget.setFixedHeight(32)
         filterwidget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         scroll.setWidget(filterwidget)
-        scroll.setStyleSheet("""
+        scroll.setStyleSheet(
+            """
     QScrollArea {
         border: none;
         background: transparent;
@@ -88,7 +89,8 @@ class WorkPage(LazyWidget):
     QScrollBar {
         background: transparent;
     }
-""")
+"""
+        )
 
         self.story_input = LineEdit()
         self.title_input = LineEdit()
@@ -260,7 +262,7 @@ class WorkPage(LazyWidget):
         self.scope_combo.currentTextChanged.connect(self.apply_filter)
         self.tagselector.selectionChanged.connect(self.apply_filter)
 
-        from controller.GlobalSignalBus import global_signals
+        from controller.global_signal_bus import global_signals
 
         global_signals.greenModeChanged.connect(self.update_green_mode)  # 全局转发
         global_signals.workDataChanged.connect(self.reload_input)

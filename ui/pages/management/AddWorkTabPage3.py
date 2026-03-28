@@ -55,13 +55,13 @@ from utils.utils import delete_image, mse, translate_text_sync
 
 
 from darkeye_ui import LazyWidget
-from controller.MessageService import MessageBoxService, IMessageService
+from controller.message_service import MessageBoxService, IMessageService
 
-from core.crawler.Worker import Worker
+from core.crawler.worker import Worker
 
 from ui.navigation.router import Router
 from ui.widgets.text.WikiTextEdit import WikiTextEdit
-from controller.GlobalSignalBus import global_signals
+from controller.global_signal_bus import global_signals
 from darkeye_ui.components.label import Label
 from darkeye_ui.components.input import LineEdit
 from darkeye_ui.components.input import PlainTextEdit
@@ -572,7 +572,7 @@ class ViewModel(QObject):
         if update_work_byhand(work_id, **data):
             self.msg.show_info("更新作品信息成功", f"番号: {serial_number}")
             logging.info("更新作品成功，番号：%s", serial_number)
-            from controller.GlobalSignalBus import global_signals
+            from controller.global_signal_bus import global_signals
 
             global_signals.workDataChanged.emit()
             return True
@@ -586,7 +586,7 @@ class ViewModel(QObject):
         serial_number = data["serial_number"]
         if InsertNewWorkByHand(**data):
             self.msg.show_info("添加作品成功", f"番号: {serial_number}")
-            from controller.GlobalSignalBus import global_signals
+            from controller.global_signal_bus import global_signals
 
             global_signals.workDataChanged.emit()  # 发送给那些需要重新加载的东西
             logging.info("添加作品成功，番号：%s", serial_number)
@@ -1309,7 +1309,7 @@ class AddWorkTabPage3(LazyWidget):
         if self.forceview is not None:
             return
         try:
-            from core.graph.ForceDirectedViewWidget import ForceDirectedViewWidget
+            from core.graph.force_directed_view_widget import ForceDirectedViewWidget
 
             self.forceview = ForceDirectedViewWidget()
         except Exception as e:
@@ -1484,7 +1484,7 @@ class AddWorkTabPage3(LazyWidget):
     # ----------------------------------------------------------
     def crawler2(self):
         """用浏览器插件手动跳转javlibrary"""
-        from core.crawler.CrawlerManager import get_manager
+        from core.crawler.crawler_manager import get_manager
 
         get_manager().start_crawl(self.viewmodel.serial_number, True)
 
@@ -1566,7 +1566,8 @@ class AddWorkTabPage3(LazyWidget):
     # ----------------------------------------------------------
     def beaute(self):
         """控件美化"""
-        self.btn_load_form_db.setStyleSheet("""
+        self.btn_load_form_db.setStyleSheet(
+            """
             QPushButton {
                 background-color: orange;
                 color: white;
@@ -1575,7 +1576,8 @@ class AddWorkTabPage3(LazyWidget):
                 background-color: gray;
                 color: darkGray;
             }
-        """)
+        """
+        )
 
     @Slot(str, ButtonState)
     def update_commit_btn(self, key: str, state: ButtonState):
@@ -1592,35 +1594,41 @@ class AddWorkTabPage3(LazyWidget):
                 if state == ButtonState.NORMAL:
                     self.btn_add_work.setEnabled(True)
                     self.btn_add_work.setText("添加")
-                    self.btn_add_work.setStyleSheet("""
+                    self.btn_add_work.setStyleSheet(
+                        """
                         QPushButton {
                             background-color: #4CAF50;
                             color: white;
                             border-radius: 5px;
                             padding: 6px;
                         }
-                    """)
+                    """
+                    )
                 elif state == ButtonState.WARNING:
                     self.btn_add_work.setEnabled(True)
                     self.btn_add_work.setText("修改")
-                    self.btn_add_work.setStyleSheet("""           
+                    self.btn_add_work.setStyleSheet(
+                        """           
                             QPushButton {
                             background-color: #FFA500;
                             color: white;
                             border-radius: 5px;
                             padding: 6px;}
-                        """)
+                        """
+                    )
                 elif state == ButtonState.DISABLED:
                     self.btn_add_work.setEnabled(False)
                     self.btn_add_work.setText("----")
-                    self.btn_add_work.setStyleSheet("""
+                    self.btn_add_work.setStyleSheet(
+                        """
                         QPushButton {
                             background-color: #999999;
                             color: #CCCCCC;
                             border-radius: 5px;
                             padding: 6px;
                         }
-                    """)
+                    """
+                    )
             case "load":
                 if state == ButtonState.WARNING:
                     self.btn_load_form_db.setDisabled(False)
