@@ -18,6 +18,7 @@ from ui.pages.management.SeriesManagementPage import SeriesManagementPage
 from ui.pages.management.ManagementTable import ManagementTable
 from ui.pages.management.RecycleBinPage import RecycleBinPage
 from ui.pages.management.UpdateManyTabPage import UpdateManyTabPage
+from ui.pages.management.WorkSoftDeletePage import WorkSoftDeletePage
 
 import logging
 
@@ -55,6 +56,7 @@ class ManagementPage(QWidget):
         self.label_management = LabelManagementPage()
         self.series_management = SeriesManagementPage()
         self.g_management = ManagementTable()
+        self.work_soft_delete = WorkSoftDeletePage()
 
         mainlayout.addWidget(self.tab_widget)
         self.tab_widget.addTab(self.worktab, "添加/修改作品")
@@ -65,6 +67,7 @@ class ManagementPage(QWidget):
         self.tab_widget.addTab(self.updatemany, "批量操作")
         self.tab_widget.addTab(self.searchtable, "汇总查询表")
         self.tab_widget.addTab(self.g_management, "综合管理")
+        self.tab_widget.addTab(self.work_soft_delete, "作品软删除")
         self.tab_widget.addTab(self.rubbish, "回收站")
 
     def load_with_params(self, serial_number=None, work_id=None, **kwargs):
