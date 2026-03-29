@@ -13,6 +13,8 @@ Node {
     property var actionAnchorNode: spineActionAnchor
     // Expose the front center anchor for scene-level title/story overlay projection.
     property var frontInfoAnchorNode: frontInfoAnchor
+    // 光碟（CD）下方一点，用于 3D→2D 投影后放置剧照横条。
+    property var fanartStripAnchorNode: fanartStripAnchor
     /** 点击 CD 盘面时发射 */
     signal cdClicked()
     signal closeAnimationFinished()
@@ -113,6 +115,13 @@ Node {
             transparent_material,
             rainbow_material
         ]
+    }
+
+    Node {
+        id: fanartStripAnchor
+        x: cD.x
+        y: cD.y - 0.06
+        z: cD.z
     }
 
     Model {
