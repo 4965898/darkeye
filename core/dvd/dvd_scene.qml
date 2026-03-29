@@ -256,6 +256,25 @@ View3D {
                 property bool _freezeReleasePending: false
                 property int _frozenVirtualIndex: targetVirtualIndex
                 property string _frozenTex: targetTex
+                // 新一次选中时立即冻结当前 target 并推到 Loader：避免 signal 顺序下
+                // onSelectionProgressChanged 先于 onSelectedChanged、且 _freezeCaptured 仍为
+                // true 时跳过 _frozenTex 更新（首次跳转最容易撞上，第二次状态已稳）。
+                onSelectedChanged: {
+                    if (selected) {
+                        /*
+                         * 不在这里改 view3d._frozenSelectedDelegateIndex：全局冻结槽位
+                         * 仍由 selectionProgress>0 时设置，避免拉片动画开头几帧打乱邻格贴图映射。
+                         */
+                        _freezeReleasePending = false
+                        freezeReleaseTimer.stop()
+                        _frozenVirtualIndex = targetVirtualIndex
+                        _frozenTex = targetTex
+                        _freezeCaptured = true
+                        _contentFrozen = true
+                        if (dvdLoader.item && typeof dvdLoader.item.textureSource !== "undefined")
+                            dvdLoader.item.textureSource = _frozenTex
+                    }
+                }
                 // Freeze content identity while selected/closing/returning so scroll doesn't swap the art mid-animation.
                 property int virtualIndex: _contentFrozen ? _frozenVirtualIndex : targetVirtualIndex
                 property string tex: _contentFrozen ? _frozenTex : targetTex
@@ -308,7 +327,9 @@ View3D {
                         view3d._frozenSelectedDelegateIndex = index
                         view3d._frozenSelectedVirtualIndex = _frozenVirtualIndex
                     } else {
-                        if (_contentFrozen && !_freezeReleasePending) {
+                        // 选中刚开始时 progress 可能仍为 0，但 _contentFrozen 已被置为 true：
+                        // 不能在未选中前启动解冻定时器，否则会误清本次选中的冻结贴图。
+                        if (!selected && _contentFrozen && !_freezeReleasePending) {
                             _freezeReleasePending = true
                             freezeReleaseTimer.restart()
                         } else if (!_contentFrozen) {
