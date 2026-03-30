@@ -182,7 +182,8 @@ def _prepare_local_image_path(src: str) -> str | None:
 
 
 def _work_cover_filename(serial_number: str) -> str:
-    return serial_number.strip().lower().replace("-", "") + "pl.jpg"
+
+    return serial_number.strip().upper() + ".jpg"
 
 
 def _resolve_cast_from_nfo(

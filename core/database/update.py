@@ -1122,3 +1122,152 @@ def batch_translate_missing_cn_fields() -> str:
         f"共 {len(rows)} 条待处理，已写入 {rows_touched} 条作品；"
         f"补充 cn_title {n_cn_title} 项，cn_story {n_cn_story} 项"
     )
+
+
+def normalize_work_cover_filenames_to_serial() -> str | None:
+    """将 work.image_url 与 workcovers 下的封面文件统一为 ``{serial_number}.jpg``。
+
+    按库中 ``image_url`` 相对路径在 ``WORKCOVER_PATH`` 下查找源文件，存在则重命名为
+    根目录下的 ``{番号}.jpg`` 并写回 ``image_url``。目标路径已存在且与源不是同一文件
+    时跳过，避免覆盖。
+
+    Returns:
+        结果摘要；发生意外时返回 ``None``。
+
+    调用后需 emit: global_signals.workDataChanged
+    """
+    from pathlib import Path
+
+    from config import WORKCOVER_PATH
+
+    work_root = Path(WORKCOVER_PATH).resolve()
+    query = """
+    SELECT work_id, serial_number, image_url
+    FROM work
+    WHERE image_url IS NOT NULL AND TRIM(image_url) != ''
+    """
+    conn_read = get_connection(DATABASE, True)
+    try:
+        cursor = conn_read.cursor()
+        cursor.execute(query)
+        rows = cursor.fetchall()
+    except Exception as e:
+        logging.exception("读取 work 封面字段失败: %s", e)
+        return None
+    finally:
+        conn_read.close()
+
+    n_ok = 0
+    n_db_only = 0
+    n_skip_same = 0
+    n_missing = 0
+    n_conflict = 0
+    n_no_serial = 0
+    n_outside = 0
+    n_rename_fail = 0
+
+    conn = get_connection(DATABASE, False)
+    cur = conn.cursor()
+    try:
+        for work_id, serial_number, image_url in rows:
+            serial = str(serial_number or "").strip()
+            if not serial:
+                n_no_serial += 1
+                continue
+            raw = str(image_url or "").strip().replace("\\", "/")
+            if not raw or raw in {".", ".."}:
+                continue
+            target_rel = f"{serial}.jpg"
+
+            try:
+                old_path = (Path(WORKCOVER_PATH) / raw).resolve()
+            except (OSError, ValueError):
+                n_missing += 1
+                continue
+
+            try:
+                old_path.relative_to(work_root)
+            except ValueError:
+                n_outside += 1
+                logging.warning(
+                    "跳过 work_id=%s：封面路径不在 workcovers 内：%s",
+                    work_id,
+                    raw,
+                )
+                continue
+
+            if not old_path.is_file():
+                n_missing += 1
+                continue
+
+            try:
+                new_path = (Path(WORKCOVER_PATH) / target_rel).resolve()
+                new_path.relative_to(work_root)
+            except ValueError:
+                n_no_serial += 1
+                continue
+
+            if old_path == new_path:
+                if raw != target_rel:
+                    try:
+                        cur.execute(
+                            "UPDATE work SET image_url = ? WHERE work_id = ?",
+                            (target_rel, work_id),
+                        )
+                        conn.commit()
+                        n_db_only += 1
+                    except Exception as e:
+                        conn.rollback()
+                        logging.warning(
+                            "仅更新 image_url 失败 work_id=%s: %s", work_id, e
+                        )
+                else:
+                    n_skip_same += 1
+                continue
+
+            if new_path.exists():
+                n_conflict += 1
+                logging.warning("跳过 work_id=%s：目标已存在 %s", work_id, target_rel)
+                continue
+
+            try:
+                old_path.rename(new_path)
+            except OSError as e:
+                n_rename_fail += 1
+                logging.warning(
+                    "重命名失败 work_id=%s %s -> %s: %s",
+                    work_id,
+                    raw,
+                    target_rel,
+                    e,
+                )
+                continue
+
+            try:
+                cur.execute(
+                    "UPDATE work SET image_url = ? WHERE work_id = ?",
+                    (target_rel, work_id),
+                )
+                conn.commit()
+                n_ok += 1
+            except Exception as e:
+                conn.rollback()
+                logging.warning(
+                    "更新 image_url 失败 work_id=%s，尝试回滚文件: %s",
+                    work_id,
+                    e,
+                )
+                try:
+                    new_path.rename(old_path)
+                except OSError as e2:
+                    logging.error("回滚重命名失败：%s", e2)
+
+        return (
+            f"已重命名并写库 {n_ok} 条；仅纠正 image_url 字符串 {n_db_only} 条；"
+            f"已是目标文件名跳过 {n_skip_same} 条；源文件缺失 {n_missing} 条；"
+            f"目标已存在跳过 {n_conflict} 条；番号无效或路径越界 {n_no_serial + n_outside} 条；"
+            f"重命名失败 {n_rename_fail} 条"
+        )
+    finally:
+        cur.close()
+        conn.close()
