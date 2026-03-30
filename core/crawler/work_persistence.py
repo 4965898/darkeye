@@ -216,9 +216,8 @@ class DataUpdate:
     def _schedule_cover_download(self):
         from config import TEMP_PATH
 
-        image_filename = (
-            self.work.serial_number.strip().lower().replace("-", "") + "pl.jpg"
-        )
+
+        image_filename = (self.work.serial_number.strip().upper() + ".jpg")#这个图片就番号.jpg就行了
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         dst_name = f"image_{timestamp}.jpg"

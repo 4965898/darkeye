@@ -543,9 +543,8 @@ class ViewModel(QObject):
         fan_items: list[dict] = data.pop("fanart", [])
         data["fanart"] = self._finalize_fanart_json(fan_items)
 
-        image_url = (
-            self.get_serial_number().lower().replace("-", "") + "pl.jpg"
-        )  # 默认的替换规则
+        image_url = (self.get_serial_number().upper() + ".jpg")#这个图片就番号.jpg就行了
+
         if self.get_cover() is None or self.get_cover() == "":
             data["image_url"] = None
         else:

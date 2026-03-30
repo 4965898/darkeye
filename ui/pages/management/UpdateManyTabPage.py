@@ -43,6 +43,12 @@ class UpdateManyTabPage(LazyWidget):
             "有日文简介且中文简介为空时翻译成 cn_story；二者皆无日文源的作品不会请求翻译。"
         )
 
+        self.btn_normalize_cover_names = Button("统一封面文件名为番号.jpg")
+        self.btn_normalize_cover_names.setToolTip(
+            "将 work.image_url 及 workcovers 目录内对应文件统一为 「番号.jpg」；"
+            "磁盘上缺少源文件、或目标文件名已存在时跳过该条（不覆盖）。"
+        )
+
         # self.btn_search_actor.clicked.connect(update_actor_db)
         self.btn_search_story.clicked.connect(update_title_story_db)
         self.btn_search_actress.clicked.connect(self.task_search_actress)
@@ -56,6 +62,7 @@ class UpdateManyTabPage(LazyWidget):
         left_layout.addWidget(self.btn_update_needactress)
         left_layout.addWidget(self.btn_update_maker_by_knowledge)
         left_layout.addWidget(self.btn_batch_translate_cn)
+        left_layout.addWidget(self.btn_normalize_cover_names)
         left_layout.addStretch()
 
         self.crawler_auto_page = CrawlerAutoPage()
@@ -85,6 +92,9 @@ class UpdateManyTabPage(LazyWidget):
             self.task_update_maker_by_prefix
         )
         self.btn_batch_translate_cn.clicked.connect(self.task_batch_translate_cn)
+        self.btn_normalize_cover_names.clicked.connect(
+            self.task_normalize_cover_filenames
+        )
         self.crawler_auto_page.btn_get_crawler.setToolTip(
             "根据指定字段，补充爬取，该功能为对所有的片进行筛选，只对有空字段的进行爬取，而且只更新空字段"
         )
@@ -138,6 +148,26 @@ class UpdateManyTabPage(LazyWidget):
 
         if result is None:
             self.msg.show_info("错误", "批量翻译失败，请查看日志")
+            return
+        global_signals.workDataChanged.emit()
+        self.msg.show_info("完成", str(result))
+
+    @Slot()
+    def task_normalize_cover_filenames(self):
+        from core.crawler.worker import Worker
+        from core.database.update import normalize_work_cover_filenames_to_serial
+
+        worker = Worker(normalize_work_cover_filenames_to_serial)
+        worker.signals.finished.connect(self._on_normalize_cover_names_finished)
+        QThreadPool.globalInstance().start(worker)
+        self.msg.show_info("开始", "正在统一封面文件名与 image_url…")
+
+    @Slot(object)
+    def _on_normalize_cover_names_finished(self, result):
+        from controller.global_signal_bus import global_signals
+
+        if result is None:
+            self.msg.show_info("错误", "处理失败，请查看日志")
             return
         global_signals.workDataChanged.emit()
         self.msg.show_info("完成", str(result))
