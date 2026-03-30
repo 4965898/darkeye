@@ -1,10 +1,10 @@
 {
   "app": "DarkEye",
-  "latestVersion": "1.1.2",
-  "releaseNotes": "新增更新器，下载提示器，修改UI",
+  "latestVersion": "1.2.0",
+  "releaseNotes": "新增更多的字段，提供更多的可爬取的信息",
   "package": {
-    "url": "http://yinruizhe.asia/DarkEye-v1.1.2.tar.zst",
-    "sha256": "be4d64c15598cdfd16711cdfc6da583adfc3ac2decea42ee360df247670f16fb",
-    "size": 86395431
+    "url": "http://yinruizhe.asia/DarkEye-v1.2.0.tar.zst",
+    "sha256": "43a0a5dda840124686c1c1e6581f19ea1a8c9b20d74c5f4a103892818da82bba",
+    "size": 84005012
   }
 }

@@ -275,7 +275,7 @@ Remove-Item ".\dist\main.dist\PySide6\plugins\platforminputcontexts" -Recurse -F
 
 # 打包 tar.zst、更新 update/latest.json（与手动执行 scripts/pack..py 相同）
 Write-Host "Running pack (tar.zst + latest.json)..."
-$packScript = Join-Path $PSScriptRoot "pack..py"
+$packScript = Join-Path $PSScriptRoot "pack.py"
 & python $packScript
 if ($LASTEXITCODE -ne 0) {
     Write-Error "pack..py failed with exit code $LASTEXITCODE"

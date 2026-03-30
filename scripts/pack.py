@@ -38,7 +38,7 @@ def get_version() -> str:
 PACKAGE_URL_TEMPLATE = "http://yinruizhe.asia/DarkEye-v{version}.tar.zst"
 
 # 每次发版在此填写更新说明（会写入 latest.json 的 releaseNotes）
-RELEASE_NOTES = "新增更新器，下载提示器，修改UI"
+RELEASE_NOTES = "新增更多的字段，提供更多的可爬取的信息"
 
 
 def main():
@@ -68,7 +68,7 @@ def main():
         )
         sys.stderr.flush()
 
-    cctx = zstd.ZstdCompressor(level=19)
+    cctx = zstd.ZstdCompressor(level=22)
     chunk_size = 1024 * 1024  # 1MB
     written = 0
     with open(pkg_path, "wb") as f:

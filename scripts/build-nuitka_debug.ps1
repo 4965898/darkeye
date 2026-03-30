@@ -2,7 +2,7 @@
 # 清理旧的构建目录
 Write-Host "Cleaning old build and dist folders..."
 
-#if (Test-Path build) {Remove-Item build -Recurse -Force}
+if (Test-Path build) {Remove-Item build -Recurse -Force}
 
 #if (Test-Path dist) {Remove-Item dist -Recurse -Force}
 
