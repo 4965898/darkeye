@@ -3,6 +3,7 @@ from __future__ import annotations
 from PySide6.QtCore import Qt, QStringListModel, Slot
 from PySide6.QtWidgets import QCompleter, QSizePolicy
 
+from core.database.db_queue import submit_db_raw
 from darkeye_ui.components.combo_box import ComboBox
 
 
@@ -114,7 +115,7 @@ class SeriesSelector(ComboBox):
         current_series_id = self.get_series_id()
         current_text = self.currentText()
 
-        self.set_series(get_series_name())
+        self.set_series(submit_db_raw(get_series_name).result())
 
         if current_series_id:
             self.set_series_id(current_series_id)

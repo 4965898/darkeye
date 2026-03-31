@@ -72,7 +72,7 @@ from darkeye_ui.components.token_spin_box import TokenSpinBox
 from ui.widgets.selectors.maker_selector import MakerSelector
 from ui.widgets.selectors.label_selector import LabelSelector
 from ui.widgets.selectors.series_selector import SeriesSelector
-
+from core.database.db_queue import submit_db_raw
 
 class ButtonState(Enum):
     NORMAL = 1
@@ -620,7 +620,9 @@ class ViewModel(QObject):
             return
 
         # 非空，但是番号不在库中
-        work_id = get_workid_by_serialnumber(self.get_serial_number().strip())
+        work_id = submit_db_raw(
+            lambda: get_workid_by_serialnumber(self.get_serial_number().strip())
+        ).result()
         if work_id is None:
             self.set_btn_state("load", ButtonState.DISABLED)  # 闭锁加载按钮
             self.set_btn_state("temp_save", ButtonState.NORMAL)  # 打开临时加载按钮
@@ -644,7 +646,9 @@ class ViewModel(QObject):
         logging.debug(
             "加载作品数据----------------------------------------------------------------"
         )
-        self.work_id = get_workid_by_serialnumber(self.get_serial_number().strip())
+        self.work_id = submit_db_raw(
+            lambda: get_workid_by_serialnumber(self.get_serial_number().strip())
+        ).result()
         if self.work_id == None:
             return
         inf = get_workinfo_by_workid(self.work_id)
@@ -894,7 +898,9 @@ class ViewModel(QObject):
     @Slot()
     def jump_detail_page(self):
         """跳转到显示页面"""
-        work_id = get_workid_by_serialnumber(self.get_serial_number().strip())
+        work_id = submit_db_raw(
+            lambda: get_workid_by_serialnumber(self.get_serial_number().strip())
+        ).result()
         if work_id:
             # Router.instance().push("work", work_id=work_id)
             Router.instance().push("shelf", work_id=work_id)
@@ -968,6 +974,7 @@ class AddWorkTabPage3(LazyWidget):
         self.update_commit_btn("load", ButtonState.DISABLED)
 
     def init_ui(self) -> None:
+        from core.database.db_queue import submit_db_raw
         from core.database.query import (
             get_serial_number,
             get_maker_name,
@@ -980,7 +987,9 @@ class AddWorkTabPage3(LazyWidget):
         self.coverdroplabel = CoverDropWidget(aspect_ratio=0.7)
 
         self.label_serial_umber = Label("番       号：")
-        self.input_serial_number = CompleterLineEdit(get_serial_number)
+        self.input_serial_number = CompleterLineEdit(
+            lambda: submit_db_raw(get_serial_number).result()
+        )
 
         self.btn_load_form_db = Button("加载")
         self.btn_jump_detail = IconPushButton(icon_name="eye")
@@ -988,7 +997,9 @@ class AddWorkTabPage3(LazyWidget):
         self.input_time = LineEdit()
         self.input_time.setPlaceholderText("YYYY-MM-DD")
         self.label_director = Label("导       演：")
-        self.input_director = CompleterLineEdit(get_unique_director)
+        self.input_director = CompleterLineEdit(
+            lambda: submit_db_raw(get_unique_director).result()
+        )
         self.label_runtime = Label("影片长度：")
         self.input_runtime = TokenSpinBox()
         self.input_runtime.setRange(0, 9999)
@@ -1020,13 +1031,13 @@ class AddWorkTabPage3(LazyWidget):
         jp_story_label_layout.addWidget(self.btn_trans_story)
 
         self.label_maker = Label("片       商：")
-        self.input_maker = MakerSelector(get_maker_name())
+        self.input_maker = MakerSelector(submit_db_raw(get_maker_name).result())
 
         self.label_label = Label("厂       牌：")
-        self.input_label = LabelSelector(get_label_name())
+        self.input_label = LabelSelector(submit_db_raw(get_label_name).result())
 
         self.label_series = Label("系       列：")
-        self.input_series = SeriesSelector(get_series_name())
+        self.input_series = SeriesSelector(submit_db_raw(get_series_name).result())
 
         self.actressselector = ActressSelector()
         self.actorselector = ActorSelector()

@@ -13,6 +13,7 @@ import random
 import sqlite3
 
 from config import DATABASE
+from core.database.db_queue import submit_db_raw
 from core.database.db_utils import attach_private_db, detach_private_db
 from core.database.query import (
     get_actressname,
@@ -93,13 +94,21 @@ class ShelfPage(QWidget):
 
         self.story_input = LineEdit()
         self.title_input = LineEdit()
-        self.serial_number_input = CompleterLineEdit(get_serial_number)
-        self.actress_input = CompleterLineEdit(get_actressname)
-        self.director_input = CompleterLineEdit(get_unique_director)
-        self.actor_input = CompleterLineEdit(get_actorname)
-        self.maker_selector = MakerSelector(get_maker_name())
-        self.label_selector = LabelSelector(get_label_name())
-        self.series_selector = SeriesSelector(get_series_name())
+        self.serial_number_input = CompleterLineEdit(
+            lambda: submit_db_raw(get_serial_number).result()
+        )
+        self.actress_input = CompleterLineEdit(
+            lambda: submit_db_raw(get_actressname).result()
+        )
+        self.director_input = CompleterLineEdit(
+            lambda: submit_db_raw(get_unique_director).result()
+        )
+        self.actor_input = CompleterLineEdit(
+            lambda: submit_db_raw(get_actorname).result()
+        )
+        self.maker_selector = MakerSelector(submit_db_raw(get_maker_name).result())
+        self.label_selector = LabelSelector(submit_db_raw(get_label_name).result())
+        self.series_selector = SeriesSelector(submit_db_raw(get_series_name).result())
 
         self.story_input.setFixedWidth(100)
         self.title_input.setFixedWidth(100)
@@ -251,7 +260,9 @@ class ShelfPage(QWidget):
         target_work_id = work_id
         if target_work_id is None and serial_number:
             try:
-                target_work_id = get_workid_by_serialnumber(str(serial_number).strip())
+                target_work_id = submit_db_raw(
+                    lambda: get_workid_by_serialnumber(str(serial_number).strip())
+                ).result()
             except Exception:
                 logging.exception(
                     "ShelfPage: failed to resolve work_id from serial_number"
@@ -520,24 +531,26 @@ HAVING COUNT(DISTINCT wtr2.tag_id) = ?
             params.append(self.random_seed)
             params.append(self.random_seed2)
 
-        with sqlite3.connect(f"file:{DATABASE}?mode=ro", uri=True) as conn:
-            cursor = conn.cursor()
-            if (
-                self.scope == "收藏库范围"
-                or self.scope == "收藏未观看"
-                or self.scope == "已撸过"
-            ):
-                attach_private_db(cursor)
-            cursor.execute(query, params)
-            results = cursor.fetchall()
-            if (
-                self.scope == "收藏库范围"
-                or self.scope == "收藏未观看"
-                or self.scope == "已撸过"
-            ):
-                detach_private_db(cursor)
+        def _run_read() -> list[int]:
+            with sqlite3.connect(f"file:{DATABASE}?mode=ro", uri=True) as conn:
+                cursor = conn.cursor()
+                if (
+                    self.scope == "收藏库范围"
+                    or self.scope == "收藏未观看"
+                    or self.scope == "已撸过"
+                ):
+                    attach_private_db(cursor)
+                cursor.execute(query, params)
+                results = cursor.fetchall()
+                if (
+                    self.scope == "收藏库范围"
+                    or self.scope == "收藏未观看"
+                    or self.scope == "已撸过"
+                ):
+                    detach_private_db(cursor)
+            return [row[0] for row in results]
 
-        return [row[0] for row in results]
+        return submit_db_raw(_run_read).result()
 
     @Slot()
     def refresh(self) -> None:

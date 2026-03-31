@@ -3,6 +3,7 @@ from __future__ import annotations
 from PySide6.QtCore import Qt, QStringListModel, Slot
 from PySide6.QtWidgets import QCompleter, QSizePolicy
 
+from core.database.db_queue import submit_db_raw
 from darkeye_ui.components.combo_box import ComboBox
 
 
@@ -114,7 +115,7 @@ class LabelSelector(ComboBox):
         current_label_id = self.get_label()
         current_text = self.currentText()
 
-        self.set_labels(get_label_name())
+        self.set_labels(submit_db_raw(get_label_name).result())
 
         if current_label_id:
             self.set_label(current_label_id)

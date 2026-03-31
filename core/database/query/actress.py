@@ -127,10 +127,16 @@ def exist_minnao_id(actress_id) -> int:
 def get_actressname() -> list:
     """获得库中所有的女优的名字，包括曾用名，返回女优的名字"""
     query = """
-    SELECT
-    cn
-    FROM
-    actress_name
+    SELECT name
+    FROM (
+        SELECT cn AS name
+        FROM actress_name
+        UNION
+        SELECT jp AS name
+        FROM actress_name
+    )
+    WHERE name IS NOT NULL
+      AND TRIM(name) <> ''
     """
     with get_connection(DATABASE, True) as conn:
         cursor = conn.cursor()

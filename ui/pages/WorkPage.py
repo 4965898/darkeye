@@ -116,7 +116,7 @@ class WorkPage(LazyWidget):
 
         self.story_input.setFixedWidth(100)
         self.title_input.setFixedWidth(100)
-        self.serial_number_input.setFixedWidth(150)
+        self.serial_number_input.setFixedWidth(120)
         self.actress_input.setFixedWidth(120)
         self.director_input.setFixedWidth(150)
         self.actor_input.setFixedWidth(120)

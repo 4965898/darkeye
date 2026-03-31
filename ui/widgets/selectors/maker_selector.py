@@ -3,6 +3,7 @@ from __future__ import annotations
 from PySide6.QtCore import Qt, QStringListModel, Slot
 from PySide6.QtWidgets import QCompleter, QSizePolicy
 
+from core.database.db_queue import submit_db_raw
 from darkeye_ui.components.combo_box import ComboBox
 
 
@@ -117,7 +118,7 @@ class MakerSelector(ComboBox):
         current_maker_id = self.get_maker()
         current_text = self.currentText()
 
-        self.set_makers(get_maker_name())
+        self.set_makers(submit_db_raw(get_maker_name).result())
 
         if current_maker_id:
             self.set_maker(current_maker_id)

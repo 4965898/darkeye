@@ -6,6 +6,7 @@ import logging
 import time
 
 from config import DATABASE
+from core.database.db_queue import submit_db_raw
 from controller.message_service import MessageBoxService
 
 from darkeye_ui.components.label import Label
@@ -102,12 +103,9 @@ class ActressSelector(QWidget):
         # 数据库有没有被正确的读取是一个问题，数据库的版本与软件的版本要对上
         try:
             t0 = time.perf_counter()
-            with sqlite3.connect(DATABASE) as conn:
-                cursor = conn.cursor()
-                cursor.execute(
-                    "SELECT 女优ID,中文名,日文名 FROM v_actress_all_info WHERE 中文名 IS NOT NULL AND 日文名 IS NOT NULL"
-                )
-                rows = cursor.fetchall()
+            rows = submit_db_raw(
+                lambda: self._fetch_actress_rows_from_db()
+            ).result()
             items = []
             rows = rows[::-1]
             for 女优ID, 中文名, 日文名 in rows:
@@ -131,6 +129,15 @@ class ActressSelector(QWidget):
         except Exception as e:
             self.msg.show_critical("数据库错误", f"无法读取数据：\n{e}")
             return []
+
+    def _fetch_actress_rows_from_db(self) -> list[tuple]:
+        with sqlite3.connect(DATABASE) as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT 女优ID,中文名,日文名 FROM v_actress_all_info "
+                "WHERE 中文名 IS NOT NULL AND 日文名 IS NOT NULL"
+            )
+            return cursor.fetchall()
 
     @Slot()
     def move_to_left(self):

@@ -2,6 +2,7 @@ from PySide6.QtWidgets import QDialog, QGridLayout, QSizePolicy
 from PySide6.QtCore import Qt, QDateTime, QTime, Slot
 
 from darkeye_ui.components import HeartRatingWidget
+from core.database.db_queue import submit_db_raw
 from core.database.query import (
     get_unique_tools_from_masturbation,
     get_workid_by_serialnumber,
@@ -28,14 +29,16 @@ class AddMasturbationDialog(QDialog):
         from core.database.query import get_serial_number
         from ui.widgets import CompleterLineEdit
 
-        self.input_serial_number = CompleterLineEdit(get_serial_number)
+        self.input_serial_number = CompleterLineEdit(
+            lambda: submit_db_raw(get_serial_number).result()
+        )
 
         self.label_rating = Label("评分")
         self.input_rating = HeartRatingWidget()
 
         self.label_tool = Label("使用工具")
         self.input_tool = CompleterLineEdit(
-            get_unique_tools_from_masturbation
+            lambda: submit_db_raw(get_unique_tools_from_masturbation).result()
         )  # 设置撸管工具的读取
         self.input_tool.setSizePolicy(
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred
@@ -79,7 +82,9 @@ class AddMasturbationDialog(QDialog):
     def commit(self):
         # 提交数据，写入数据库内
         serial_number = self.input_serial_number.text().strip()
-        work_id = get_workid_by_serialnumber(serial_number)
+        work_id = submit_db_raw(
+            lambda: get_workid_by_serialnumber(serial_number)
+        ).result()
 
         time = self.datetime_edit.dateTime().toString("yyyy-MM-dd HH:mm")
         rating = self.input_rating.get_rating()

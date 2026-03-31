@@ -12,6 +12,7 @@ from PySide6.QtCore import Qt, QObject, Signal, Property, Slot, SignalInstance
 
 from ui.widgets.selectors.TagSelector5 import TagSelector5
 
+from core.database.db_queue import submit_db_raw
 from core.database.query import get_tag_type_dict, get_unique_tag_type
 from darkeye_ui.components.color_picker import ColorPicker
 import logging
@@ -249,7 +250,9 @@ class ViewModel(QObject):
             self.msg.show_info(f"添加新tag成功", f"tag_name: {data["tag_name"]}")
             global_signals.tagDataChanged.emit()  # 发射标签数据变更信号
             # 这里要重新加载新的tag
-            tag_id = get_tagid_by_keyword(data["tag_name"], match_hole_word=True)
+            tag_id = submit_db_raw(
+                lambda: get_tagid_by_keyword(data["tag_name"], match_hole_word=True)
+            ).result()
             if tag_id:
                 self.loadTagSelector.emit([tag_id])  # 发射要加载的信号
             return True
