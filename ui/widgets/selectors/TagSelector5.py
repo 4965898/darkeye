@@ -28,6 +28,7 @@ from PySide6.QtGui import (
 import logging
 from typing import TYPE_CHECKING, Optional
 
+from core.database.db_queue import submit_db_raw
 from core.database.query import get_tags, get_tagid_by_keyword
 
 from controller.message_service import MessageBoxService
@@ -767,7 +768,7 @@ class TagSelector5(QWidget):
         耗时优化核心：只创建 Python 对象和 GraphicsItem，不创建 Widget。
         """
         logging.debug("TagSelector5 加载 tag 数据库")
-        tags = get_tags()
+        tags = submit_db_raw(get_tags).result()
 
         # 清理旧数据
         self.panel.tag_emit_tabwidget.clear()
@@ -1111,7 +1112,7 @@ class TagSelector5(QWidget):
     def search_func(self, keyword: str) -> list:
         if not keyword:
             return []
-        tag_ids = get_tagid_by_keyword(keyword)
+        tag_ids = submit_db_raw(lambda: get_tagid_by_keyword(keyword)).result()
         return tag_ids if tag_ids else []
 
     def navi_func(self, results: list, index: int):

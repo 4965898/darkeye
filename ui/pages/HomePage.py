@@ -6,6 +6,7 @@ import logging
 
 from config import DATABASE
 from controller.global_signal_bus import global_signals
+from core.database.db_queue import submit_db_raw
 from core.database.db_utils import attach_private_db, detach_private_db
 from core.dvd.dvd_shelf_view import DvdShelfView
 
@@ -46,18 +47,20 @@ class HomePage(QWidget):
         WHERE work.is_deleted = 0
         ORDER BY p.maker_id IS NULL, p.maker_id, work.serial_number
         """
-        try:
+        def _run_read() -> list[int]:
             with sqlite3.connect(f"file:{DATABASE}?mode=ro", uri=True) as conn:
                 cursor = conn.cursor()
                 attach_private_db(cursor)
                 cursor.execute(sql)
                 rows = cursor.fetchall()
                 detach_private_db(cursor)
+            return [int(row[0]) for row in rows if row and row[0] is not None]
+
+        try:
+            return submit_db_raw(_run_read).result()
         except Exception as e:
             logging.error(f"HomePage: 加载收藏作品失败: {e}")
             return []
-
-        return [int(row[0]) for row in rows if row and row[0] is not None]
 
     @Slot()
     def _refresh_favorites(self) -> None:

@@ -5,6 +5,7 @@ import sqlite3, logging
 from typing import Callable
 
 from config import DATABASE
+from core.database.db_queue import submit_db_raw
 from core.database.query import get_actressname, get_cup_type
 from core.database.db_utils import attach_private_db, detach_private_db
 from ui.widgets import ActressCard, CompleterLineEdit
@@ -73,9 +74,13 @@ class ActressPage(LazyWidget):
         self.filter_layout = QHBoxLayout(self.filter_widget)  # 直接传入 widget
         self.filter_layout.setContentsMargins(10, 0, 10, 0)
 
-        self.actressname_input = CompleterLineEdit(get_actressname)
+        self.actressname_input = CompleterLineEdit(
+            lambda: submit_db_raw(get_actressname).result()
+        )
 
-        self.cup_combo = FlashComboBox(lambda: [""] + get_cup_type())
+        self.cup_combo = FlashComboBox(
+            lambda: [""] + submit_db_raw(get_cup_type).result()
+        )
 
         self.info = Label()  # 用来显示信息
         self.info.setFixedWidth(100)
@@ -297,15 +302,18 @@ WHERE cn LIKE ? OR jp LIKE ? OR en LIKE ? OR kana LIKE ?
             params.extend([page_size, offset])
 
         # logging.debug(f"ActressPage Execute SQL\n{query}")
-        with sqlite3.connect(f"file:{DATABASE}?mode=ro", uri=True) as conn:
-            cursor = conn.cursor()
-            if self.scope == "收藏库范围":
-                attach_private_db(cursor)
-            cursor.execute(query, params)  # 这里面不能orderby random 会重复
-            results = cursor.fetchall()
-            if self.scope == "收藏库范围":
-                detach_private_db(cursor)
-        return results
+        def _run_read() -> tuple:
+            with sqlite3.connect(f"file:{DATABASE}?mode=ro", uri=True) as conn:
+                cursor = conn.cursor()
+                if self.scope == "收藏库范围":
+                    attach_private_db(cursor)
+                cursor.execute(query, params)  # 这里面不能orderby random 会重复
+                results = cursor.fetchall()
+                if self.scope == "收藏库范围":
+                    detach_private_db(cursor)
+            return results
+
+        return submit_db_raw(_run_read).result()
 
     def load_page(self, page_index: int, page_size: int) -> list[ActressCard]:
         """返回一个页面的 ActressCard 列表"""

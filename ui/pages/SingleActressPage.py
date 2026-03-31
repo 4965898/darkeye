@@ -7,6 +7,7 @@ from darkeye_ui.components import LazyScrollArea
 from ui.widgets import SingleActressInfo
 from ui.widgets import CoverCard
 from config import DATABASE
+from core.database.db_queue import submit_db_raw
 from darkeye_ui import LazyWidget
 
 
@@ -71,11 +72,14 @@ ORDER BY work.release_date DESC
         params.extend([page_size, offset])
         # logging.debug(f"WorkPageExecute SQL\n{query}")
 
-        with sqlite3.connect(DATABASE) as conn:
-            cursor = conn.cursor()
-            cursor.execute(query, params)
-            results = cursor.fetchall()
-        return results
+        def _run_read() -> tuple:
+            with sqlite3.connect(DATABASE) as conn:
+                cursor = conn.cursor()
+                cursor.execute(query, params)
+                results = cursor.fetchall()
+            return results
+
+        return submit_db_raw(_run_read).result()
 
     def load_page(self, page_index: int, page_size: int) -> list[CoverCard]:
         """返回一个页面的 CoverCard 列表，在这里进行实际的构造"""

@@ -21,9 +21,9 @@
 [![下载 Windows 版本](https://img.shields.io/badge/%20下载-Windows%20-blue?style=for-the-badge&logo=windows)](https://github.com/de4321/darkeye/releases/download/v1.2.0/DarkEye-v1.2.0.zip)
 下载程序，解压,打开exe即可使用
 
-[![下载FireFox插件](https://img.shields.io/badge/%20下载-Firefox插件%20-blue?style=for-the-badge)](https://github.com/de4321/darkeye/releases/download/v1.2.0/firefox_capture.zip)按照下面的插件安装，否则爬虫收集功能将不可用。
-
 [![下载Chrome/Edge插件](https://img.shields.io/badge/%20下载-Chrome/Edge插件%20-blue?style=for-the-badge)](https://github.com/de4321/darkeye/releases/download/v1.2.0/chrome_capture.zip)按照下面的插件安装，否则爬虫收集功能将不可用。
+
+[![下载FireFox插件](https://img.shields.io/badge/%20下载-Firefox插件%20-blue?style=for-the-badge)](https://github.com/de4321/darkeye/releases/download/v1.2.0/firefox_capture.zip)按照下面的插件安装，否则爬虫收集功能将不可用。
 
 ## 插件安装
 👉 https://de4321.github.io/darkeye/usage/#_2
@@ -58,14 +58,17 @@
 - [x] 分析图表,数据展示,还有部分未完成
 - [x] 拟物化dvd展示
 - [x] 筛选作品页面
-- [x] firefox/chrome/edge爬虫插件，沉浸式摘取信息，支持javtxt,javlib,javdb交互式采集信息，
-- [x] 多链路爬虫，主要使用javlib,avdanyuwiki,javtxt,javdb,对于正规片的爬取很有效，且易过盾。
+- [x] chrome/edge/firefox爬虫插件，沉浸式摘取信息，支持javtxt,javlib,javdb交互式采集信息，
+- [x] 多链路爬虫，主要使用javlib,avdanyuwiki,javtxt,javdb,minnano-av,对于正规片的爬取很有效，且易过盾。
 - [x] 力导向图，查看关联，承受1w节点60帧率
 - [x] 搜索本地视频，进入爬虫列表
 - [x] 备份系统，按私库重建喜欢的番号
-- [x] json驱动外链跳转
+- [x] json驱动外链跳转，可自定义。
 - [x] 主题更改，剩下3D场景没有更改明亮黑暗
 - [x] 部分截图功能，女优界面C键截图
+- [x] NFO数据导入(测试中)
+- [ ] NFO数据导出(形成共识后开发)
+- [x] 自动检测下载更新
 
 
 拟物化的dvd
@@ -84,10 +87,13 @@
 ![javtxt网站为例](docs/assets/capture.JPG)
 
 ## 爬虫
-目前爬虫对于作品只爬取发布时间，导演，中日文标题与剧情，女优，男优(如果有)，标签，封面图片。没有爬影片长度，制作商，厂牌，系列等信息。
-未来会加上影片长度，主要我认为影片长度不重要，av质量的好坏和影片长度无任何关系，长时间的很水。制作商与厂牌的信息目前是靠番号的常识信息推理，没有写入作品，有些番号的前缀比如AVOP和PFES这种不固定制作商的，目前就没有制作商的分类，后面都会加上去的。
+目前爬虫对于作品只爬取发布时间，导演，中日文标题与剧情，女优，男优(如果有)，标签，封面图片，影片长度，制作商，厂牌，系列，剧照等信息。
 
 对女优信息的爬取只爬头像，生日，出道日，三维，身高罩杯，与曾用名，目前没有曾用名的更新机制。会有一个问题，如果一开始用的日文名是曾用名，则会有问题。
+
+测试下来第一次爬虫一定触发javlib盾，然后基本上爬100次会遇到javdb的点击盾，交互点掉就行了。后续会研究机器点会怎么样。
+
+软件不解决代理问题，目标网站能用浏览器打开就是能爬。
 
 
 # 🚀 开发
@@ -96,3 +102,6 @@
 
 # 📚 文档
 👉 完整文档请访问：https://de4321.github.io/darkeye/
+
+
+

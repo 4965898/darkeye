@@ -21,6 +21,7 @@ import logging
 from config import BASE_DIR, DATABASE, ICONS_PATH
 from controller.message_service import MessageBoxService
 from core.database.connection import get_connection
+from core.database.db_queue import submit_db_raw
 from core.database.query import get_maker_name
 from ui.basic import ModelSearch
 from ui.base.SqliteEditableTableModel import SqliteEditableTableModel
@@ -45,7 +46,7 @@ class MakerRedirectDialog(QDialog):
         self.setModal(True)
         self.resize(760, 140)
 
-        makers = get_maker_name()
+        makers = submit_db_raw(get_maker_name).result()
         self.from_selector = MakerSelector(makers, self)
         self.to_selector = MakerSelector(makers, self)
 

@@ -17,6 +17,7 @@ from PySide6.QtCore import Qt, Signal, QStringListModel, QEvent, QTimer, QSize
 from PySide6.QtGui import QTextCursor, QDesktopServices, QPixmap, QImage
 from ui.widgets.text.WikiHighlighter import WikiHighlighter
 from ui.navigation.router import Router
+from core.database.db_queue import submit_db_raw
 from core.database.query import (
     get_workid_by_serialnumber,
     exist_actress,
@@ -456,7 +457,9 @@ class WikiTextEdit(TextEdit):
             router.push("single_actress", actress_id=int(target[1:]))
         else:
             # 尝试作为番号查找对应的 work_id
-            work_id = get_workid_by_serialnumber(target)
+            work_id = submit_db_raw(
+                lambda: get_workid_by_serialnumber(target)
+            ).result()
             if work_id:
                 router.push("work", work_id=work_id)
             else:

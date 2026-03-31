@@ -1,11 +1,19 @@
 from PySide6.QtWidgets import QHBoxLayout, QWidget, QSizePolicy, QVBoxLayout
 from PySide6.QtCore import Slot, Qt, QTimer
-import sqlite3, logging
+import logging
+import random
+import sqlite3
 from ui.widgets import CompleterLineEdit, CoverCard, CoverCard2
 from ui.basic import HorizontalScrollArea
 from darkeye_ui.components import LazyScrollArea
 from darkeye_ui.components.icon_push_button import IconPushButton
-from config import DATABASE, get_work_large_cover_view, set_work_large_cover_view
+from config import (
+    DATABASE,
+    get_work_large_cover_view,
+    get_work_tag_selector_visible,
+    set_work_large_cover_view,
+    set_work_tag_selector_visible,
+)
 from core.database.db_queue import submit_db_raw
 from core.database.query import (
     get_actressname,
@@ -58,11 +66,14 @@ class WorkPage(LazyWidget):
         self._large_cover_view = (
             get_work_large_cover_view()
         )  # False: CoverCard + 窄列；True: CoverCard2 + 更宽列
+        self._tag_selector_visible = get_work_tag_selector_visible()
         self._work_column_standard = 220
         self._work_column_large = CoverCard2.CARD_WIDTH
 
         self.order = "添加逆序"  # 排序的内在的值
         self.scope = "公共库范围"
+        self.random_seed = random.randint(1, 1_000_000)
+        self.random_seed2 = random.randint(1, 1_000_000)
 
         # self.spacer_widget = QWidget()
         # self.spacer_widget.setFixedHeight(70)
@@ -112,7 +123,7 @@ class WorkPage(LazyWidget):
 
         self.story_input.setFixedWidth(100)
         self.title_input.setFixedWidth(100)
-        self.serial_number_input.setFixedWidth(150)
+        self.serial_number_input.setFixedWidth(120)
         self.actress_input.setFixedWidth(120)
         self.director_input.setFixedWidth(150)
         self.actor_input.setFixedWidth(120)
@@ -158,6 +169,7 @@ class WorkPage(LazyWidget):
         self.order_combo = ComboBox()
         self.order_combo.addItems(
             [
+                "随机顺序",
                 "添加逆序",
                 "添加顺序",
                 "番号顺序",
@@ -169,7 +181,7 @@ class WorkPage(LazyWidget):
                 "发布时间逆序",
                 "发布时间顺序",
                 "拍摄年龄顺序",
-                "拍摄年龄逆序",
+                "拍摄年龄逆序"
             ]
         )
         self.order_combo.setCurrentText(self.order)
@@ -177,12 +189,16 @@ class WorkPage(LazyWidget):
         self.scope_combo = ComboBox()
         self.scope_combo.addItems(["公共库范围", "收藏库范围", "收藏未观看", "已撸过"])
         self.scope_combo.setCurrentText(self.scope)
-
         self.filter_widget = QWidget()
         self.filter_widget.setFixedHeight(40)
         self.filter_layout = QHBoxLayout(self.filter_widget)  # 直接传入 widget
         self.filter_layout.setContentsMargins(10, 0, 10, 0)
 
+        self.btn_toggle_tag_selector = IconPushButton(
+            icon_name="layout_panel_left", icon_size=22, out_size=28
+        )
+        self._sync_tag_selector_button()
+        self.filter_layout.addWidget(self.btn_toggle_tag_selector)
         self.filter_layout.addWidget(scroll, 1)
 
         # self.filter_layout.addWidget(self.filter_btn)
@@ -215,6 +231,7 @@ class WorkPage(LazyWidget):
         self.hlayout = QHBoxLayout()  # 细分的layout
         self.hlayout.addWidget(self.tagselector, 0)
         self.hlayout.addWidget(self.lazy_area, 1)
+        self.tagselector.setVisible(self._tag_selector_visible)
 
         # 总体布局
         mainlayout = QVBoxLayout(self)
@@ -271,6 +288,7 @@ class WorkPage(LazyWidget):
 
         self.btn_eraser.clicked.connect(self._clear_all_search)
         self.btn_cover_view.clicked.connect(self._toggle_cover_view)
+        self.btn_toggle_tag_selector.clicked.connect(self._toggle_tag_selector)
 
     def _sync_cover_view_button(self) -> None:
         if self._large_cover_view:
@@ -279,6 +297,14 @@ class WorkPage(LazyWidget):
         else:
             self.btn_cover_view.setToolTip("当前：标准卡片视图，点击切换为大图卡片")
             self.btn_cover_view.set_icon_name("layout_waterfall")
+
+    def _sync_tag_selector_button(self) -> None:
+        if self._tag_selector_visible:
+            self.btn_toggle_tag_selector.setToolTip("当前：显示标签边栏，点击隐藏")
+            self.btn_toggle_tag_selector.set_icon_name("panel_left_close")
+        else:
+            self.btn_toggle_tag_selector.setToolTip("当前：隐藏标签边栏，点击显示")
+            self.btn_toggle_tag_selector.set_icon_name("panel_left_open")
 
     @Slot()
     def _toggle_cover_view(self) -> None:
@@ -292,6 +318,13 @@ class WorkPage(LazyWidget):
         self._sync_cover_view_button()
         set_work_large_cover_view(self._large_cover_view)
         self.lazy_area.reset()
+
+    @Slot()
+    def _toggle_tag_selector(self) -> None:
+        self._tag_selector_visible = not self._tag_selector_visible
+        self.tagselector.setVisible(self._tag_selector_visible)
+        self._sync_tag_selector_button()
+        set_work_tag_selector_visible(self._tag_selector_visible)
 
     def load_with_params(
         self, actor_id=None, tag_id=None, serial_number=None, **kwargs
@@ -529,6 +562,7 @@ HAVING COUNT(DISTINCT wtr2.tag_id) = ?
             params.append(num_tags)
 
         # 拼order------------------------------------------------------------
+        random_order = False
         match self.order:
             case "发布时间顺序":
                 order = "ORDER BY work.release_date\n"
@@ -554,7 +588,18 @@ HAVING COUNT(DISTINCT wtr2.tag_id) = ?
                 order = "ORDER BY work.update_time DESC\n"
             case "更新时间顺序":
                 order = "ORDER BY work.update_time\n"
+            case "随机顺序":
+                order = (
+                    "ORDER BY ("
+                    "((work.work_id * ?) % 1000003) + "
+                    "((work.work_id * work.work_id * ?) % 1000033)"
+                    ") % 1000037, work.work_id\n"
+                )
+                random_order = True
         if not count:
+            if random_order:
+                params.append(self.random_seed)
+                params.append(self.random_seed2)
             query += f"{order} LIMIT ? OFFSET ?"  # 最后拼这个
             params.extend([page_size, offset])
         # logging.debug(f"WorkPageExecute SQL\n{query}")
@@ -614,6 +659,9 @@ HAVING COUNT(DISTINCT wtr2.tag_id) = ?
 
     @Slot()
     def refresh(self):
+        if self.order_combo.currentText() == "随机顺序":
+            self.random_seed = random.randint(1, 1_000_000)
+            self.random_seed2 = random.randint(1, 1_000_000)
         self.lazy_area.reset()
         self.update_info()
 

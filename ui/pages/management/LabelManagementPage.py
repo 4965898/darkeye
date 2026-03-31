@@ -19,6 +19,7 @@ import logging
 from config import BASE_DIR, DATABASE, ICONS_PATH
 from controller.message_service import MessageBoxService
 from core.database.connection import get_connection
+from core.database.db_queue import submit_db_raw
 from core.database.query import get_label_name
 from ui.basic import ModelSearch
 from ui.base.SqliteEditableTableModel import SqliteEditableTableModel
@@ -40,7 +41,7 @@ class LabelRedirectDialog(QDialog):
         self.setModal(True)
         self.resize(760, 140)
 
-        labels = get_label_name()
+        labels = submit_db_raw(get_label_name).result()
         self.from_selector = LabelSelector(labels, self)
         self.to_selector = LabelSelector(labels, self)
 

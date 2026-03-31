@@ -5,6 +5,7 @@ import sqlite3
 import logging
 import time
 from config import DATABASE
+from core.database.db_queue import submit_db_raw
 from controller.message_service import MessageBoxService
 
 from darkeye_ui.components.label import Label
@@ -113,10 +114,9 @@ JOIN actor_name ON actor_name.actor_id=a.actor_id
 """
         try:
             t0 = time.perf_counter()
-            with sqlite3.connect(DATABASE) as conn:
-                cursor = conn.cursor()
-                cursor.execute(query)
-                rows = cursor.fetchall()
+            rows = submit_db_raw(
+                lambda: self._fetch_actor_rows_from_db(query)
+            ).result()
             items = []
             rows = rows[::-1]
             for actor_id, cn_name, jp_name in rows:
@@ -142,6 +142,12 @@ JOIN actor_name ON actor_name.actor_id=a.actor_id
             self.msg.show_critical("数据库错误", f"无法读取数据：\n{e}")
             logging.warning("读取男优数据库失败%s", e)
             return []
+
+    def _fetch_actor_rows_from_db(self, query: str) -> list[tuple]:
+        with sqlite3.connect(DATABASE) as conn:
+            cursor = conn.cursor()
+            cursor.execute(query)
+            return cursor.fetchall()
 
     @Slot()
     def move_to_left(self):

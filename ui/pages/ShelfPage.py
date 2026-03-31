@@ -8,10 +8,16 @@ from PySide6.QtWidgets import (
     QComboBox,
 )
 
-import sqlite3
 import logging
+import random
+import sqlite3
 
-from config import DATABASE
+from config import (
+    DATABASE,
+    get_shelf_tag_selector_visible,
+    set_shelf_tag_selector_visible,
+)
+from core.database.db_queue import submit_db_raw
 from core.database.db_utils import attach_private_db, detach_private_db
 from core.database.query import (
     get_actressname,
@@ -28,6 +34,7 @@ from ui.widgets import CompleterLineEdit
 from core.dvd.dvd_shelf_view import DvdShelfView
 from ui.widgets.selectors.TagSelector5 import TagSelector5
 from darkeye_ui.components.label import Label
+from darkeye_ui.components.icon_push_button import IconPushButton
 from darkeye_ui.components.rotate_button import RotateButton
 from darkeye_ui.components.shake_button import ShakeButton
 from darkeye_ui.components.input import LineEdit
@@ -51,8 +58,11 @@ class ShelfPage(QWidget):
         self.label_id = None
         self.series_id = None
         self._green_mode = False
+        self._tag_selector_visible = get_shelf_tag_selector_visible()
         self.order = "添加逆序"
         self.scope = "公共库范围"
+        self.random_seed = random.randint(1, 1_000_000)
+        self.random_seed2 = random.randint(1, 1_000_000)
 
         self._init_ui()
         self._signal_connect()
@@ -90,13 +100,21 @@ class ShelfPage(QWidget):
 
         self.story_input = LineEdit()
         self.title_input = LineEdit()
-        self.serial_number_input = CompleterLineEdit(get_serial_number)
-        self.actress_input = CompleterLineEdit(get_actressname)
-        self.director_input = CompleterLineEdit(get_unique_director)
-        self.actor_input = CompleterLineEdit(get_actorname)
-        self.maker_selector = MakerSelector(get_maker_name())
-        self.label_selector = LabelSelector(get_label_name())
-        self.series_selector = SeriesSelector(get_series_name())
+        self.serial_number_input = CompleterLineEdit(
+            lambda: submit_db_raw(get_serial_number).result()
+        )
+        self.actress_input = CompleterLineEdit(
+            lambda: submit_db_raw(get_actressname).result()
+        )
+        self.director_input = CompleterLineEdit(
+            lambda: submit_db_raw(get_unique_director).result()
+        )
+        self.actor_input = CompleterLineEdit(
+            lambda: submit_db_raw(get_actorname).result()
+        )
+        self.maker_selector = MakerSelector(submit_db_raw(get_maker_name).result())
+        self.label_selector = LabelSelector(submit_db_raw(get_label_name).result())
+        self.series_selector = SeriesSelector(submit_db_raw(get_series_name).result())
 
         self.story_input.setFixedWidth(100)
         self.title_input.setFixedWidth(100)
@@ -144,6 +162,7 @@ class ShelfPage(QWidget):
         self.order_combo = ComboBox()
         self.order_combo.addItems(
             [
+                "随机顺序",
                 "添加逆序",
                 "添加顺序",
                 "番号顺序",
@@ -155,7 +174,7 @@ class ShelfPage(QWidget):
                 "发布时间逆序",
                 "发布时间顺序",
                 "拍摄年龄顺序",
-                "拍摄年龄逆序",
+                "拍摄年龄逆序"
             ]
         )
         self.order_combo.setCurrentText(self.order)
@@ -169,7 +188,12 @@ class ShelfPage(QWidget):
         self.filter_layout = QHBoxLayout(self.filter_widget)
         self.filter_layout.setContentsMargins(10, 0, 10, 0)
 
-        self.filter_layout.addWidget(scroll)
+        self.btn_toggle_tag_selector = IconPushButton(
+            icon_name="layout_panel_left", icon_size=22, out_size=28
+        )
+        self._sync_tag_selector_button()
+        self.filter_layout.addWidget(self.btn_toggle_tag_selector)
+        self.filter_layout.addWidget(scroll, 1)
         self.filter_layout.addWidget(self.btn_reload)
         self.filter_layout.addWidget(self.btn_eraser)
         self.filter_layout.addWidget(self.info)
@@ -186,6 +210,7 @@ class ShelfPage(QWidget):
         self.hlayout = QHBoxLayout()
         self.hlayout.addWidget(self.tagselector, 0)
         self.hlayout.addWidget(self.shelf_view, 1)
+        self.tagselector.setVisible(self._tag_selector_visible)
 
         mainlayout = QVBoxLayout(self)
         mainlayout.setContentsMargins(0, 0, 0, 0)
@@ -215,6 +240,22 @@ class ShelfPage(QWidget):
         global_signals.actorDataChanged.connect(self.actor_input.reload_items)
 
         self.btn_eraser.clicked.connect(self._clear_all_search)
+        self.btn_toggle_tag_selector.clicked.connect(self._toggle_tag_selector)
+
+    def _sync_tag_selector_button(self) -> None:
+        if self._tag_selector_visible:
+            self.btn_toggle_tag_selector.setToolTip("当前：显示标签边栏，点击隐藏")
+            self.btn_toggle_tag_selector.set_icon_name("panel_left_close")
+        else:
+            self.btn_toggle_tag_selector.setToolTip("当前：隐藏标签边栏，点击显示")
+            self.btn_toggle_tag_selector.set_icon_name("panel_left_open")
+
+    @Slot()
+    def _toggle_tag_selector(self) -> None:
+        self._tag_selector_visible = not self._tag_selector_visible
+        self.tagselector.setVisible(self._tag_selector_visible)
+        self._sync_tag_selector_button()
+        set_shelf_tag_selector_visible(self._tag_selector_visible)
 
     def _clear_filters_for_jump(self) -> None:
         """Clear current shelf filters synchronously before programmatic jump."""
@@ -247,7 +288,9 @@ class ShelfPage(QWidget):
         target_work_id = work_id
         if target_work_id is None and serial_number:
             try:
-                target_work_id = get_workid_by_serialnumber(str(serial_number).strip())
+                target_work_id = submit_db_raw(
+                    lambda: get_workid_by_serialnumber(str(serial_number).strip())
+                ).result()
             except Exception:
                 logging.exception(
                     "ShelfPage: failed to resolve work_id from serial_number"
@@ -474,6 +517,7 @@ HAVING COUNT(DISTINCT wtr2.tag_id) = ?
             """
             params.append(num_tags)
 
+        random_order = False
         match self.order:
             case "发布时间顺序":
                 order = "ORDER BY work.release_date\n"
@@ -499,30 +543,46 @@ HAVING COUNT(DISTINCT wtr2.tag_id) = ?
                 order = "ORDER BY work.update_time DESC\n"
             case "更新时间顺序":
                 order = "ORDER BY work.update_time\n"
+            case "随机顺序":
+                order = (
+                    "ORDER BY ("
+                    "((work.work_id * ?) % 1000003) + "
+                    "((work.work_id * work.work_id * ?) % 1000033)"
+                    ") % 1000037, work.work_id\n"
+                )
+                random_order = True
             case _:
                 order = "ORDER BY work.create_time DESC\n"
 
         query += order
+        if random_order:
+            params.append(self.random_seed)
+            params.append(self.random_seed2)
 
-        with sqlite3.connect(f"file:{DATABASE}?mode=ro", uri=True) as conn:
-            cursor = conn.cursor()
-            if (
-                self.scope == "收藏库范围"
-                or self.scope == "收藏未观看"
-                or self.scope == "已撸过"
-            ):
-                attach_private_db(cursor)
-            cursor.execute(query, params)
-            results = cursor.fetchall()
-            if (
-                self.scope == "收藏库范围"
-                or self.scope == "收藏未观看"
-                or self.scope == "已撸过"
-            ):
-                detach_private_db(cursor)
+        def _run_read() -> list[int]:
+            with sqlite3.connect(f"file:{DATABASE}?mode=ro", uri=True) as conn:
+                cursor = conn.cursor()
+                if (
+                    self.scope == "收藏库范围"
+                    or self.scope == "收藏未观看"
+                    or self.scope == "已撸过"
+                ):
+                    attach_private_db(cursor)
+                cursor.execute(query, params)
+                results = cursor.fetchall()
+                if (
+                    self.scope == "收藏库范围"
+                    or self.scope == "收藏未观看"
+                    or self.scope == "已撸过"
+                ):
+                    detach_private_db(cursor)
+            return [row[0] for row in results]
 
-        return [row[0] for row in results]
+        return submit_db_raw(_run_read).result()
 
     @Slot()
     def refresh(self) -> None:
+        if self.order_combo.currentText() == "随机顺序":
+            self.random_seed = random.randint(1, 1_000_000)
+            self.random_seed2 = random.randint(1, 1_000_000)
         self.apply_filter_real()
