@@ -1,6 +1,8 @@
 from PySide6.QtWidgets import QHBoxLayout, QWidget, QSizePolicy, QVBoxLayout
 from PySide6.QtCore import Slot, Qt, QTimer
-import sqlite3, logging
+import logging
+import random
+import sqlite3
 from ui.widgets import CompleterLineEdit, CoverCard, CoverCard2
 from ui.basic import HorizontalScrollArea
 from darkeye_ui.components import LazyScrollArea
@@ -63,6 +65,8 @@ class WorkPage(LazyWidget):
 
         self.order = "添加逆序"  # 排序的内在的值
         self.scope = "公共库范围"
+        self.random_seed = random.randint(1, 1_000_000)
+        self.random_seed2 = random.randint(1, 1_000_000)
 
         # self.spacer_widget = QWidget()
         # self.spacer_widget.setFixedHeight(70)
@@ -170,6 +174,7 @@ class WorkPage(LazyWidget):
                 "发布时间顺序",
                 "拍摄年龄顺序",
                 "拍摄年龄逆序",
+                "随机顺序",
             ]
         )
         self.order_combo.setCurrentText(self.order)
@@ -177,7 +182,6 @@ class WorkPage(LazyWidget):
         self.scope_combo = ComboBox()
         self.scope_combo.addItems(["公共库范围", "收藏库范围", "收藏未观看", "已撸过"])
         self.scope_combo.setCurrentText(self.scope)
-
         self.filter_widget = QWidget()
         self.filter_widget.setFixedHeight(40)
         self.filter_layout = QHBoxLayout(self.filter_widget)  # 直接传入 widget
@@ -529,6 +533,7 @@ HAVING COUNT(DISTINCT wtr2.tag_id) = ?
             params.append(num_tags)
 
         # 拼order------------------------------------------------------------
+        random_order = False
         match self.order:
             case "发布时间顺序":
                 order = "ORDER BY work.release_date\n"
@@ -554,7 +559,18 @@ HAVING COUNT(DISTINCT wtr2.tag_id) = ?
                 order = "ORDER BY work.update_time DESC\n"
             case "更新时间顺序":
                 order = "ORDER BY work.update_time\n"
+            case "随机顺序":
+                order = (
+                    "ORDER BY ("
+                    "((work.work_id * ?) % 1000003) + "
+                    "((work.work_id * work.work_id * ?) % 1000033)"
+                    ") % 1000037, work.work_id\n"
+                )
+                random_order = True
         if not count:
+            if random_order:
+                params.append(self.random_seed)
+                params.append(self.random_seed2)
             query += f"{order} LIMIT ? OFFSET ?"  # 最后拼这个
             params.extend([page_size, offset])
         # logging.debug(f"WorkPageExecute SQL\n{query}")
@@ -614,6 +630,9 @@ HAVING COUNT(DISTINCT wtr2.tag_id) = ?
 
     @Slot()
     def refresh(self):
+        if self.order_combo.currentText() == "随机顺序":
+            self.random_seed = random.randint(1, 1_000_000)
+            self.random_seed2 = random.randint(1, 1_000_000)
         self.lazy_area.reset()
         self.update_info()
 

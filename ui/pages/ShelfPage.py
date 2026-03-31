@@ -8,8 +8,9 @@ from PySide6.QtWidgets import (
     QComboBox,
 )
 
-import sqlite3
 import logging
+import random
+import sqlite3
 
 from config import DATABASE
 from core.database.db_utils import attach_private_db, detach_private_db
@@ -53,6 +54,8 @@ class ShelfPage(QWidget):
         self._green_mode = False
         self.order = "添加逆序"
         self.scope = "公共库范围"
+        self.random_seed = random.randint(1, 1_000_000)
+        self.random_seed2 = random.randint(1, 1_000_000)
 
         self._init_ui()
         self._signal_connect()
@@ -156,6 +159,7 @@ class ShelfPage(QWidget):
                 "发布时间顺序",
                 "拍摄年龄顺序",
                 "拍摄年龄逆序",
+                "随机顺序",
             ]
         )
         self.order_combo.setCurrentText(self.order)
@@ -474,6 +478,7 @@ HAVING COUNT(DISTINCT wtr2.tag_id) = ?
             """
             params.append(num_tags)
 
+        random_order = False
         match self.order:
             case "发布时间顺序":
                 order = "ORDER BY work.release_date\n"
@@ -499,10 +504,21 @@ HAVING COUNT(DISTINCT wtr2.tag_id) = ?
                 order = "ORDER BY work.update_time DESC\n"
             case "更新时间顺序":
                 order = "ORDER BY work.update_time\n"
+            case "随机顺序":
+                order = (
+                    "ORDER BY ("
+                    "((work.work_id * ?) % 1000003) + "
+                    "((work.work_id * work.work_id * ?) % 1000033)"
+                    ") % 1000037, work.work_id\n"
+                )
+                random_order = True
             case _:
                 order = "ORDER BY work.create_time DESC\n"
 
         query += order
+        if random_order:
+            params.append(self.random_seed)
+            params.append(self.random_seed2)
 
         with sqlite3.connect(f"file:{DATABASE}?mode=ro", uri=True) as conn:
             cursor = conn.cursor()
@@ -525,4 +541,7 @@ HAVING COUNT(DISTINCT wtr2.tag_id) = ?
 
     @Slot()
     def refresh(self) -> None:
+        if self.order_combo.currentText() == "随机顺序":
+            self.random_seed = random.randint(1, 1_000_000)
+            self.random_seed2 = random.randint(1, 1_000_000)
         self.apply_filter_real()
