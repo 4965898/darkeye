@@ -1,4 +1,7 @@
 
+
+conda activate pack
+
 # 清理旧的构建目录
 Write-Host "Cleaning old build and dist folders..."
 
@@ -41,8 +44,7 @@ $nuitkaArgs = @(
     "--include-data-dir=resources/config=resources/config",
     "--include-data-dir=resources/sql=resources/sql",
     "--include-data-dir=resources/avwiki=resources/avwiki",
-    "--include-data-dir=resources/help=resources/help",
-    "--include-data-dir=styles=styles",
+    "--include-data-dir=resources/styles=resources/styles",
     "--include-data-dir=resources/hdr=resources/hdr",
     "--include-data-dir=resources/maps=resources/maps",
     "--include-data-dir=resources/meshes=resources/meshes",
