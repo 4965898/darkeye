@@ -20,7 +20,7 @@ from PySide6.QtWidgets import (
 from config import DATABASE
 from controller.global_signal_bus import global_signals
 from controller.message_service import MessageBoxService
-from core.database.update import mark_delete
+from core.database.update import mark_delete_many
 from darkeye_ui import LazyWidget
 from darkeye_ui.components.button import Button
 from darkeye_ui.components.token_table_view import TokenTableView
@@ -374,10 +374,9 @@ class WorkSoftDeletePage(LazyWidget):
         ):
             return
 
-        for work_id in ids:
-            if not mark_delete(work_id):
-                self.msg.show_critical("错误", f"软删除失败，work_id={work_id}")
-                return
+        if not mark_delete_many(ids):
+            self.msg.show_critical("错误", "批量软删除失败，请查看日志。")
+            return
 
         global_signals.workDataChanged.emit()
         self.refresh_data()
