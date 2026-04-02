@@ -14,8 +14,8 @@
 
 
 [📖 在线文档](https://de4321.github.io/darkeye/)
+[🎥 视频介绍](https://www.bilibili.com/video/BV162AuzXEQe/?share_source=copy_web&vd_source=e470911706e2af5719ccc7bb4efe5ff1)
 
-[视频介绍](https://www.bilibili.com/video/BV162AuzXEQe/?share_source=copy_web&vd_source=e470911706e2af5719ccc7bb4efe5ff1)
 # 💡 快速开始
 ## 下载
 [![下载 Windows 版本](https://img.shields.io/badge/%20下载-Windows%20-blue?style=for-the-badge&logo=windows)](https://github.com/de4321/darkeye/releases/download/v1.2.1/DarkEye-v1.2.1.zip)
@@ -38,7 +38,7 @@
 
 # Community
 
-问题，想法？加入discord社区 https://discord.gg/3thnEguWUk
+问题，想法？加入discord社区，现在社区没什么建设 https://discord.gg/3thnEguWUk
 
 - 新手支持
 “文档没看懂可以来问，现在文档属于没有状态”
@@ -69,6 +69,7 @@
 - [x] 主题更改，剩下3D场景没有更改明亮黑暗
 - [x] 部分截图功能，女优界面C键截图
 - [x] NFO数据导入(测试中)
+- [x] Jvedio数据导出NFO(测试中)
 - [ ] NFO数据导出(形成共识后开发)
 - [x] 自动检测下载更新
 
