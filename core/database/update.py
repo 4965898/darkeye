@@ -388,8 +388,22 @@ def update_db_actress(id: int, data: dict):
                 id,
             ),
         )
-        # 更新英文名,假名
+        
 
+        # 更新英文名,假名；主日文名与站点不一致时同步为 data["日文名"]
+        cursor.execute(
+            "SELECT jp FROM actress_name WHERE actress_id=? AND name_type=1",
+            (id,),
+        )
+        row_jp = cursor.fetchone()
+        incoming_jp = data["日文名"]
+        if row_jp is not None and row_jp[0] != incoming_jp:
+            cursor.execute(
+                "UPDATE actress_name SET cn=?,jp=? WHERE actress_id=? AND name_type=1",
+                (incoming_jp, incoming_jp, id),
+            )
+        
+        # 更新英文名,假名
         cursor.execute(
             "UPDATE actress_name SET en=?,kana=? WHERE actress_id=?",
             (data["英文名"], data["假名"], id),
